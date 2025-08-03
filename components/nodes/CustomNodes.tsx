@@ -42,11 +42,29 @@ const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
 };
 
 const InputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const handleCountChange = (delta: number) => {
+    data.onChange?.(data.count + delta);
+  };
+
   return (
     <div className="relative">
-      <div className="w-16 h-16 rounded-full bg-blue-500 flex flex-col items-center justify-center shadow-md">
+      <div className="w-16 h-16 rounded-full bg-blue-500 flex flex-col items-center justify-center shadow-md group">
         <span className="text-white text-sm font-medium">Input</span>
         <span className="text-white text-xs">{data.count || 0}</span>
+        <div className="absolute opacity-0 group-hover:opacity-100 flex gap-1 -bottom-8 bg-white rounded-md shadow-md p-1">
+          <button
+            className="text-blue-500 hover:text-blue-700 px-2 py-1"
+            onClick={() => handleCountChange(-1)}
+          >
+            -
+          </button>
+          <button
+            className="text-blue-500 hover:text-blue-700 px-2 py-1"
+            onClick={() => handleCountChange(1)}
+          >
+            +
+          </button>
+        </div>
       </div>
       <Handle
         type="source"
@@ -55,10 +73,14 @@ const InputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
         isConnectable={isConnectable}
       />
     </div>
-  )
-}
+  );
+};
 
 const OutputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const handleCountChange = (delta: number) => {
+    data.onChange?.(data.count + delta);
+  };
+
   return (
     <div className="relative">
       <Handle
@@ -67,13 +89,27 @@ const OutputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
         className={nodeStyles.handle}
         isConnectable={isConnectable}
       />
-      <div className="w-16 h-16 rounded-full bg-green-500 flex flex-col items-center justify-center shadow-md">
+      <div className="w-16 h-16 rounded-full bg-green-500 flex flex-col items-center justify-center shadow-md group">
         <span className="text-white text-sm font-medium">Output</span>
         <span className="text-white text-xs">{data.count || 0}</span>
+        <div className="absolute opacity-0 group-hover:opacity-100 flex gap-1 -bottom-8 bg-white rounded-md shadow-md p-1">
+          <button
+            className="text-green-500 hover:text-green-700 px-2 py-1"
+            onClick={() => handleCountChange(-1)}
+          >
+            -
+          </button>
+          <button
+            className="text-green-500 hover:text-green-700 px-2 py-1"
+            onClick={() => handleCountChange(1)}
+          >
+            +
+          </button>
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // Update the nodeTypes object to use both InputLayer and OutputLayer
 export const nodeTypes = {

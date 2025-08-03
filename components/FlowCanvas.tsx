@@ -21,18 +21,29 @@ interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
 }
 
-const initialNodes: Node[] = [
-  {
-    id: 'input-1',
-    type: 'input',
-    data: { count: 784 },
-    position: { x: 100, y: 100 }
-  }
-];
-
 const initialEdges: Edge[] = [];
 
 const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
+  const initialNodes: Node[] = [
+    {
+      id: 'input-1',
+      type: 'input',
+      data: { 
+        count: 3,
+        onChange: (newCount: number) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === 'input-1'
+                ? { ...node, data: { ...node.data, count: Math.max(1, newCount) } }
+                : node
+            )
+          );
+        }
+      },
+      position: { x: 100, y: 100 }
+    }
+  ];
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -67,7 +78,18 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           label: nodeData.label,
           icon: nodeData.icon,
           details: nodeData.details,
-          ...(['input', 'output'].includes(nodeData.type) ? { count: 10 } : {})
+          ...(['input', 'output'].includes(nodeData.type) ? {
+            count: 10,
+            onChange: (newCount: number) => {
+              setNodes((nds) =>
+                nds.map((node) =>
+                  node.id === newNode.id
+                    ? { ...node, data: { ...node.data, count: Math.max(1, newCount) } }
+                    : node
+                )
+              );
+            },
+          } : {})
         },
       };
 
@@ -75,13 +97,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     },
     [setNodes, project]
   );
-
-  const inputNode = {
-    id: 'input-1',
-    type: 'input',
-    data: { count: 784 }, // Example count value
-    position: { x: 100, y: 100 }
-  };
 
   return (
     <div style={{ width: '100%', height: '100%' }} ref={reactFlowWrapper}>
