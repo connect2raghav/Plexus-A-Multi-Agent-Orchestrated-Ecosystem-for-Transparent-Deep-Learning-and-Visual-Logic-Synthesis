@@ -2,14 +2,12 @@ import React, { useCallback, useRef } from 'react';
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
   Connection,
   Edge,
   Node,
-  Position,
   useReactFlow,
   ConnectionMode,
 } from 'reactflow';
@@ -65,6 +63,23 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
 
       if (!nodeData) return;
 
+      // Log the node type for debugging
+      console.log('Adding node of type:', nodeData.type);
+      console.log('Existing nodes:', nodes.map(n => ({ id: n.id, type: n.type })));
+
+      // Check if trying to add input/output node when one already exists
+      const hasInputNode = nodes.some(node => node.type === 'input');
+      const hasOutputNode = nodes.some(node => node.type === 'output');
+
+      if (nodeData.type === 'input' && hasInputNode) {
+        alert('Only one input node is allowed');
+        return;
+      }
+      if (nodeData.type === 'output' && hasOutputNode) {
+        alert('Only one output node is allowed');
+        return;
+      }
+
       const position = project({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
@@ -95,7 +110,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [setNodes, project]
+    [setNodes, project, nodes]
   );
 
   return (
@@ -114,7 +129,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         fitView
         fitViewOptions={{ padding: 0.2 }}
         defaultEdgeOptions={{
-          type: 'smoothstep',
+          type: 'smooth',
           animated: true,
         }}
         connectionMode={ConnectionMode.Loose}

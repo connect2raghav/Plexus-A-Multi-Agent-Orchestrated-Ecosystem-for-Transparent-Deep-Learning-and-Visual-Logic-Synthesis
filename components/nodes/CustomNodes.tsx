@@ -48,7 +48,12 @@ const InputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
 
   return (
     <div className="relative">
-      <div className="w-16 h-16 rounded-full bg-blue-500 flex flex-col items-center justify-center shadow-md group">
+      <div className={clsx(
+        "w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-md group",
+        "transition-all duration-200",
+        selected ? "ring-2 ring-blue-300 shadow-lg" : "",
+        type === 'input' ? "bg-blue-500" : "bg-blue-400"
+      )}>
         <span className="text-white text-sm font-medium">Input</span>
         <span className="text-white text-xs">{data.count || 0}</span>
         <div className="absolute opacity-0 group-hover:opacity-100 flex gap-1 -bottom-8 bg-white rounded-md shadow-md p-1">
@@ -89,7 +94,12 @@ const OutputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
         className={nodeStyles.handle}
         isConnectable={isConnectable}
       />
-      <div className="w-16 h-16 rounded-full bg-green-500 flex flex-col items-center justify-center shadow-md group">
+      <div className={clsx(
+        "w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-md group",
+        "transition-all duration-200",
+        selected ? "ring-2 ring-green-300 shadow-lg" : "",
+        type === 'output' ? "bg-green-500" : "bg-green-400"
+      )}>
         <span className="text-white text-sm font-medium">Output</span>
         <span className="text-white text-xs">{data.count || 0}</span>
         <div className="absolute opacity-0 group-hover:opacity-100 flex gap-1 -bottom-8 bg-white rounded-md shadow-md p-1">
