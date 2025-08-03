@@ -5,17 +5,19 @@ import { button as buttonStyles } from "@heroui/theme";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Avatar } from "@heroui/avatar";
 import { Input } from "@heroui/input";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
+
 import { siteConfig } from "@/config/site";
 import { title, subtitle } from "@/components/primitives";
 import { GithubIcon } from "@/components/icons";
 import DefaultLayout from "@/layouts/default";
-import { useEffect } from "react";
-import { useRouter } from "next/router";
 
 export default function IndexPage() {
   const isAuthenticated = () => {
     // Replace with your actual auth check logic
     if (typeof window === "undefined") return false;
+
     return !!localStorage.getItem("authToken");
   };
 
@@ -26,6 +28,7 @@ export default function IndexPage() {
       router.replace("/login");
     }
   }, []);
+
   return (
     <DefaultLayout>
       <section className="flex flex-col items-center justify-center gap-8 py-12 md:py-20">
@@ -34,9 +37,10 @@ export default function IndexPage() {
           <span className={title()}>Build neural networks&nbsp;</span>
           <span className={title({ color: "violet" })}>visually&nbsp;</span>
           <span className={title()}>with&nbsp;</span>
-          <span className={title({ color: "black" })}>neod</span>
+          <span className={title({ color: "foreground" })}>neod</span>
           <div className={subtitle({ class: "mt-4" })}>
-            Drag and drop layers, connect nodes, and create powerful neural networks in your browser. No code required.
+            Drag and drop layers, connect nodes, and create powerful neural
+            networks in your browser. No code required.
           </div>
         </div>
 
@@ -67,48 +71,51 @@ export default function IndexPage() {
           <Card>
             <CardHeader>
               <Avatar
-          name="Drag"
-          color="primary"
-          size="md"
-          className="bg-violet-100"
+                className="bg-violet-100"
+                color="primary"
+                name="Drag"
+                size="md"
               />
               <span className="ml-3 font-semibold">Drag & Drop Builder</span>
             </CardHeader>
             <CardBody>
               <p>
-          Intuitively design neural networks by dragging and connecting layers—no coding needed.
+                Intuitively design neural networks by dragging and connecting
+                layers—no coding needed.
               </p>
             </CardBody>
           </Card>
           <Card>
             <CardHeader>
               <Avatar
-          name="Visualize"
-          color="success"
-          size="md"
-          className="bg-green-100"
+                className="bg-green-100"
+                color="success"
+                name="Visualize"
+                size="md"
               />
               <span className="ml-3 font-semibold">Live Visualization</span>
             </CardHeader>
             <CardBody>
               <p>
-          Instantly see your network architecture and connections as you build.
+                Instantly see your network architecture and connections as you
+                build.
               </p>
             </CardBody>
           </Card>
           <Card>
             <CardHeader>
               <Avatar
-          name="Export"
-          color="warning"
-          size="md"
-          className="bg-yellow-100"
+                className="bg-yellow-100"
+                color="warning"
+                name="Export"
+                size="md"
               />
               <span className="ml-3 font-semibold">Export & Integrate</span>
             </CardHeader>
             <CardBody>
               <p>
-          Export your models to popular frameworks or share with your team in one click.
+                Export your models to popular frameworks or share with your team
+                in one click.
               </p>
             </CardBody>
           </Card>
@@ -122,13 +129,13 @@ export default function IndexPage() {
             </CardHeader>
             <CardBody>
               <form className="flex gap-2">
-          <Input placeholder="Your email" type="email" required />
-          <button
-            type="submit"
-            className={buttonStyles({ color: "primary", radius: "full" })}
-          >
-            Subscribe
-          </button>
+                <Input required placeholder="Your email" type="email" />
+                <button
+                  className={buttonStyles({ color: "primary", radius: "full" })}
+                  type="submit"
+                >
+                  Subscribe
+                </button>
               </form>
             </CardBody>
           </Card>
@@ -141,9 +148,9 @@ export default function IndexPage() {
               Start building by editing{" "}
               <Code color="primary">pages/index.tsx</Code>
             </span>
-                  </Snippet>
-                </div>
-              </section>
-            </DefaultLayout>
-          );
-        }
+          </Snippet>
+        </div>
+      </section>
+    </DefaultLayout>
+  );
+}

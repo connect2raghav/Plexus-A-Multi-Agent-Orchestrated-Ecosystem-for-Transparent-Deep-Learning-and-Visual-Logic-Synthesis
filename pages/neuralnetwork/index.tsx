@@ -1,8 +1,8 @@
-import React from 'react';
-import { Card, CardBody, Divider } from '@heroui/react';
-import Sidebar from '@/components/Sidebar';
-import NodeOptions from '@/components/NodeOptions';
-import FlowCanvasWrapper from '@/components/FlowCanvasWrapper';
+import React from "react";
+import { Card, CardBody } from "@heroui/react";
+
+import Sidebar from "@/components/Sidebar";
+import FlowCanvasWrapper from "@/components/FlowCanvasWrapper";
 
 const App: React.FC = () => {
   const [selectedNode, setSelectedNode] = React.useState<any | null>(null);

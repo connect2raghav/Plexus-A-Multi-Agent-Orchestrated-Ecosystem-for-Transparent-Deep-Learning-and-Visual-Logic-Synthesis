@@ -1,5 +1,5 @@
-import {Button, Divider, Form, Input, Link} from "@heroui/react";
-import {Icon} from "@iconify/react";
+import { Button, Divider, Form, Input, Link } from "@heroui/react";
+import { Icon } from "@iconify/react";
 import React from "react";
 
 export default function App() {
@@ -41,7 +41,10 @@ export default function App() {
           >
             Continue with Google
           </Button>
-          <Button startContent={<Icon icon="fe:github" width={24} />} variant="bordered">
+          <Button
+            startContent={<Icon icon="fe:github" width={24} />}
+            variant="bordered"
+          >
             Continue with GitHub
           </Button>
         </div>

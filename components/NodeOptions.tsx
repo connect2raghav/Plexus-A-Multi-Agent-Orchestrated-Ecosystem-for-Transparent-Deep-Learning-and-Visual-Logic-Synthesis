@@ -1,6 +1,6 @@
-import React from 'react';
-import { Input, Slider } from '@heroui/react';
-import { Node } from 'reactflow';
+import React from "react";
+import { Input, Slider } from "@heroui/react";
+import { Node } from "reactflow";
 
 interface NodeOptionsProps {
   selectedNode: Node | null;
@@ -20,20 +20,20 @@ const NodeOptions: React.FC<NodeOptionsProps> = ({ selectedNode }) => {
         onChange={() => {}} // Add onChange handler to update node label
       />
       <Slider
+        className="max-w-md"
+        defaultValue={10}
         label="Neurons"
-        step={1}
         maxValue={100}
         minValue={1}
-        defaultValue={10}
-        className="max-w-md"
+        step={1}
       />
       <Slider
+        className="max-w-md"
+        defaultValue={0.1}
         label="Learning Rate"
-        step={0.01}
         maxValue={1}
         minValue={0}
-        defaultValue={0.1}
-        className="max-w-md"
+        step={0.01}
       />
     </div>
   );
