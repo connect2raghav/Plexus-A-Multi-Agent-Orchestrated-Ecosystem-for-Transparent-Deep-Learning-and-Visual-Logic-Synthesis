@@ -19,9 +19,24 @@ interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
 }
 
-const initialEdges: Edge[] = [];
 
 const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
+  const initialEdges: Edge[] = [
+    {
+      id: 'e-input-hidden',
+      source: 'input-1',
+      target: 'hidden-1',
+      animated: true,
+      type: 'smooth'
+    },
+    {
+      id: 'e-hidden-output',
+      source: 'hidden-1',
+      target: 'output-1',
+      animated: true,
+      type: 'smooth'
+    }
+  ];
   const initialNodes: Node[] = [
     {
       id: 'input-1',
@@ -39,6 +54,42 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         }
       },
       position: { x: 100, y: 100 }
+    },
+    {
+      id: 'hidden-1',
+      type: 'hidden',
+      data: { 
+        count: 10,
+        label: 'Hidden Layer',
+        onChange: (newCount: number) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === 'hidden-1'
+                ? { ...node, data: { ...node.data, count: Math.max(1, newCount) } }
+                : node
+            )
+          );
+        }
+      },
+      position: { x: 250, y: 100 }
+    }
+    ,
+    {
+      id: 'output-1',
+      type: 'output',
+      data: { 
+        count: 1,
+        onChange: (newCount: number) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === 'output-1'
+                ? { ...node, data: { ...node.data, count: Math.max(1, newCount) } }
+                : node
+            )
+          );
+        }
+      },
+      position: { x: 400, y: 100 }
     }
   ];
 
@@ -93,8 +144,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           label: nodeData.label,
           icon: nodeData.icon,
           details: nodeData.details,
-          ...(['input', 'output'].includes(nodeData.type) ? {
-            count: 10,
+          ...(['input', 'output', 'hidden'].includes(nodeData.type) ? {
+            count: nodeData.type === 'input' ? 784 : nodeData.type === 'output' ? 10 : 128,
             onChange: (newCount: number) => {
               setNodes((nds) =>
                 nds.map((node) =>
@@ -137,7 +188,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       >
         <Controls />
         {/* <MiniMap /> */}
-        <Background color="#aaa" gap={16} />
+        <Background color="#aaa" gap={20} />
       </ReactFlow>
     </div>
   );
