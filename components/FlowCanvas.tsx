@@ -11,6 +11,7 @@ import ReactFlow, {
   Node,
   Position,
   useReactFlow,
+  ConnectionMode,
 } from 'reactflow';
 import { nodeTypes } from './nodes/CustomNodes';
 import 'reactflow/dist/style.css';
@@ -21,7 +22,12 @@ interface FlowCanvasProps {
 }
 
 const initialNodes: Node[] = [
-  { id: '1', data: { label: 'Input Node' }, position: { x: 250, y: 5 }, type: 'input' },
+  {
+    id: 'input-1',
+    type: 'input',
+    data: { count: 784 },
+    position: { x: 100, y: 100 }
+  }
 ];
 
 const initialEdges: Edge[] = [];
@@ -60,7 +66,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         data: {
           label: nodeData.label,
           icon: nodeData.icon,
-          details: nodeData.details
+          details: nodeData.details,
+          ...(['input', 'output'].includes(nodeData.type) ? { count: 10 } : {})
         },
       };
 
@@ -68,6 +75,13 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     },
     [setNodes, project]
   );
+
+  const inputNode = {
+    id: 'input-1',
+    type: 'input',
+    data: { count: 784 }, // Example count value
+    position: { x: 100, y: 100 }
+  };
 
   return (
     <div style={{ width: '100%', height: '100%' }} ref={reactFlowWrapper}>
@@ -88,12 +102,11 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           type: 'smoothstep',
           animated: true,
         }}
-        proOptions={{ hideAttribution: true }}
-        connectionMode="loose"
+        connectionMode={ConnectionMode.Loose}
         selectNodesOnDrag={false}
       >
         <Controls />
-        <MiniMap />
+        {/* <MiniMap /> */}
         <Background color="#aaa" gap={16} />
       </ReactFlow>
     </div>

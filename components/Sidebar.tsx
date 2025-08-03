@@ -67,7 +67,7 @@ const nodeTypesByCategory = [
 			{
 				type: 'maxpool',
 				label: 'Max Pool',
-				icon: 'lucide:water',
+				icon: 'lucide:square',
 				details: 'Max Pooling Layer',
 			},
 		],

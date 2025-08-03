@@ -20,7 +20,7 @@ const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
         className={nodeStyles.handle}
         isConnectable={isConnectable}
       />
-      
+
       <div className="flex items-center gap-2">
         {data.icon && <Icon icon={data.icon} className="w-5 h-5" />}
         <div>
@@ -41,9 +41,44 @@ const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
   );
 };
 
+const InputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
+  return (
+    <div className="relative">
+      <div className="w-16 h-16 rounded-full bg-blue-500 flex flex-col items-center justify-center shadow-md">
+        <span className="text-white text-sm font-medium">Input</span>
+        <span className="text-white text-xs">{data.count || 0}</span>
+      </div>
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+      />
+    </div>
+  )
+}
+
+const OutputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
+  return (
+    <div className="relative">
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+      />
+      <div className="w-16 h-16 rounded-full bg-green-500 flex flex-col items-center justify-center shadow-md">
+        <span className="text-white text-sm font-medium">Output</span>
+        <span className="text-white text-xs">{data.count || 0}</span>
+      </div>
+    </div>
+  )
+}
+
+// Update the nodeTypes object to use both InputLayer and OutputLayer
 export const nodeTypes = {
-  input: memo((props: NodeProps) => <BaseNode {...props} />),
-  output: memo((props: NodeProps) => <BaseNode {...props} />),
+  input: memo((props: NodeProps) => <InputLayer {...props} />),
+  output: memo((props: NodeProps) => <OutputLayer {...props} />),
   dense: memo((props: NodeProps) => <BaseNode {...props} />),
   conv2d: memo((props: NodeProps) => <BaseNode {...props} />),
   maxpool: memo((props: NodeProps) => <BaseNode {...props} />),
