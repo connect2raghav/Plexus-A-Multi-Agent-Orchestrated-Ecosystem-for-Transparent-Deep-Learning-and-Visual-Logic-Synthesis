@@ -1,7 +1,6 @@
 import React from 'react';
 import { Card, CardBody, Divider } from '@heroui/react';
 import Sidebar from '@/components/Sidebar';
-import FlowCanvas from '@/components/FlowCanvas';
 import NodeOptions from '@/components/NodeOptions';
 import FlowCanvasWrapper from '@/components/FlowCanvasWrapper';
 

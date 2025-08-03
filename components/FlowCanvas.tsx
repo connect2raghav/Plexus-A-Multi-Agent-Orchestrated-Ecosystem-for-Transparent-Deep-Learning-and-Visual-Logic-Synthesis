@@ -12,7 +12,9 @@ import ReactFlow, {
   Position,
   useReactFlow,
 } from 'reactflow';
+import { nodeTypes } from './nodes/CustomNodes';
 import 'reactflow/dist/style.css';
+import '@/styles/nodes.css';
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
@@ -42,11 +44,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     (event: React.DragEvent) => {
       event.preventDefault();
       const reactFlowBounds = reactFlowWrapper.current!.getBoundingClientRect();
-      const type = event.dataTransfer.getData('application/reactflow');
+      const nodeData = JSON.parse(event.dataTransfer.getData('application/reactflow'));
 
-      if (typeof type === 'undefined' || !type) {
-        return;
-      }
+      if (!nodeData) return;
 
       const position = project({
         x: event.clientX - reactFlowBounds.left,
@@ -55,9 +55,13 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
 
       const newNode: Node = {
         id: Date.now().toString(),
-        type,
+        type: nodeData.type,
         position,
-        data: { label: `${type.charAt(0).toUpperCase() + type.slice(1)} node` },
+        data: {
+          label: nodeData.label,
+          icon: nodeData.icon,
+          details: nodeData.details
+        },
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -70,13 +74,23 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onDragOver={onDragOver}
         onDrop={onDrop}
         onNodeClick={(_, node) => onNodeSelect(node)}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         fitView
+        fitViewOptions={{ padding: 0.2 }}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+          animated: true,
+        }}
+        proOptions={{ hideAttribution: true }}
+        connectionMode="loose"
+        selectNodesOnDrag={false}
       >
         <Controls />
         <MiniMap />
