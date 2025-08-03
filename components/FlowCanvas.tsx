@@ -1,4 +1,5 @@
 import React, { useCallback, useRef } from "react";
+import { Code } from 'lucide-react';
 import ReactFlow, {
   Background,
   Controls,
@@ -15,6 +16,7 @@ import ReactFlow, {
 import { nodeTypes } from "./nodes/CustomNodes";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
+import { Button } from "@heroui/button";
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
@@ -48,9 +50,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             nds.map((node) =>
               node.id === "input-1"
                 ? {
-                    ...node,
-                    data: { ...node.data, count: Math.max(1, newCount) },
-                  }
+                  ...node,
+                  data: { ...node.data, count: Math.max(1, newCount) },
+                }
                 : node,
             ),
           );
@@ -69,9 +71,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             nds.map((node) =>
               node.id === "hidden-1"
                 ? {
-                    ...node,
-                    data: { ...node.data, count: Math.max(1, newCount) },
-                  }
+                  ...node,
+                  data: { ...node.data, count: Math.max(1, newCount) },
+                }
                 : node,
             ),
           );
@@ -89,9 +91,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             nds.map((node) =>
               node.id === "output-1"
                 ? {
-                    ...node,
-                    data: { ...node.data, count: Math.max(1, newCount) },
-                  }
+                  ...node,
+                  data: { ...node.data, count: Math.max(1, newCount) },
+                }
                 : node,
             ),
           );
@@ -164,28 +166,28 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           details: nodeData.details,
           ...(["input", "output", "hidden"].includes(nodeData.type)
             ? {
-                count:
-                  nodeData.type === "input"
-                    ? 784
-                    : nodeData.type === "output"
-                      ? 10
-                      : 128,
-                onChange: (newCount: number) => {
-                  setNodes((nds) =>
-                    nds.map((node) =>
-                      node.id === newNode.id
-                        ? {
-                            ...node,
-                            data: {
-                              ...node.data,
-                              count: Math.max(1, newCount),
-                            },
-                          }
-                        : node,
-                    ),
-                  );
-                },
-              }
+              count:
+                nodeData.type === "input"
+                  ? 784
+                  : nodeData.type === "output"
+                    ? 10
+                    : 128,
+              onChange: (newCount: number) => {
+                setNodes((nds) =>
+                  nds.map((node) =>
+                    node.id === newNode.id
+                      ? {
+                        ...node,
+                        data: {
+                          ...node.data,
+                          count: Math.max(1, newCount),
+                        },
+                      }
+                      : node,
+                  ),
+                );
+              },
+            }
             : {}),
         },
       };
@@ -221,6 +223,19 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         {/* <MiniMap /> */}
         <Background color="#aaa" gap={20} />
       </ReactFlow>
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          zIndex: 10,
+        }}
+      >
+        <Button isIconOnly aria-label="Like" color="default" variant="faded">
+          <Code className="code-icon" style={{ width: 20, height: 20 }} />
+        </Button>
+
+      </div>
     </div>
   );
 };

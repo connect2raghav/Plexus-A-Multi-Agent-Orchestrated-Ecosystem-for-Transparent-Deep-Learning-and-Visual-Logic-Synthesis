@@ -24,6 +24,7 @@ const App: React.FC = () => {
           <NodeOptions selectedNode={selectedNode} />
         </CardBody>
       </Card> */}
+      
     </div>
   );
 };
