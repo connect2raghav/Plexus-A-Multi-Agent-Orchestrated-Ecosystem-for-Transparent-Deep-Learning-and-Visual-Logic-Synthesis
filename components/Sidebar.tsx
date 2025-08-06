@@ -163,6 +163,146 @@ const nodeTypesByCategory = [
       },
     ],
   },
+  {
+    category: "Optimizers",
+    nodes: [
+      {
+        type: "adam",
+        label: "Adam",
+        icon: "lucide:zap",
+        details: "Adam Optimizer",
+      },
+      {
+        type: "sgd",
+        label: "SGD",
+        icon: "lucide:trending-up",
+        details: "Stochastic Gradient Descent",
+      },
+      {
+        type: "rmsprop",
+        label: "RMSprop",
+        icon: "lucide:activity",
+        details: "RMSprop Optimizer",
+      },
+      {
+        type: "adagrad",
+        label: "AdaGrad",
+        icon: "lucide:target",
+        details: "Adaptive Gradient Algorithm",
+      },
+      {
+        type: "adamw",
+        label: "AdamW",
+        icon: "lucide:zap",
+        details: "Adam with Weight Decay",
+      },
+    ],
+  },
+  {
+    category: "Algorithms",
+    nodes: [
+      {
+        type: "cnn",
+        label: "CNN",
+        icon: "lucide:image",
+        details: "Convolutional Neural Network",
+      },
+      {
+        type: "rnn",
+        label: "RNN",
+        icon: "lucide:repeat",
+        details: "Recurrent Neural Network",
+      },
+      {
+        type: "autoencoder",
+        label: "AutoEncoder",
+        icon: "lucide:compress",
+        details: "Autoencoder Network",
+      },
+      {
+        type: "gan",
+        label: "GAN",
+        icon: "lucide:shuffle",
+        details: "Generative Adversarial Network",
+      },
+      {
+        type: "transformer",
+        label: "Transformer",
+        icon: "lucide:cpu",
+        details: "Transformer Architecture",
+      },
+      {
+        type: "resnet",
+        label: "ResNet",
+        icon: "lucide:layers-2",
+        details: "Residual Network",
+      },
+      {
+        type: "vae",
+        label: "VAE",
+        icon: "lucide:shuffle",
+        details: "Variational Autoencoder",
+      },
+    ],
+  },
+  {
+    category: "Loss Functions",
+    nodes: [
+      {
+        type: "crossentropy",
+        label: "CrossEntropy",
+        icon: "lucide:target",
+        details: "Cross Entropy Loss",
+      },
+      {
+        type: "mse",
+        label: "MSE",
+        icon: "lucide:square",
+        details: "Mean Squared Error",
+      },
+      {
+        type: "mae",
+        label: "MAE",
+        icon: "lucide:triangle",
+        details: "Mean Absolute Error",
+      },
+      {
+        type: "bce",
+        label: "BCE",
+        icon: "lucide:binary",
+        details: "Binary Cross Entropy",
+      },
+    ],
+  },
+  {
+    category: "Learning Rate Schedulers",
+    nodes: [
+      {
+        type: "steplr",
+        label: "StepLR",
+        icon: "lucide:stairs",
+        details: "Step Learning Rate Scheduler",
+      },
+      {
+        type: "exponentiallr",
+        label: "ExponentialLR",
+        icon: "lucide:trending-down",
+        details: "Exponential LR Decay",
+      },
+      {
+        type: "cosineannealinglr",
+        label: "CosineAnnealingLR",
+        icon: "lucide:waves",
+        details: "Cosine Annealing LR",
+      },
+      {
+        type: "reducelronplateau",
+        label: "ReduceLROnPlateau",
+        icon: "lucide:trending-down",
+        details: "Reduce LR on Plateau",
+      },
+    ],
+  },
 ];
 
 const Sidebar: React.FC = () => {

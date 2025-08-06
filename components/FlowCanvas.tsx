@@ -210,6 +210,30 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
               },
             }
             : {}),
+          // Add parameter handling for algorithm, optimizer, loss, and scheduler nodes
+          ...(["cnn", "rnn", "lstm", "transformer", "autoencoder", "gan", "resnet", "vae",
+               "adam", "sgd", "rmsprop", "adagrad", "adamw", 
+               "crossentropy", "mse", "mae", "bce",
+               "steplr", "exponentiallr", "cosineannealinglr", "reducelronplateau"].includes(nodeData.type)
+            ? {
+              params: {},
+              onParamsChange: (newParams: any) => {
+                setNodes((nds) =>
+                  nds.map((node) =>
+                    node.id === newNode.id
+                      ? {
+                        ...node,
+                        data: {
+                          ...node.data,
+                          params: newParams,
+                        },
+                      }
+                      : node,
+                  ),
+                );
+              },
+            }
+            : {}),
         },
       };
 
