@@ -60,7 +60,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
   
   // If no root nodes, start with input nodes or first node
   if (queue.length === 0) {
-    const inputNode = nodes.find(node => node.type === 'input');
+    const inputNode = nodes.find(node => node.type === 'inputLayer');
     if (inputNode) {
       queue.push(inputNode.id);
     } else if (nodes.length > 0) {
@@ -202,7 +202,7 @@ class NetworkCodeGenerator {
     const modelBody = ["def create_model():"];
 
     // Find input node
-    const inputNode = this.nodes.find(node => node.type === 'input');
+    const inputNode = this.nodes.find(node => node.type === 'inputLayer');
     if (!inputNode) {
       throw new Error("No input layer found");
     }
@@ -216,7 +216,7 @@ class NetworkCodeGenerator {
     // Process nodes in topological order
     this.topology.forEach(nodeId => {
       const node = this.nodeMap.get(nodeId);
-      if (node.type === 'input') return;
+      if (node.type === 'inputLayer') return;
 
       const layerName = `layer_${layerCounter}`;
       let layerCode = "";
@@ -257,7 +257,7 @@ class NetworkCodeGenerator {
           layerCode = `    ${layerName} = layers.Concatenate()(${previousLayer})`;
           break;
           
-        case 'output':
+        case 'outputLayer':
           const outputUnits = node.data.count || 10;
           layerCode = `    ${layerName} = layers.Dense(${outputUnits}, activation='softmax')(${previousLayer})`;
           break;
@@ -369,7 +369,7 @@ class NetworkCodeGenerator {
           forwardCode = `        ${previousTensor}, _ = self.${layerName}(${previousTensor})`;
           break;
           
-        case 'output':
+        case 'outputLayer':
           const outputUnits = node.data.count || 10;
           if (needsFlatten) {
             forwardCode = `        ${previousTensor} = ${previousTensor}.view(${previousTensor}.size(0), -1)  # Flatten\n`;
