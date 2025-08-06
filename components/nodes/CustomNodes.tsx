@@ -180,28 +180,28 @@ const TextInput = ({ data, type, selected, isConnectable }: NodeProps) => {
   return (
     <div
       className={clsx(
-        "bg-white border-2 border-gray-300 rounded-lg shadow-md p-3 min-w-[200px]",
-        "transition-all duration-200",
-        selected ? "border-blue-400 shadow-lg" : "",
+      "bg-gray-900 border-2 border-gray-700 rounded-lg shadow-md p-3 min-w-[200px]",
+      "transition-all duration-200",
+      selected ? "border-blue-500 shadow-lg" : "",
       )}
     >
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-gray-700">
-          {data.label || "Text Input"}
-        </label>
-        <input
-          type="text"
-          value={inputValue}
-          onChange={handleInputChange}
-          placeholder="Enter text..."
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+      <label className="text-sm font-medium text-gray-200">
+        {data.label || "Text Input"}
+      </label>
+      <input
+        type="text"
+        value={inputValue}
+        onChange={handleInputChange}
+        placeholder="Enter text..."
+        className="px-3 py-2 border border-gray-700 bg-gray-800 text-gray-100 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      />
       </div>
       <Handle
-        className={nodeStyles.handle}
-        isConnectable={isConnectable}
-        position={Position.Right}
-        type="source"
+      className={nodeStyles.handle}
+      isConnectable={isConnectable}
+      position={Position.Right}
+      type="source"
       />
     </div>
   );
