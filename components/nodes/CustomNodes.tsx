@@ -142,34 +142,40 @@ const OutputLayer = ({ data, type, selected, isConnectable }: NodeProps) => {
   return (
     <div
       className={clsx(
-        "w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-md group relative",
-        "transition-all duration-200",
-        selected ? "ring-2 ring-green-300 shadow-lg" : "",
-        "bg-green-500",
+      "w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-md group relative",
+      "transition-all duration-200",
+      selected ? "ring-2 ring-green-300 shadow-lg" : "",
+      "bg-green-500",
       )}
     >
       <Handle
-        className={nodeStyles.handle}
-        isConnectable={isConnectable}
-        position={Position.Left}
-        type="target"
+      className={nodeStyles.handle}
+      isConnectable={isConnectable}
+      position={Position.Left}
+      type="target"
       />
       <span className="text-white text-xs font-medium">Output</span>
       <span className="text-white text-xs">{data.count || 0}</span>
       <div className="absolute opacity-0 group-hover:opacity-100 flex gap-1 -bottom-8 bg-white rounded-md shadow-md p-1">
-        <button
-          className="text-green-500 hover:text-green-700 px-2 py-1"
-          onClick={() => handleCountChange(-1)}
-        >
-          -
-        </button>
-        <button
-          className="text-green-500 hover:text-green-700 px-2 py-1"
-          onClick={() => handleCountChange(1)}
-        >
-          +
-        </button>
+      <button
+        className="text-green-500 hover:text-green-700 px-2 py-1"
+        onClick={() => handleCountChange(-1)}
+      >
+        -
+      </button>
+      <button
+        className="text-green-500 hover:text-green-700 px-2 py-1"
+        onClick={() => handleCountChange(1)}
+      >
+        +
+      </button>
       </div>
+      <Handle
+      className={nodeStyles.handle}
+      isConnectable={isConnectable}
+      position={Position.Right}
+      type="source"
+      />
     </div>
   );
 };
