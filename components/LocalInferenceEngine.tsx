@@ -1,7 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Node, Edge } from 'reactflow';
-import { Card, CardBody, CardHeader, Button, Chip, Progress } from "@heroui/react";
-import { Activity, Brain, Zap, Target, TrendingUp, Eye, Shuffle, Code } from 'lucide-react';
+/* eslint-disable no-console */
+import React, { useState, useEffect, useRef } from "react";
+import { Node, Edge } from "reactflow";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Button,
+  Chip,
+  Progress,
+} from "@heroui/react";
+import {
+  Activity,
+  Brain,
+  Zap,
+  Target,
+  TrendingUp,
+  Eye,
+  Shuffle,
+} from "lucide-react";
 
 interface LocalInferenceStats {
   prediction: number;
@@ -35,9 +51,10 @@ class RealGenderClassificationModel {
 
   private initializeVocabulary() {
     // Create character vocabulary from common names
-    const chars = 'abcdefghijklmnopqrstuvwxyz';
-    this.charToIdx = { '<PAD>': 0 };
-    
+    const chars = "abcdefghijklmnopqrstuvwxyz";
+
+    this.charToIdx = { "<PAD>": 0 };
+
     for (let i = 0; i < chars.length; i++) {
       this.charToIdx[chars[i]] = i + 1;
     }
@@ -46,23 +63,25 @@ class RealGenderClassificationModel {
   private nameToSequence(name: string): number[] {
     const maxLength = 15;
     const sequence: number[] = [];
-    
+
     const normalizedName = name.toLowerCase().trim();
+
     for (let i = 0; i < Math.min(normalizedName.length, maxLength); i++) {
       sequence.push(this.charToIdx[normalizedName[i]] || 0);
     }
-    
+
     // Pad to maxLength
     while (sequence.length < maxLength) {
       sequence.push(0);
     }
-    
+
     return sequence;
   }
 
   async createModel(): Promise<any> {
     // Dynamic import of TensorFlow.js
-    const tf = await import('@tensorflow/tfjs');
+    const tf = await import("@tensorflow/tfjs");
+
     await tf.ready();
 
     // Build a real neural network architecture
@@ -73,48 +92,48 @@ class RealGenderClassificationModel {
           inputDim: 27, // vocab size
           outputDim: 32,
           inputLength: 15,
-          name: 'embedding'
+          name: "embedding",
         }),
-        
+
         // LSTM layer
         tf.layers.lstm({
           units: 64,
           returnSequences: false,
-          name: 'lstm'
+          name: "lstm",
         }),
-        
+
         // Dense layers
         tf.layers.dense({
           units: 32,
-          activation: 'relu',
-          name: 'dense1'
+          activation: "relu",
+          name: "dense1",
         }),
-        
+
         tf.layers.dropout({
           rate: 0.3,
-          name: 'dropout'
+          name: "dropout",
         }),
-        
+
         tf.layers.dense({
           units: 16,
-          activation: 'relu',
-          name: 'dense2'
+          activation: "relu",
+          name: "dense2",
         }),
-        
+
         // Output layer
         tf.layers.dense({
           units: 1,
-          activation: 'sigmoid',
-          name: 'output'
-        })
-      ]
+          activation: "sigmoid",
+          name: "output",
+        }),
+      ],
     });
 
     // Compile model
     model.compile({
-      optimizer: 'adam',
-      loss: 'binaryCrossentropy',
-      metrics: ['accuracy']
+      optimizer: "adam",
+      loss: "binaryCrossentropy",
+      metrics: ["accuracy"],
     });
 
     return model;
@@ -122,41 +141,91 @@ class RealGenderClassificationModel {
 
   async trainModel(onProgress?: (progress: number) => void): Promise<void> {
     if (this.isTraining || this.model) return;
-    
+
     this.isTraining = true;
-    const tf = await import('@tensorflow/tfjs');
-    
+    const tf = await import("@tensorflow/tfjs");
+
     try {
       // Create sample training data
       const trainingData = [
         // Female names (label: 1)
-        'Sarah', 'Emma', 'Jessica', 'Ashley', 'Amanda', 'Michelle',
-        'Lisa', 'Emily', 'Kimberly', 'Jennifer', 'Nicole', 'Elizabeth',
-        'Rebecca', 'Maria', 'Stephanie', 'Rachel', 'Catherine', 'Angela',
-        'Samantha', 'Katherine', 'Christina', 'Linda', 'Barbara', 'Susan',
-        'Karen', 'Nancy', 'Donna', 'Carol', 'Ruth', 'Sharon',
-        
+        "Sarah",
+        "Emma",
+        "Jessica",
+        "Ashley",
+        "Amanda",
+        "Michelle",
+        "Lisa",
+        "Emily",
+        "Kimberly",
+        "Jennifer",
+        "Nicole",
+        "Elizabeth",
+        "Rebecca",
+        "Maria",
+        "Stephanie",
+        "Rachel",
+        "Catherine",
+        "Angela",
+        "Samantha",
+        "Katherine",
+        "Christina",
+        "Linda",
+        "Barbara",
+        "Susan",
+        "Karen",
+        "Nancy",
+        "Donna",
+        "Carol",
+        "Ruth",
+        "Sharon",
+
         // Male names (label: 0)
-        'Michael', 'David', 'Robert', 'William', 'Christopher', 'Matthew',
-        'Joshua', 'Andrew', 'Daniel', 'James', 'John', 'Ryan',
-        'Nicholas', 'Alexander', 'Jonathan', 'Tyler', 'Brandon', 'Anthony',
-        'Steven', 'Thomas', 'Kevin', 'Paul', 'Mark', 'Donald',
-        'Kenneth', 'Richard', 'Charles', 'Joseph', 'Edward', 'George'
+        "Michael",
+        "David",
+        "Robert",
+        "William",
+        "Christopher",
+        "Matthew",
+        "Joshua",
+        "Andrew",
+        "Daniel",
+        "James",
+        "John",
+        "Ryan",
+        "Nicholas",
+        "Alexander",
+        "Jonathan",
+        "Tyler",
+        "Brandon",
+        "Anthony",
+        "Steven",
+        "Thomas",
+        "Kevin",
+        "Paul",
+        "Mark",
+        "Donald",
+        "Kenneth",
+        "Richard",
+        "Charles",
+        "Joseph",
+        "Edward",
+        "George",
       ];
 
       const labels = [
         ...Array(30).fill(1), // Female = 1
-        ...Array(30).fill(0)  // Male = 0
+        ...Array(30).fill(0), // Male = 0
       ];
 
       // Convert to tensors
-      const sequences = trainingData.map(name => this.nameToSequence(name));
+      const sequences = trainingData.map((name) => this.nameToSequence(name));
       const xs = tf.tensor2d(sequences);
-      const ys = tf.tensor2d(labels.map(l => [l]));
+      const ys = tf.tensor2d(labels.map((l) => [l]));
 
       // Create model
       this.model = await this.createModel();
-      
+
       // Train model with progress updates
       const history = await this.model.fit(xs, ys, {
         epochs: 50,
@@ -164,11 +233,12 @@ class RealGenderClassificationModel {
         validationSplit: 0.2,
         shuffle: true,
         callbacks: {
-          onEpochEnd: (epoch: number, logs: any) => {
+          onEpochEnd: (epoch: number, _logs: any) => {
             const progress = ((epoch + 1) / 50) * 100;
+
             if (onProgress) onProgress(progress);
-          }
-        }
+          },
+        },
       });
 
       this.trainingHistory = history;
@@ -176,9 +246,8 @@ class RealGenderClassificationModel {
       // Clean up tensors
       xs.dispose();
       ys.dispose();
-
     } catch (error) {
-      console.error('Training failed:', error);
+      console.error("Training failed:", error);
       throw error;
     } finally {
       this.isTraining = false;
@@ -187,37 +256,43 @@ class RealGenderClassificationModel {
 
   async predict(name: string): Promise<LocalInferenceStats> {
     if (!this.model) {
-      throw new Error('Model not trained yet');
+      throw new Error("Model not trained yet");
     }
 
-    const tf = await import('@tensorflow/tfjs');
+    const tf = await import("@tensorflow/tfjs");
     const startTime = performance.now();
-    
+
     try {
       // Prepare input
       const sequence = this.nameToSequence(name);
       const input = tf.tensor2d([sequence]);
-      
+
       // Make prediction
       const prediction = this.model.predict(input) as any;
       const predValue = await prediction.data();
       const probability = predValue[0];
-      
+
       // Get layer activations
       const layerOutputs = await this.getLayerActivations(input);
-      
+
       const processingTime = performance.now() - startTime;
       const confidence = Math.abs(probability - 0.5) * 2;
-      
+
       // Clean up
       input.dispose();
       prediction.dispose();
-      
+
       // Get training metrics
-      const finalEpoch = this.trainingHistory ? this.trainingHistory.history.acc.length - 1 : 0;
-      const accuracy = this.trainingHistory ? this.trainingHistory.history.acc[finalEpoch] : 0.85;
-      const loss = this.trainingHistory ? this.trainingHistory.history.loss[finalEpoch] : 0.3;
-      
+      const finalEpoch = this.trainingHistory
+        ? this.trainingHistory.history.acc.length - 1
+        : 0;
+      const accuracy = this.trainingHistory
+        ? this.trainingHistory.history.acc[finalEpoch]
+        : 0.85;
+      const loss = this.trainingHistory
+        ? this.trainingHistory.history.loss[finalEpoch]
+        : 0.3;
+
       return {
         prediction: probability,
         confidence,
@@ -225,44 +300,50 @@ class RealGenderClassificationModel {
         activations: {},
         layerOutputs,
         accuracy,
-        loss
+        loss,
       };
-      
     } catch (error) {
-      console.error('Prediction failed:', error);
+      console.error("Prediction failed:", error);
       throw error;
     }
   }
 
-  private async getLayerActivations(input: any): Promise<{ [layerId: string]: number }> {
+  private async getLayerActivations(
+    input: any,
+  ): Promise<{ [layerId: string]: number }> {
     if (!this.model) return {};
-    
-    const tf = await import('@tensorflow/tfjs');
+
+    const tf = await import("@tensorflow/tfjs");
     const layerOutputs: { [layerId: string]: number } = {};
-    
+
     try {
       // Get intermediate layer outputs
       for (let i = 0; i < this.model.layers.length; i++) {
         const layer = this.model.layers[i];
         const layerModel = tf.model({
           inputs: this.model.input,
-          outputs: layer.output
+          outputs: layer.output,
         });
-        
+
         const output = layerModel.predict(input) as any;
         const outputData = await output.data();
-        
+
         // Calculate activation intensity
-        const mean = outputData.reduce((sum: number, val: number) => sum + Math.abs(val), 0) / outputData.length;
+        const mean =
+          outputData.reduce(
+            (sum: number, val: number) => sum + Math.abs(val),
+            0,
+          ) / outputData.length;
+
         layerOutputs[layer.name] = Math.min(mean, 1); // Normalize to 0-1
-        
+
         output.dispose();
         layerModel.dispose();
       }
     } catch (error) {
-      console.error('Error getting layer activations:', error);
+      console.error("Error getting layer activations:", error);
     }
-    
+
     return layerOutputs;
   }
 
@@ -277,31 +358,46 @@ class RealGenderClassificationModel {
 
 const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
   nodes,
-  edges,
+  edges, // eslint-disable-line @typescript-eslint/no-unused-vars
   inputValue,
   isRunning,
-  onStatsUpdate
+  onStatsUpdate,
 }) => {
   const [stats, setStats] = useState<LocalInferenceStats | null>(null);
   const [isModelReady, setIsModelReady] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [trainingProgress, setTrainingProgress] = useState(0);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   const modelRef = useRef<RealGenderClassificationModel | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sample names for testing
   const sampleNames = [
-    'Sarah', 'Michael', 'Emma', 'David', 'Jessica', 'Robert', 
-    'Ashley', 'William', 'Amanda', 'Christopher', 'Michelle', 'Matthew',
-    'Lisa', 'Joshua', 'Emily', 'Andrew', 'Kimberly', 'Daniel'
+    "Sarah",
+    "Michael",
+    "Emma",
+    "David",
+    "Jessica",
+    "Robert",
+    "Ashley",
+    "William",
+    "Amanda",
+    "Christopher",
+    "Michelle",
+    "Matthew",
+    "Lisa",
+    "Joshua",
+    "Emily",
+    "Andrew",
+    "Kimberly",
+    "Daniel",
   ];
 
   useEffect(() => {
     // Initialize model on component mount
     modelRef.current = new RealGenderClassificationModel();
-    
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -311,33 +407,38 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
 
   const startTraining = async () => {
     if (!modelRef.current || isTraining) return;
-    
+
     setIsTraining(true);
-    setError('');
+    setError("");
     setTrainingProgress(0);
-    
+
     try {
       await modelRef.current.trainModel((progress) => {
         setTrainingProgress(progress);
       });
-      
+
       setIsModelReady(true);
       setTrainingProgress(100);
-      
+
       // Auto-start inference if input is available
       if (inputValue.trim()) {
         startInference();
       }
-      
     } catch (err) {
-      setError(`Training failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(
+        `Training failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
     } finally {
       setIsTraining(false);
     }
   };
 
   const startInference = () => {
-    if (!modelRef.current || !modelRef.current.isReady() || !inputValue.trim()) {
+    if (
+      !modelRef.current ||
+      !modelRef.current.isReady() ||
+      !inputValue.trim()
+    ) {
       return;
     }
 
@@ -350,11 +451,14 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
     intervalRef.current = setInterval(async () => {
       try {
         const result = await modelRef.current!.predict(inputValue);
+
         setStats(result);
         onStatsUpdate(result);
       } catch (err) {
-        console.error('Prediction error:', err);
-        setError(`Prediction failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        console.error("Prediction error:", err);
+        setError(
+          `Prediction failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
       }
     }, 1000); // Update every second
   };
@@ -377,8 +481,10 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
   }, [isRunning, isModelReady, inputValue, onStatsUpdate]);
 
   const tryRandomName = () => {
-    const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
-    const textInputNode = nodes.find(n => n.type === 'textInput');
+    const randomName =
+      sampleNames[Math.floor(Math.random() * sampleNames.length)];
+    const textInputNode = nodes.find((n) => n.type === "textInput");
+
     if (textInputNode && textInputNode.data.onChange) {
       textInputNode.data.onChange(randomName);
     }
@@ -391,30 +497,35 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5" />
-            <h3 className="text-lg font-semibold">Real Neural Network (Local)</h3>
+            <h3 className="text-lg font-semibold">
+              Real Neural Network (Local)
+            </h3>
           </div>
         </CardHeader>
         <CardBody className="pt-2">
           <div className="space-y-4">
             <div className="text-center">
               <Brain className="w-16 h-16 mx-auto mb-4 text-primary" />
-              <h4 className="text-lg font-semibold mb-2">Ready to Train Neural Network</h4>
+              <h4 className="text-lg font-semibold mb-2">
+                Ready to Train Neural Network
+              </h4>
               <p className="text-default-500 mb-4">
-                Train a real TensorFlow.js model with LSTM layers for gender classification
+                Train a real TensorFlow.js model with LSTM layers for gender
+                classification
               </p>
-              
+
               {error && (
                 <div className="bg-danger-50 border border-danger-200 rounded-lg p-3 mb-4">
                   <p className="text-danger-600 text-sm">{error}</p>
                 </div>
               )}
-              
+
               <div className="flex flex-col gap-2">
                 <Button
                   color="primary"
                   size="lg"
-                  onClick={startTraining}
                   startContent={<Zap className="w-5 h-5" />}
+                  onClick={startTraining}
                 >
                   Train Neural Network
                 </Button>
@@ -450,19 +561,21 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
                   </span>
                 </div>
               </div>
-              
-              <h4 className="text-lg font-semibold mb-2">Training in Progress</h4>
+
+              <h4 className="text-lg font-semibold mb-2">
+                Training in Progress
+              </h4>
               <p className="text-default-500 mb-4">
                 Building real neural network with LSTM and Dense layers...
               </p>
-              
-              <Progress 
-                value={trainingProgress} 
-                color="primary"
+
+              <Progress
                 className="mb-4"
+                color="primary"
                 size="lg"
+                value={trainingProgress}
               />
-              
+
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <div className="font-medium">Architecture</div>
@@ -474,7 +587,9 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
                 </div>
                 <div>
                   <div className="font-medium">Progress</div>
-                  <div className="text-default-500">{Math.round(trainingProgress)}%</div>
+                  <div className="text-default-500">
+                    {Math.round(trainingProgress)}%
+                  </div>
                 </div>
               </div>
             </div>
@@ -491,16 +606,20 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-success" />
-            <h3 className="text-lg font-semibold">Real Neural Network (Ready)</h3>
+            <h3 className="text-lg font-semibold">
+              Real Neural Network (Ready)
+            </h3>
           </div>
         </CardHeader>
         <CardBody className="text-center p-6">
           <Target className="w-12 h-12 mx-auto mb-4 text-success" />
-          <p className="text-default-500 mb-4">Neural network trained and ready for predictions!</p>
+          <p className="text-default-500 mb-4">
+            Neural network trained and ready for predictions!
+          </p>
           <Button
             color="primary"
-            variant="flat"
             startContent={<Shuffle className="w-4 h-4" />}
+            variant="flat"
             onClick={tryRandomName}
           >
             Try Random Name
@@ -510,8 +629,8 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
     );
   }
 
-  const genderLabel = stats.prediction > 0.5 ? 'Female' : 'Male';
-  const genderColor = stats.prediction > 0.5 ? 'secondary' : 'primary';
+  const genderLabel = stats.prediction > 0.5 ? "Female" : "Male";
+  const genderColor = stats.prediction > 0.5 ? "secondary" : "primary";
 
   return (
     <div className="space-y-4">
@@ -524,13 +643,15 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
               <span className="text-sm font-medium text-success">
                 Real TensorFlow.js Neural Network
               </span>
-              <Chip color="success" size="sm" variant="flat">Local</Chip>
+              <Chip color="success" size="sm" variant="flat">
+                Local
+              </Chip>
             </div>
             <Button
               size="sm"
+              startContent={<Shuffle className="w-3 h-3" />}
               variant="flat"
               onClick={tryRandomName}
-              startContent={<Shuffle className="w-3 h-3" />}
             >
               Random
             </Button>
@@ -563,10 +684,10 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
               </p>
             </div>
           </div>
-          <Progress 
-            value={stats.prediction * 100} 
-            color={genderColor}
+          <Progress
             className="mb-2"
+            color={genderColor}
+            value={stats.prediction * 100}
           />
         </CardBody>
       </Card>
@@ -584,11 +705,11 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
             <div>
               <p className="text-small text-default-500 mb-1">Final Accuracy</p>
               <div className="flex items-center gap-2">
-                <Progress 
-                  value={stats.accuracy * 100} 
+                <Progress
+                  className="flex-1"
                   color="success"
                   size="sm"
-                  className="flex-1"
+                  value={stats.accuracy * 100}
                 />
                 <span className="text-small font-medium">
                   {(stats.accuracy * 100).toFixed(1)}%
@@ -598,11 +719,11 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
             <div>
               <p className="text-small text-default-500 mb-1">Final Loss</p>
               <div className="flex items-center gap-2">
-                <Progress 
-                  value={(1 - stats.loss) * 100} 
+                <Progress
+                  className="flex-1"
                   color="warning"
                   size="sm"
-                  className="flex-1"
+                  value={(1 - stats.loss) * 100}
                 />
                 <span className="text-small font-medium">
                   {stats.loss.toFixed(3)}
@@ -623,26 +744,29 @@ const LocalInferenceEngine: React.FC<LocalInferenceEngineProps> = ({
         </CardHeader>
         <CardBody className="pt-2">
           <div className="space-y-3">
-            {Object.entries(stats.layerOutputs).map(([layerName, intensity]) => {
-              const displayName = layerName.charAt(0).toUpperCase() + layerName.slice(1);
-              
-              return (
-                <div key={layerName} className="flex items-center gap-3">
-                  <div className="w-20 text-small text-default-500 truncate">
-                    {displayName}
+            {Object.entries(stats.layerOutputs).map(
+              ([layerName, intensity]) => {
+                const displayName =
+                  layerName.charAt(0).toUpperCase() + layerName.slice(1);
+
+                return (
+                  <div key={layerName} className="flex items-center gap-3">
+                    <div className="w-20 text-small text-default-500 truncate">
+                      {displayName}
+                    </div>
+                    <Progress
+                      className="flex-1"
+                      color={intensity > 0.5 ? "success" : "default"}
+                      size="sm"
+                      value={Math.min(intensity * 100, 100)}
+                    />
+                    <span className="text-small font-mono w-12 text-right">
+                      {intensity.toFixed(2)}
+                    </span>
                   </div>
-                  <Progress 
-                    value={Math.min(intensity * 100, 100)} 
-                    color={intensity > 0.5 ? "success" : "default"}
-                    size="sm"
-                    className="flex-1"
-                  />
-                  <span className="text-small font-mono w-12 text-right">
-                    {intensity.toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              },
+            )}
           </div>
         </CardBody>
       </Card>

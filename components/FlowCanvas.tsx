@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from "react";
-import { Code, Copy, Download, Network, X } from 'lucide-react';
+import { Code, Copy, Download, Network, X } from "lucide-react";
 import ReactFlow, {
   Background,
   Controls,
@@ -13,16 +13,14 @@ import ReactFlow, {
   ConnectionMode,
 } from "reactflow";
 import { Icon } from "@iconify/react";
+import { Card, CardBody, CardFooter, RadioGroup, Radio } from "@heroui/react";
+import { Button } from "@heroui/button";
+
 import { nodeTypes } from "./nodes/CustomNodes";
 import { NetworkCodeGenerator } from "./CodeGenerator";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
-import { Button } from "@heroui/button";
-import { Card, CardBody, CardFooter, RadioGroup, Radio } from "@heroui/react";
-
-
-
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
@@ -72,9 +70,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             nds.map((node) =>
               node.id === "input-1"
                 ? {
-                  ...node,
-                  data: { ...node.data, value: newValue },
-                }
+                    ...node,
+                    data: { ...node.data, value: newValue },
+                  }
                 : node,
             ),
           );
@@ -97,13 +95,13 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             nds.map((node) =>
               node.id === "inputlayer-1"
                 ? {
-                  ...node,
-                  data: { 
-                    ...node.data, 
-                    count: Math.max(1, newCount),
-                    params: { shape: [newCount] }
-                  },
-                }
+                    ...node,
+                    data: {
+                      ...node.data,
+                      count: Math.max(1, newCount),
+                      params: { shape: [newCount] },
+                    },
+                  }
                 : node,
             ),
           );
@@ -120,19 +118,19 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         icon: "lucide:grid",
         details: "32 neurons, ReLU activation",
         count: 32,
-        params: { units: 32, activation: 'relu' },
+        params: { units: 32, activation: "relu" },
         onChange: (newCount: number) => {
           setNodes((nds) =>
             nds.map((node) =>
               node.id === "dense-1"
                 ? {
-                  ...node,
-                  data: { 
-                    ...node.data, 
-                    count: Math.max(1, newCount),
-                    params: { ...node.data.params, units: newCount }
-                  },
-                }
+                    ...node,
+                    data: {
+                      ...node.data,
+                      count: Math.max(1, newCount),
+                      params: { ...node.data.params, units: newCount },
+                    },
+                  }
                 : node,
             ),
           );
@@ -149,15 +147,15 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         count: 1,
         icon: "lucide:arrow-right",
         details: "Final output",
-        params: { activation: 'sigmoid', units: 1 },
+        params: { activation: "sigmoid", units: 1 },
         onChange: (newCount: number) => {
           setNodes((nds) =>
             nds.map((node) =>
               node.id === "output-1"
                 ? {
-                  ...node,
-                  data: { ...node.data, count: Math.max(1, newCount) },
-                }
+                    ...node,
+                    data: { ...node.data, count: Math.max(1, newCount) },
+                  }
                 : node,
             ),
           );
@@ -170,7 +168,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showPanel, setShowPanel] = useState(false);
-  const [framework, setFramework] = useState<"tensorflow" | "pytorch">("tensorflow");
+  const [framework, setFramework] = useState<"tensorflow" | "pytorch">(
+    "tensorflow",
+  );
   const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -190,8 +190,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        showPanel && 
-        panelRef.current && 
+        showPanel &&
+        panelRef.current &&
         !panelRef.current.contains(event.target as HTMLElement) &&
         !(event.target as Element).closest('[aria-label="Show code panel"]')
       ) {
@@ -200,19 +200,19 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     };
 
     const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showPanel) {
+      if (event.key === "Escape" && showPanel) {
         closePanel();
       }
     };
 
     if (showPanel) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscapeKey);
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscapeKey);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscapeKey);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscapeKey);
     };
   }, [showPanel, closePanel]);
 
@@ -226,7 +226,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       nodes,
       edges,
-      'LR'
+      "LR",
     );
 
     setNodes([...layoutedNodes]);
@@ -252,18 +252,23 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
 
       if (!nodeData) return;
 
-      console.log("Adding node of type:", nodeData.type);
-
       // Check if trying to add input/output node when one already exists
-      const hasInputNode = nodes.some((node) => node.type === "textInput" || node.type === "inputLayer");
+      const hasInputNode = nodes.some(
+        (node) => node.type === "textInput" || node.type === "inputLayer",
+      );
       const hasOutputNode = nodes.some((node) => node.type === "outputLayer");
 
-      if ((nodeData.type === "textInput" || nodeData.type === "inputLayer") && hasInputNode) {
+      if (
+        (nodeData.type === "textInput" || nodeData.type === "inputLayer") &&
+        hasInputNode
+      ) {
         alert("Only one input node is allowed");
+
         return;
       }
       if (nodeData.type === "outputLayer" && hasOutputNode) {
         alert("Only one output node is allowed");
+
         return;
       }
 
@@ -280,117 +285,143 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           label: nodeData.label,
           icon: nodeData.icon,
           details: nodeData.details,
-          ...(["inputLayer", "outputLayer", "hidden", "dense", "embedding", "lstm"].includes(nodeData.type)
+          ...([
+            "inputLayer",
+            "outputLayer",
+            "hidden",
+            "dense",
+            "embedding",
+            "lstm",
+          ].includes(nodeData.type)
             ? {
-              count:
-                nodeData.type === "inputLayer"
-                  ? 784
-                  : nodeData.type === "outputLayer"
-                    ? 1
-                  : nodeData.type === "embedding"
-                    ? 64
-                  : nodeData.type === "lstm" 
-                    ? 128
-                    : 128,
-              onChange: (newCount: number) => {
-                setNodes((nds) =>
-                  nds.map((node) =>
-                    node.id === newNode.id
-                      ? {
-                        ...node,
-                        data: {
-                          ...node.data,
-                          count: Math.max(1, newCount),
-                        },
-                      }
-                      : node,
-                  ),
-                );
-              },
-            }
+                count:
+                  nodeData.type === "inputLayer"
+                    ? 784
+                    : nodeData.type === "outputLayer"
+                      ? 1
+                      : nodeData.type === "embedding"
+                        ? 64
+                        : nodeData.type === "lstm"
+                          ? 128
+                          : 128,
+                onChange: (newCount: number) => {
+                  setNodes((nds) =>
+                    nds.map((node) =>
+                      node.id === newNode.id
+                        ? {
+                            ...node,
+                            data: {
+                              ...node.data,
+                              count: Math.max(1, newCount),
+                            },
+                          }
+                        : node,
+                    ),
+                  );
+                },
+              }
             : {}),
           // Add text value handling for text input nodes
           ...(nodeData.type === "textInput"
             ? {
-              value: "Enter name...",
-              onChange: (newValue: string) => {
-                setNodes((nds) =>
-                  nds.map((node) =>
-                    node.id === newNode.id
-                      ? {
-                        ...node,
-                        data: {
-                          ...node.data,
-                          value: newValue,
-                        },
-                      }
-                      : node,
-                  ),
-                );
-              },
-            }
+                value: "Enter name...",
+                onChange: (newValue: string) => {
+                  setNodes((nds) =>
+                    nds.map((node) =>
+                      node.id === newNode.id
+                        ? {
+                            ...node,
+                            data: {
+                              ...node.data,
+                              value: newValue,
+                            },
+                          }
+                        : node,
+                    ),
+                  );
+                },
+              }
             : {}),
           // Add parameter handling for algorithm, optimizer, loss, and scheduler nodes
-          ...(["cnn", "rnn", "lstm", "transformer", "autoencoder", "gan", "resnet", "vae",
-               "adam", "sgd", "rmsprop", "adagrad", "adamw", 
-               "crossentropy", "mse", "mae", "bce",
-               "steplr", "exponentiallr", "cosineannealinglr", "reducelronplateau"].includes(nodeData.type)
+          ...([
+            "cnn",
+            "rnn",
+            "lstm",
+            "transformer",
+            "autoencoder",
+            "gan",
+            "resnet",
+            "vae",
+            "adam",
+            "sgd",
+            "rmsprop",
+            "adagrad",
+            "adamw",
+            "crossentropy",
+            "mse",
+            "mae",
+            "bce",
+            "steplr",
+            "exponentiallr",
+            "cosineannealinglr",
+            "reducelronplateau",
+          ].includes(nodeData.type)
             ? {
-              params: {},
-              onParamsChange: (newParams: any) => {
-                setNodes((nds) =>
-                  nds.map((node) =>
-                    node.id === newNode.id
-                      ? {
-                        ...node,
-                        data: {
-                          ...node.data,
-                          params: newParams,
-                        },
-                      }
-                      : node,
-                  ),
-                );
-              },
-            }
+                params: {},
+                onParamsChange: (newParams: any) => {
+                  setNodes((nds) =>
+                    nds.map((node) =>
+                      node.id === newNode.id
+                        ? {
+                            ...node,
+                            data: {
+                              ...node.data,
+                              params: newParams,
+                            },
+                          }
+                        : node,
+                    ),
+                  );
+                },
+              }
             : {}),
           // Add configuration handling for training config nodes
           ...(nodeData.type === "training_config"
             ? {
-              config: {
-                epochs: 10,
-                batch_size: 32,
-                validation_split: 0.2,
-                early_stopping: false,
-                save_best: true
-              },
-              onConfigChange: (newConfig: any) => {
-                setNodes((nds) =>
-                  nds.map((node) =>
-                    node.id === newNode.id
-                      ? {
-                        ...node,
-                        data: {
-                          ...node.data,
-                          config: newConfig,
-                        },
-                      }
-                      : node,
-                  ),
-                );
-              },
-            }
+                config: {
+                  epochs: 10,
+                  batch_size: 32,
+                  validation_split: 0.2,
+                  early_stopping: false,
+                  save_best: true,
+                },
+                onConfigChange: (newConfig: any) => {
+                  setNodes((nds) =>
+                    nds.map((node) =>
+                      node.id === newNode.id
+                        ? {
+                            ...node,
+                            data: {
+                              ...node.data,
+                              config: newConfig,
+                            },
+                          }
+                        : node,
+                    ),
+                  );
+                },
+              }
             : {}),
           // Add metrics handling for metrics nodes
           ...(nodeData.type === "metrics"
             ? {
-              metrics: {
-                accuracy: 0.0,
-                loss: 0.0,
-                val_accuracy: 0.0,
-                val_loss: 0.0
-              },
-            }
+                metrics: {
+                  accuracy: 0.0,
+                  loss: 0.0,
+                  val_accuracy: 0.0,
+                  val_loss: 0.0,
+                },
+              }
             : {}),
         },
       };
@@ -404,19 +435,22 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     try {
       setIsGenerating(true);
       setError("");
-      
+
       const generator = new NetworkCodeGenerator(nodes, edges);
-      
+
       let code;
-      if (framework === 'tensorflow') {
+
+      if (framework === "tensorflow") {
         code = generator.generateTensorFlowCode();
       } else {
         code = generator.generatePyTorchCode();
       }
-      
+
       setGeneratedCode(code);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred",
+      );
       setGeneratedCode("");
     } finally {
       setIsGenerating(false);
@@ -428,10 +462,11 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   };
 
   const downloadCode = () => {
-    const extension = framework === 'tensorflow' ? 'tf.py' : 'torch.py';
-    const blob = new Blob([generatedCode], { type: 'text/plain' });
+    const extension = framework === "tensorflow" ? "tf.py" : "torch.py";
+    const blob = new Blob([generatedCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
+
     a.href = url;
     a.download = `neural_network_${extension}`;
     a.click();
@@ -443,31 +478,37 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       const generator = new NetworkCodeGenerator(nodes, edges);
       let notebook;
       let filename;
-      
-      if (framework === 'tensorflow') {
+
+      if (framework === "tensorflow") {
         notebook = generator.generateTensorFlowNotebook();
-        filename = 'tensorflow_training_notebook.ipynb';
+        filename = "tensorflow_training_notebook.ipynb";
       } else {
         notebook = generator.generatePyTorchNotebook();
-        filename = 'pytorch_training_notebook.ipynb';
+        filename = "pytorch_training_notebook.ipynb";
       }
-      
-      const blob = new Blob([JSON.stringify(notebook, null, 2)], { 
-        type: 'application/json' 
+
+      const blob = new Blob([JSON.stringify(notebook, null, 2)], {
+        type: "application/json",
       });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
+
       a.href = url;
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate notebook');
+      setError(
+        err instanceof Error ? err.message : "Failed to generate notebook",
+      );
     }
   };
 
   return (
-    <div ref={reactFlowWrapper} style={{ width: "100%", height: "100%", position: "relative" }}>
+    <div
+      ref={reactFlowWrapper}
+      style={{ width: "100%", height: "100%", position: "relative" }}
+    >
       <ReactFlow
         fitView
         connectionMode={ConnectionMode.Loose}
@@ -497,21 +538,21 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         <Button
           isIconOnly
           aria-label="Auto layout"
+          className="shadow-md"
           color="default"
           variant="faded"
           onClick={onLayout}
-          className="shadow-md"
         >
           <Network className="w-5 h-5" />
         </Button>
-        
+
         <Button
           isIconOnly
           aria-label="Show code panel"
+          className="shadow-md"
           color="default"
           variant="faded"
           onClick={() => setShowPanel((prev) => !prev)}
-          className="shadow-md"
         >
           <Code className="w-5 h-5" />
         </Button>
@@ -533,59 +574,68 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         >
           <CardBody className="p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Generate Neural Network Code</h2>
+              <h2 className="text-xl font-semibold">
+                Generate Neural Network Code
+              </h2>
               <Button
                 isIconOnly
+                aria-label="Close panel"
+                className="text-foreground-400 hover:text-foreground-600 hover:bg-default-100"
                 size="sm"
                 variant="light"
                 onClick={closePanel}
-                aria-label="Close panel"
-                className="text-foreground-400 hover:text-foreground-600 hover:bg-default-100"
               >
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            
+
             {!generatedCode && (
               <>
                 <p className="text-foreground-500 mb-4">
-                  Select your preferred framework to generate code for your neural network.
+                  Select your preferred framework to generate code for your
+                  neural network.
                 </p>
-                
+
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
                   <div className="flex items-start gap-3">
-                    <Icon icon="simple-icons:jupyter" className="text-blue-600 text-xl mt-0.5" />
+                    <Icon
+                      className="text-blue-600 text-xl mt-0.5"
+                      icon="simple-icons:jupyter"
+                    />
                     <div>
                       <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
                         Ready for Google Colab!
                       </h4>
                       <p className="text-sm text-blue-700 dark:text-blue-400">
-                        Get a complete Jupyter notebook with data loading, training, and evaluation code. 
-                        Perfect for uploading directly to Google Colab to start training your model.
+                        Get a complete Jupyter notebook with data loading,
+                        training, and evaluation code. Perfect for uploading
+                        directly to Google Colab to start training your model.
                       </p>
                     </div>
                   </div>
                 </div>
-                
+
                 <RadioGroup
-                  label="Select Framework"
-                  value={framework}
-                  onValueChange={(value) => setFramework(value as "tensorflow" | "pytorch")}
-                  orientation="horizontal"
                   classNames={{
                     base: "gap-6",
-                    label: "text-foreground-600 font-medium mb-3"
+                    label: "text-foreground-600 font-medium mb-3",
                   }}
+                  label="Select Framework"
+                  orientation="horizontal"
+                  value={framework}
+                  onValueChange={(value) =>
+                    setFramework(value as "tensorflow" | "pytorch")
+                  }
                 >
                   <Radio value="tensorflow">
                     <div className="flex items-center gap-2">
-                      <Icon icon="logos:tensorflow" className="text-xl" />
+                      <Icon className="text-xl" icon="logos:tensorflow" />
                       TensorFlow
                     </div>
                   </Radio>
                   <Radio value="pytorch">
                     <div className="flex items-center gap-2">
-                      <Icon icon="logos:pytorch-icon" className="text-xl" />
+                      <Icon className="text-xl" icon="logos:pytorch-icon" />
                       PyTorch
                     </div>
                   </Radio>
@@ -602,30 +652,34 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             {generatedCode && (
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Generated {framework === 'tensorflow' ? 'TensorFlow' : 'PyTorch'} Code:</h3>
+                  <h3 className="text-lg font-semibold">
+                    Generated{" "}
+                    {framework === "tensorflow" ? "TensorFlow" : "PyTorch"}{" "}
+                    Code:
+                  </h3>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
+                      startContent={<Copy size={16} />}
                       variant="ghost"
                       onClick={copyToClipboard}
-                      startContent={<Copy size={16} />}
                     >
                       Copy
                     </Button>
                     <Button
                       size="sm"
+                      startContent={<Download size={16} />}
                       variant="ghost"
                       onClick={downloadCode}
-                      startContent={<Download size={16} />}
                     >
                       Download .py
                     </Button>
                     <Button
-                      size="sm"
                       color="primary"
+                      size="sm"
+                      startContent={<Icon icon="simple-icons:jupyter" />}
                       variant="ghost"
                       onClick={downloadNotebook}
-                      startContent={<Icon icon="simple-icons:jupyter" />}
                     >
                       Download .ipynb
                     </Button>
@@ -647,27 +701,29 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
               </div>
             )}
           </CardBody>
-          
+
           {!generatedCode && (
             <CardFooter className="px-6 pb-6 pt-0">
               <div className="flex gap-2 w-full">
                 <Button
-                  color="primary"
-                  variant="solid"
                   className="flex-1"
-                  onPress={handleGenerate}
+                  color="primary"
                   isLoading={isGenerating}
                   startContent={!isGenerating && <Icon icon="lucide:code" />}
+                  variant="solid"
+                  onPress={handleGenerate}
                 >
                   {isGenerating ? "Generating..." : "Generate Code"}
                 </Button>
                 <Button
-                  color="secondary"
-                  variant="solid"
                   className="flex-1"
-                  onPress={downloadNotebook}
+                  color="secondary"
                   isLoading={isGenerating}
-                  startContent={!isGenerating && <Icon icon="simple-icons:jupyter" />}
+                  startContent={
+                    !isGenerating && <Icon icon="simple-icons:jupyter" />
+                  }
+                  variant="solid"
+                  onPress={downloadNotebook}
                 >
                   {isGenerating ? "Generating..." : "Get Colab Notebook"}
                 </Button>

@@ -5,7 +5,7 @@ import React from "react";
 export default function App() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log("Login submitted");
+    // Handle login submission
   };
 
   return (

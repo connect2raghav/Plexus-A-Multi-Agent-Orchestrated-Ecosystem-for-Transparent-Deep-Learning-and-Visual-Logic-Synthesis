@@ -23,17 +23,17 @@ export type { ReactFlowNode };
 export type Framework = "tensorflow" | "pytorch";
 
 // Node types supported by the neural network editor
-export type NodeType = 
-  | "input" 
+export type NodeType =
+  | "input"
   | "inputLayer"
-  | "hidden" 
-  | "output" 
+  | "hidden"
+  | "output"
   | "outputLayer"
-  | "conv2d" 
-  | "maxpool" 
-  | "dropout" 
-  | "activation" 
-  | "lstm" 
+  | "conv2d"
+  | "maxpool"
+  | "dropout"
+  | "activation"
+  | "lstm"
   | "concat";
 
 // Code generation result interface

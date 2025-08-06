@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
-import { Node, Edge } from 'reactflow';
-import { 
-  Card, 
-  CardBody, 
+import React, { useState } from "react";
+import { Node, Edge } from "reactflow";
+import {
+  Card,
+  CardBody,
   CardHeader,
-  Button, 
-  RadioGroup, 
+  Button,
+  RadioGroup,
   Radio,
   Divider,
   Chip,
-  Code,
   Snippet,
   Alert,
-  Progress
 } from "@heroui/react";
 
 // Code generation utilities
@@ -25,50 +23,55 @@ class NetworkCodeGenerator {
   constructor(nodes: Node[], edges: Edge[]) {
     this.nodes = nodes;
     this.edges = edges;
-    this.nodeMap = new Map(nodes.map(node => [node.id, node]));
+    this.nodeMap = new Map(nodes.map((node) => [node.id, node]));
     this.topology = this.buildTopology();
   }
 
   buildTopology(): string[] {
     const graph = new Map<string, string[]>();
     const inDegree = new Map<string, number>();
-    
+
     // Initialize graph
-    this.nodes.forEach(node => {
+    this.nodes.forEach((node) => {
       graph.set(node.id, []);
       inDegree.set(node.id, 0);
     });
-    
+
     // Build edges
-    this.edges.forEach(edge => {
+    this.edges.forEach((edge) => {
       const sourceEdges = graph.get(edge.source);
+
       if (sourceEdges) {
         sourceEdges.push(edge.target);
       }
       const currentInDegree = inDegree.get(edge.target) || 0;
+
       inDegree.set(edge.target, currentInDegree + 1);
     });
-    
+
     // Topological sort
     const queue: string[] = [];
     const sorted: string[] = [];
-    
-    this.nodes.forEach(node => {
+
+    this.nodes.forEach((node) => {
       if (inDegree.get(node.id) === 0) {
         queue.push(node.id);
       }
     });
-    
+
     while (queue.length > 0) {
       const nodeId = queue.shift();
+
       if (!nodeId) continue;
-      
+
       sorted.push(nodeId);
-      
+
       const neighbors = graph.get(nodeId);
+
       if (neighbors) {
         neighbors.forEach((neighbor: string) => {
           const currentInDegree = inDegree.get(neighbor) || 0;
+
           inDegree.set(neighbor, currentInDegree - 1);
           if (inDegree.get(neighbor) === 0) {
             queue.push(neighbor);
@@ -76,7 +79,7 @@ class NetworkCodeGenerator {
         });
       }
     }
-    
+
     return sorted;
   }
 
@@ -94,9 +97,15 @@ class NetworkCodeGenerator {
     ];
 
     const modelBody = ["  async buildModel() {"];
-    
+
     // Find input node
-    const inputNode = this.nodes.find(node => node.type === 'input' || node.type === 'inputLayer' || node.type === 'textInput');
+    const inputNode = this.nodes.find(
+      (node) =>
+        node.type === "input" ||
+        node.type === "inputLayer" ||
+        node.type === "textInput",
+    );
+
     if (!inputNode) {
       throw new Error("No input layer found");
     }
@@ -104,68 +113,88 @@ class NetworkCodeGenerator {
     // Handle text input for gender classification
     const inputCount = inputNode.data.count || 50; // Max name length
     let inputShape;
-    if (inputNode.type === 'textInput') {
+
+    if (inputNode.type === "textInput") {
       inputShape = `[null, ${inputCount}]`; // Variable sequence length
     } else {
       inputShape = `[null, ${inputCount}]`;
     }
-    
+
     modelBody.push(`    // Gender Classification Model Architecture`);
     modelBody.push(`    const input = tf.input({shape: ${inputShape}});`);
-    
+
     let previousLayer = "input";
     let layerCounter = 1;
 
     // Process nodes in topological order
-    this.topology.forEach(nodeId => {
+    this.topology.forEach((nodeId) => {
       const node = this.nodeMap.get(nodeId);
-      if (!node || node.type === 'input' || node.type === 'inputLayer' || node.type === 'textInput' ||
-          node.type === 'adam' || node.type === 'sgd' || node.type === 'rmsprop' || 
-          node.type === 'bce' || node.type === 'crossentropy' || node.type === 'mse') return;
+
+      if (
+        !node ||
+        node.type === "input" ||
+        node.type === "inputLayer" ||
+        node.type === "textInput" ||
+        node.type === "adam" ||
+        node.type === "sgd" ||
+        node.type === "rmsprop" ||
+        node.type === "bce" ||
+        node.type === "crossentropy" ||
+        node.type === "mse"
+      )
+        return;
 
       const layerName = `layer${layerCounter}`;
       let layerCode = "";
 
       switch (node.type) {
-        case 'embedding':
+        case "embedding":
           const vocabSize = node.data.params?.vocab_size || 10000;
-          const embeddingDim = node.data.params?.embedding_dim || node.data.count || 64;
+          const embeddingDim =
+            node.data.params?.embedding_dim || node.data.count || 64;
+
           layerCode = `    const ${layerName} = tf.layers.embedding({inputDim: ${vocabSize}, outputDim: ${embeddingDim}, maskZero: true}).apply(${previousLayer});`;
           break;
 
-        case 'lstm':
+        case "lstm":
           const lstmUnits = node.data.params?.units || node.data.count || 64;
           const returnSequences = node.data.params?.return_sequences || false;
+
           layerCode = `    const ${layerName} = tf.layers.lstm({units: ${lstmUnits}, returnSequences: ${returnSequences}, dropout: 0.1}).apply(${previousLayer});`;
           break;
 
-        case 'dense':
+        case "dense":
           const denseUnits = node.data.params?.units || node.data.count || 128;
-          const denseActivation = node.data.params?.activation || 'relu';
+          const denseActivation = node.data.params?.activation || "relu";
+
           layerCode = `    const ${layerName} = tf.layers.dense({units: ${denseUnits}, activation: '${denseActivation}'}).apply(${previousLayer});`;
           break;
-          
-        case 'dropout':
+
+        case "dropout":
           const dropoutRate = node.data.params?.rate || 0.5;
+
           layerCode = `    const ${layerName} = tf.layers.dropout({rate: ${dropoutRate}}).apply(${previousLayer});`;
           break;
 
-        case 'flatten':
+        case "flatten":
           layerCode = `    const ${layerName} = tf.layers.flatten().apply(${previousLayer});`;
           break;
 
-        case 'batchnorm':
+        case "batchnorm":
           layerCode = `    const ${layerName} = tf.layers.batchNormalization().apply(${previousLayer});`;
           break;
 
-        case 'output':
-        case 'outputLayer':
-        case 'textOutput':
+        case "output":
+        case "outputLayer":
+        case "textOutput":
           const outputUnits = node.data.count || 1;
-          const outputActivation = node.data.params?.activation || (outputUnits === 1 ? 'sigmoid' : 'softmax');
+          const outputActivation =
+            node.data.params?.activation ||
+            (outputUnits === 1 ? "sigmoid" : "softmax");
+
           layerCode = `    const ${layerName} = tf.layers.dense({units: ${outputUnits}, activation: '${outputActivation}', name: 'output'}).apply(${previousLayer});`;
           break;
-          
+
         default:
           layerCode = `    // ${node.type} layer - implementation needed`;
       }
@@ -178,43 +207,52 @@ class NetworkCodeGenerator {
     });
 
     modelBody.push("");
-    modelBody.push(`    this.model = tf.model({inputs: input, outputs: ${previousLayer}});`);
-    
+    modelBody.push(
+      `    this.model = tf.model({inputs: input, outputs: ${previousLayer}});`,
+    );
+
     // Add optimizer and loss from nodes
-    const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop'].includes(node.type));
-    const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse'].includes(node.type));
-    
+    const optimizerNode = this.nodes.find(
+      (node) => node.type && ["adam", "sgd", "rmsprop"].includes(node.type),
+    );
+    const lossNode = this.nodes.find(
+      (node) => node.type && ["bce", "crossentropy", "mse"].includes(node.type),
+    );
+
     let optimizerCode = "'adam'";
+
     if (optimizerNode) {
       const params = optimizerNode.data.params || {};
+
       switch (optimizerNode.type) {
-        case 'adam':
+        case "adam":
           optimizerCode = `tf.train.adam(${params.lr || 0.001})`;
           break;
-        case 'sgd':
+        case "sgd":
           optimizerCode = `tf.train.sgd(${params.lr || 0.01})`;
           break;
-        case 'rmsprop':
+        case "rmsprop":
           optimizerCode = `tf.train.rmsprop(${params.lr || 0.01})`;
           break;
       }
     }
-    
+
     let lossCode = "'binaryCrossentropy'";
+
     if (lossNode) {
       switch (lossNode.type) {
-        case 'bce':
+        case "bce":
           lossCode = "'binaryCrossentropy'";
           break;
-        case 'crossentropy':
+        case "crossentropy":
           lossCode = "'categoricalCrossentropy'";
           break;
-        case 'mse':
+        case "mse":
           lossCode = "'meanSquaredError'";
           break;
       }
     }
-    
+
     modelBody.push("");
     modelBody.push("    // Compile the model");
     modelBody.push("    this.model.compile({");
@@ -302,10 +340,10 @@ class NetworkCodeGenerator {
       "// });",
       "//",
       "// // Make predictions",
-      "// const prediction = await model.predict(tf.tensor2d([[...]]));"
+      "// const prediction = await model.predict(tf.tensor2d([[...]]));",
     ];
 
-    return [...imports, ...modelBody, ...trainingMethod].join('\n');
+    return [...imports, ...modelBody, ...trainingMethod].join("\n");
   }
 
   generateTensorFlowCode(): string {
@@ -313,13 +351,16 @@ class NetworkCodeGenerator {
       "import tensorflow as tf",
       "from tensorflow.keras import layers, Model",
       "import numpy as np",
-      ""
+      "",
     ];
 
     const modelBody = ["def create_gender_classification_model():"];
-    
+
     // Find input node - handle both 'input' and 'inputLayer' types
-    const inputNode = this.nodes.find(node => node.type === 'input' || node.type === 'inputLayer');
+    const inputNode = this.nodes.find(
+      (node) => node.type === "input" || node.type === "inputLayer",
+    );
+
     if (!inputNode) {
       throw new Error("No input layer found");
     }
@@ -327,6 +368,7 @@ class NetworkCodeGenerator {
     // Handle image input shape for gender classification
     const inputCount = inputNode.data.count || 150528; // 224*224*3
     let inputShape;
+
     if (inputCount === 150528 || inputCount > 100000) {
       inputShape = "(224, 224, 3)"; // RGB image
     } else if (inputCount === 784) {
@@ -334,81 +376,102 @@ class NetworkCodeGenerator {
     } else {
       inputShape = `(${inputCount},)`; // Flat input
     }
-    
+
     modelBody.push(`    # Gender Classification Model Architecture`);
     modelBody.push(`    input_layer = layers.Input(shape=${inputShape})`);
-    
+
     let previousLayer = "input_layer";
     let layerCounter = 1;
 
     // Process nodes in topological order
-    this.topology.forEach(nodeId => {
+    this.topology.forEach((nodeId) => {
       const node = this.nodeMap.get(nodeId);
-      if (!node || node.type === 'input' || node.type === 'inputLayer' || 
-          node.type === 'adam' || node.type === 'sgd' || node.type === 'rmsprop' || 
-          node.type === 'bce' || node.type === 'crossentropy' || node.type === 'mse') return;
+
+      if (
+        !node ||
+        node.type === "input" ||
+        node.type === "inputLayer" ||
+        node.type === "adam" ||
+        node.type === "sgd" ||
+        node.type === "rmsprop" ||
+        node.type === "bce" ||
+        node.type === "crossentropy" ||
+        node.type === "mse"
+      )
+        return;
 
       const layerName = `layer_${layerCounter}`;
       let layerCode = "";
 
       switch (node.type) {
-        case 'conv2d':
+        case "conv2d":
           const filters = node.data.params?.filters || 32;
-          const kernelSize = node.data.params?.kernel_size || node.data.params?.kernel || 3;
-          const convActivation = node.data.params?.activation || 'relu';
+          const kernelSize =
+            node.data.params?.kernel_size || node.data.params?.kernel || 3;
+          const convActivation = node.data.params?.activation || "relu";
+
           layerCode = `    ${layerName} = layers.Conv2D(${filters}, (${kernelSize}, ${kernelSize}), activation='${convActivation}', padding='same')(${previousLayer})`;
           break;
-          
-        case 'maxpool':
+
+        case "maxpool":
           const poolSize = node.data.params?.pool_size || 2;
+
           layerCode = `    ${layerName} = layers.MaxPooling2D((${poolSize}, ${poolSize}))(${previousLayer})`;
           break;
-          
-        case 'dropout':
+
+        case "dropout":
           const dropoutRate = node.data.params?.rate || 0.5;
+
           layerCode = `    ${layerName} = layers.Dropout(${dropoutRate})(${previousLayer})`;
           break;
-          
-        case 'activation':
-          const activationFunc = node.data.params?.function || 'relu';
+
+        case "activation":
+          const activationFunc = node.data.params?.function || "relu";
+
           layerCode = `    ${layerName} = layers.Activation('${activationFunc}')(${previousLayer})`;
           break;
-        case 'flatten':
+        case "flatten":
           layerCode = `    ${layerName} = layers.Flatten()(${previousLayer})`;
           break;
-          
-        case 'dense':
+
+        case "dense":
           const denseUnits = node.data.params?.units || node.data.count || 128;
-          const denseActivation = node.data.params?.activation || 'relu';
+          const denseActivation = node.data.params?.activation || "relu";
+
           layerCode = `    ${layerName} = layers.Dense(${denseUnits}, activation='${denseActivation}')(${previousLayer})`;
           break;
-          
-        case 'hidden':
+
+        case "hidden":
           const units = node.data.count || 128;
+
           layerCode = `    ${layerName} = layers.Dense(${units}, activation='relu')(${previousLayer})`;
           break;
-          
-        case 'lstm':
+
+        case "lstm":
           const lstmUnits = node.data.params?.units || node.data.count || 64;
+
           layerCode = `    ${layerName} = layers.LSTM(${lstmUnits})(${previousLayer})`;
           break;
-          
-        case 'batchnorm':
+
+        case "batchnorm":
           layerCode = `    ${layerName} = layers.BatchNormalization()(${previousLayer})`;
           break;
-          
-        case 'concat':
+
+        case "concat":
           // Handle concatenation - would need multiple inputs
           layerCode = `    ${layerName} = layers.Concatenate()(${previousLayer})`;
           break;
-          
-        case 'output':
-        case 'outputLayer':
+
+        case "output":
+        case "outputLayer":
           const outputUnits = node.data.count || 1;
-          const outputActivation = node.data.params?.activation || (outputUnits === 1 ? 'sigmoid' : 'softmax');
+          const outputActivation =
+            node.data.params?.activation ||
+            (outputUnits === 1 ? "sigmoid" : "softmax");
+
           layerCode = `    ${layerName} = layers.Dense(${outputUnits}, activation='${outputActivation}')(${previousLayer})`;
           break;
-          
+
         default:
           layerCode = `    # ${node.type} layer - implementation needed`;
       }
@@ -421,52 +484,66 @@ class NetworkCodeGenerator {
     });
 
     modelBody.push("");
-    modelBody.push(`    model = Model(inputs=input_layer, outputs=${previousLayer})`);
+    modelBody.push(
+      `    model = Model(inputs=input_layer, outputs=${previousLayer})`,
+    );
     modelBody.push("    return model");
     modelBody.push("");
-    
+
     // Add model compilation with optimizer and loss from nodes
-    const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop', 'adagrad', 'adamw'].includes(node.type));
-    const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse', 'mae'].includes(node.type));
-    const trainingNode = this.nodes.find(node => node.type === 'training_config');
-    
+    const optimizerNode = this.nodes.find(
+      (node) =>
+        node.type &&
+        ["adam", "sgd", "rmsprop", "adagrad", "adamw"].includes(node.type),
+    );
+    const lossNode = this.nodes.find(
+      (node) =>
+        node.type && ["bce", "crossentropy", "mse", "mae"].includes(node.type),
+    );
+    const trainingNode = this.nodes.find(
+      (node) => node.type === "training_config",
+    );
+
     modelBody.push("# Create and compile the model for gender classification");
     modelBody.push("model = create_gender_classification_model()");
-    
+
     let optimizerCode = "adam";
+
     if (optimizerNode) {
       const params = optimizerNode.data.params || {};
+
       switch (optimizerNode.type) {
-        case 'adam':
+        case "adam":
           optimizerCode = `tf.keras.optimizers.Adam(learning_rate=${params.lr || 0.001}, beta_1=${params.beta1 || 0.9}, beta_2=${params.beta2 || 0.999})`;
           break;
-        case 'sgd':
+        case "sgd":
           optimizerCode = `tf.keras.optimizers.SGD(learning_rate=${params.lr || 0.01}, momentum=${params.momentum || 0.9})`;
           break;
-        case 'rmsprop':
+        case "rmsprop":
           optimizerCode = `tf.keras.optimizers.RMSprop(learning_rate=${params.lr || 0.01})`;
           break;
       }
     }
-    
+
     let lossCode = "binary_crossentropy";
+
     if (lossNode) {
       switch (lossNode.type) {
-        case 'bce':
+        case "bce":
           lossCode = "binary_crossentropy";
           break;
-        case 'crossentropy':
+        case "crossentropy":
           lossCode = "categorical_crossentropy";
           break;
-        case 'mse':
+        case "mse":
           lossCode = "mean_squared_error";
           break;
-        case 'mae':
+        case "mae":
           lossCode = "mean_absolute_error";
           break;
       }
     }
-    
+
     modelBody.push("model.compile(");
     modelBody.push(`    optimizer=${optimizerCode},`);
     modelBody.push(`    loss='${lossCode}',`);
@@ -476,26 +553,29 @@ class NetworkCodeGenerator {
     modelBody.push("# Model summary");
     modelBody.push("model.summary()");
     modelBody.push("");
-    
+
     // Add training configuration if available
     if (trainingNode) {
       const config = trainingNode.data.config || {};
+
       modelBody.push("# Training configuration");
       modelBody.push(`epochs = ${config.epochs || 10}`);
       modelBody.push(`batch_size = ${config.batch_size || 32}`);
       modelBody.push(`validation_split = ${config.validation_split || 0.2}`);
       modelBody.push("");
-      
+
       if (config.early_stopping) {
         modelBody.push("# Early stopping callback");
         modelBody.push("from tensorflow.keras.callbacks import EarlyStopping");
-        modelBody.push("early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)");
+        modelBody.push(
+          "early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)",
+        );
         modelBody.push("callbacks = [early_stopping]");
       } else {
         modelBody.push("callbacks = []");
       }
       modelBody.push("");
-      
+
       modelBody.push("# Training example");
       modelBody.push("# history = model.fit(");
       modelBody.push("#     X_train, y_train,");
@@ -507,10 +587,12 @@ class NetworkCodeGenerator {
       modelBody.push("# )");
     } else {
       modelBody.push("# Training example");
-      modelBody.push("# model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))");
+      modelBody.push(
+        "# model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))",
+      );
     }
 
-    return [...imports, ...modelBody].join('\n');
+    return [...imports, ...modelBody].join("\n");
   }
 
   generatePyTorchCode(): string {
@@ -520,17 +602,23 @@ class NetworkCodeGenerator {
       "import torch.nn.functional as F",
       "import torch.optim as optim",
       "import numpy as np",
-      ""
+      "",
     ];
 
     const classDefinition = ["class GenderClassificationModel(nn.Module):"];
     const initMethod = ["    def __init__(self):"];
-    initMethod.push("        super(GenderClassificationModel, self).__init__()");
-    
+
+    initMethod.push(
+      "        super(GenderClassificationModel, self).__init__()",
+    );
+
     const forwardMethod = ["    def forward(self, x):"];
 
     // Find input node - handle both types
-    const inputNode = this.nodes.find(node => node.type === 'input' || node.type === 'inputLayer');
+    const inputNode = this.nodes.find(
+      (node) => node.type === "input" || node.type === "inputLayer",
+    );
+
     if (!inputNode) {
       throw new Error("No input layer found");
     }
@@ -539,72 +627,91 @@ class NetworkCodeGenerator {
     let previousTensor = "x";
 
     // Process nodes in topological order
-    this.topology.forEach(nodeId => {
+    this.topology.forEach((nodeId) => {
       const node = this.nodeMap.get(nodeId);
-      if (!node || node.type === 'input' || node.type === 'inputLayer' || 
-          node.type === 'adam' || node.type === 'sgd' || node.type === 'rmsprop' || 
-          node.type === 'bce' || node.type === 'crossentropy' || node.type === 'mse') return;
+
+      if (
+        !node ||
+        node.type === "input" ||
+        node.type === "inputLayer" ||
+        node.type === "adam" ||
+        node.type === "sgd" ||
+        node.type === "rmsprop" ||
+        node.type === "bce" ||
+        node.type === "crossentropy" ||
+        node.type === "mse"
+      )
+        return;
 
       const layerName = `layer${layerCounter}`;
       let initCode = "";
       let forwardCode = "";
 
       switch (node.type) {
-        case 'conv2d':
+        case "conv2d":
           const filters = node.data.params?.filters || 32;
-          const kernelSize = node.data.params?.kernel_size || node.data.params?.kernel || 3;
+          const kernelSize =
+            node.data.params?.kernel_size || node.data.params?.kernel || 3;
           const inChannels = layerCounter === 1 ? 3 : 32; // Assuming RGB input, then 32 channels
+
           initCode = `        self.${layerName} = nn.Conv2d(${inChannels}, ${filters}, ${kernelSize}, padding=1)`;
           forwardCode = `        ${previousTensor} = F.relu(self.${layerName}(${previousTensor}))`;
           break;
-          
-        case 'maxpool':
+
+        case "maxpool":
           const poolSize = node.data.params?.pool_size || 2;
+
           forwardCode = `        ${previousTensor} = F.max_pool2d(${previousTensor}, ${poolSize})`;
           break;
-          
-        case 'flatten':
+
+        case "flatten":
           forwardCode = `        ${previousTensor} = ${previousTensor}.view(${previousTensor}.size(0), -1)`;
           break;
-          
-        case 'dense':
+
+        case "dense":
           const denseUnits = node.data.params?.units || node.data.count || 128;
           const inputFeatures = layerCounter === 1 ? 784 : 128; // Simplified
+
           initCode = `        self.${layerName} = nn.Linear(${inputFeatures}, ${denseUnits})`;
           forwardCode = `        ${previousTensor} = F.relu(self.${layerName}(${previousTensor}))`;
           break;
-          
-        case 'dropout':
+
+        case "dropout":
           const dropoutRate = node.data.params?.rate || 0.5;
+
           forwardCode = `        ${previousTensor} = F.dropout(${previousTensor}, p=${dropoutRate}, training=self.training)`;
           break;
-          
-        case 'batchnorm':
+
+        case "batchnorm":
           forwardCode = `        ${previousTensor} = F.batch_norm(${previousTensor})`;
           break;
-          
-        case 'activation':
-          const activationFunc = node.data.params?.function || 'relu';
+
+        case "activation":
+          const activationFunc = node.data.params?.function || "relu";
+
           forwardCode = `        ${previousTensor} = F.${activationFunc}(${previousTensor})`;
           break;
-          
-        case 'hidden':
+
+        case "hidden":
           const units = node.data.count || 128;
           const prevUnits = layerCounter === 1 ? 784 : 128; // Simplified
+
           initCode = `        self.${layerName} = nn.Linear(${prevUnits}, ${units})`;
           forwardCode = `        ${previousTensor} = F.relu(self.${layerName}(${previousTensor}))`;
           break;
-          
-        case 'lstm':
+
+        case "lstm":
           const lstmUnits = node.data.params?.units || node.data.count || 64;
+
           initCode = `        self.${layerName} = nn.LSTM(input_size=784, hidden_size=${lstmUnits}, batch_first=True)`;
           forwardCode = `        ${previousTensor}, _ = self.${layerName}(${previousTensor})`;
           break;
-          
-        case 'output':
-        case 'outputLayer':
+
+        case "output":
+        case "outputLayer":
           const outputUnits = node.data.count || 1;
           const inputUnits = 128; // Simplified
+
           initCode = `        self.${layerName} = nn.Linear(${inputUnits}, ${outputUnits})`;
           if (outputUnits === 1) {
             forwardCode = `        ${previousTensor} = torch.sigmoid(self.${layerName}(${previousTensor}))`;
@@ -612,7 +719,7 @@ class NetworkCodeGenerator {
             forwardCode = `        ${previousTensor} = self.${layerName}(${previousTensor})`;
           }
           break;
-          
+
         default:
           forwardCode = `        # ${node.type} layer - implementation needed`;
       }
@@ -630,50 +737,62 @@ class NetworkCodeGenerator {
     forwardMethod.push(`        return ${previousTensor}`);
 
     // Add optimizer and loss handling
-    const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop', 'adagrad', 'adamw'].includes(node.type));
-    const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse', 'mae'].includes(node.type));
-    const trainingNode = this.nodes.find(node => node.type === 'training_config');
+    const optimizerNode = this.nodes.find(
+      (node) =>
+        node.type &&
+        ["adam", "sgd", "rmsprop", "adagrad", "adamw"].includes(node.type),
+    );
+    const lossNode = this.nodes.find(
+      (node) =>
+        node.type && ["bce", "crossentropy", "mse", "mae"].includes(node.type),
+    );
+    const trainingNode = this.nodes.find(
+      (node) => node.type === "training_config",
+    );
 
     const usage = [
       "",
       "# Create model instance for gender classification",
       "model = GenderClassificationModel()",
       "",
-      "# Define loss function"
+      "# Define loss function",
     ];
 
     let lossCode = "nn.BCELoss()";
+
     if (lossNode) {
       switch (lossNode.type) {
-        case 'bce':
+        case "bce":
           lossCode = "nn.BCELoss()";
           break;
-        case 'crossentropy':
+        case "crossentropy":
           lossCode = "nn.CrossEntropyLoss()";
           break;
-        case 'mse':
+        case "mse":
           lossCode = "nn.MSELoss()";
           break;
-        case 'mae':
+        case "mae":
           lossCode = "nn.L1Loss()";
           break;
       }
     }
-    
+
     usage.push(`criterion = ${lossCode}`);
     usage.push("");
 
     let optimizerCode = "optim.Adam(model.parameters(), lr=0.001)";
+
     if (optimizerNode) {
       const params = optimizerNode.data.params || {};
+
       switch (optimizerNode.type) {
-        case 'adam':
+        case "adam":
           optimizerCode = `optim.Adam(model.parameters(), lr=${params.lr || 0.001}, betas=(${params.beta1 || 0.9}, ${params.beta2 || 0.999}))`;
           break;
-        case 'sgd':
+        case "sgd":
           optimizerCode = `optim.SGD(model.parameters(), lr=${params.lr || 0.01}, momentum=${params.momentum || 0.9})`;
           break;
-        case 'rmsprop':
+        case "rmsprop":
           optimizerCode = `optim.RMSprop(model.parameters(), lr=${params.lr || 0.01})`;
           break;
       }
@@ -684,10 +803,11 @@ class NetworkCodeGenerator {
     usage.push("# Model summary");
     usage.push("print(model)");
     usage.push("");
-    
+
     // Add training configuration
     if (trainingNode) {
       const config = trainingNode.data.config || {};
+
       usage.push("# Training configuration");
       usage.push(`num_epochs = ${config.epochs || 10}`);
       usage.push(`batch_size = ${config.batch_size || 32}`);
@@ -697,7 +817,9 @@ class NetworkCodeGenerator {
       usage.push("# for epoch in range(num_epochs):");
       usage.push("#     model.train()");
       usage.push("#     running_loss = 0.0");
-      usage.push("#     for batch_idx, (data, targets) in enumerate(train_loader):");
+      usage.push(
+        "#     for batch_idx, (data, targets) in enumerate(train_loader):",
+      );
       usage.push("#         optimizer.zero_grad()");
       usage.push("#         outputs = model(data)");
       usage.push("#         loss = criterion(outputs, targets)");
@@ -712,15 +834,23 @@ class NetworkCodeGenerator {
       usage.push("#     with torch.no_grad():");
       usage.push("#         for data, targets in val_loader:");
       usage.push("#             outputs = model(data)");
-      usage.push("#             val_loss += criterion(outputs, targets).item()");
+      usage.push(
+        "#             val_loss += criterion(outputs, targets).item()",
+      );
       usage.push("#             pred = outputs.round()");
-      usage.push("#             correct += pred.eq(targets.view_as(pred)).sum().item()");
+      usage.push(
+        "#             correct += pred.eq(targets.view_as(pred)).sum().item()",
+      );
       usage.push("#");
-      usage.push("#     print(f'Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader):.4f}, Val Acc: {100.*correct/len(val_loader.dataset):.2f}%')");
+      usage.push(
+        "#     print(f'Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader):.4f}, Val Acc: {100.*correct/len(val_loader.dataset):.2f}%')",
+      );
     } else {
       usage.push("# Training example");
       usage.push("# for epoch in range(num_epochs):");
-      usage.push("#     for batch_idx, (data, targets) in enumerate(train_loader):");
+      usage.push(
+        "#     for batch_idx, (data, targets) in enumerate(train_loader):",
+      );
       usage.push("#         optimizer.zero_grad()");
       usage.push("#         outputs = model(data)");
       usage.push("#         loss = criterion(outputs, targets)");
@@ -735,13 +865,13 @@ class NetworkCodeGenerator {
       "",
       ...forwardMethod,
       "",
-      ...usage
-    ].join('\n');
+      ...usage,
+    ].join("\n");
   }
 
   generateTensorFlowNotebook(): any {
     const code = this.generateTensorFlowCode();
-    
+
     return {
       cells: [
         {
@@ -759,8 +889,8 @@ class NetworkCodeGenerator {
             "3. Upload your dataset or use the sample data generator\n",
             "4. Run the training cells\n",
             "\n",
-            "---"
-          ]
+            "---",
+          ],
         },
         {
           cell_type: "code",
@@ -780,8 +910,8 @@ class NetworkCodeGenerator {
             "from sklearn.model_selection import train_test_split\n",
             "from sklearn.preprocessing import StandardScaler\n",
             "\n",
-            "print(\"Setup complete!\")"
-          ]
+            'print("Setup complete!")',
+          ],
         },
         {
           cell_type: "markdown",
@@ -789,8 +919,8 @@ class NetworkCodeGenerator {
           source: [
             "## Sample Data Generator\n",
             "\n",
-            "If you don't have your own dataset, use this cell to generate sample data for testing:"
-          ]
+            "If you don't have your own dataset, use this cell to generate sample data for testing:",
+          ],
         },
         {
           cell_type: "code",
@@ -800,9 +930,9 @@ class NetworkCodeGenerator {
           source: [
             "# Generate sample data for testing\n",
             "def generate_sample_data(n_samples=1000, n_features=100):\n",
-            "    \"\"\"\n",
+            '    """\n',
             "    Generate sample data for binary classification\n",
-            "    \"\"\"\n",
+            '    """\n',
             "    np.random.seed(42)\n",
             "    \n",
             "    # Generate random features\n",
@@ -816,8 +946,8 @@ class NetworkCodeGenerator {
             "\n",
             "# Generate sample data\n",
             "X, y = generate_sample_data(1000, 100)\n",
-            "print(f\"Generated data shape: X={X.shape}, y={y.shape}\")\n",
-            "print(f\"Class distribution: {np.bincount(y)}\")\n",
+            'print(f"Generated data shape: X={X.shape}, y={y.shape}")\n',
+            'print(f"Class distribution: {np.bincount(y)}")\n',
             "\n",
             "# Split the data\n",
             "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
@@ -827,9 +957,9 @@ class NetworkCodeGenerator {
             "X_train_scaled = scaler.fit_transform(X_train)\n",
             "X_test_scaled = scaler.transform(X_test)\n",
             "\n",
-            "print(f\"Training data shape: {X_train_scaled.shape}\")\n",
-            "print(f\"Test data shape: {X_test_scaled.shape}\")"
-          ]
+            'print(f"Training data shape: {X_train_scaled.shape}")\n',
+            'print(f"Test data shape: {X_test_scaled.shape}")',
+          ],
         },
         {
           cell_type: "markdown",
@@ -837,8 +967,8 @@ class NetworkCodeGenerator {
           source: [
             "## Upload Your Own Dataset\n",
             "\n",
-            "Uncomment and modify the following cell to load your own dataset:"
-          ]
+            "Uncomment and modify the following cell to load your own dataset:",
+          ],
         },
         {
           cell_type: "code",
@@ -862,8 +992,8 @@ class NetworkCodeGenerator {
             "# X_train_scaled = scaler.fit_transform(X_train)\n",
             "# X_test_scaled = scaler.transform(X_test)\n",
             "\n",
-            "print(\"Ready to load your dataset!\")"
-          ]
+            'print("Ready to load your dataset!")',
+          ],
         },
         {
           cell_type: "markdown",
@@ -871,22 +1001,20 @@ class NetworkCodeGenerator {
           source: [
             "## Generated Neural Network Model\n",
             "\n",
-            "This is your custom neural network architecture:"
-          ]
+            "This is your custom neural network architecture:",
+          ],
         },
         {
           cell_type: "code",
           execution_count: null,
           metadata: {},
           outputs: [],
-          source: code.split('\n')
+          source: code.split("\n"),
         },
         {
           cell_type: "markdown",
           metadata: {},
-          source: [
-            "## Training Configuration and Execution"
-          ]
+          source: ["## Training Configuration and Execution"],
         },
         {
           cell_type: "code",
@@ -914,8 +1042,8 @@ class NetworkCodeGenerator {
             "model.summary()\n",
             "\n",
             "# Plot model architecture\n",
-            "tf.keras.utils.plot_model(model, show_shapes=True, show_layer_names=True)"
-          ]
+            "tf.keras.utils.plot_model(model, show_shapes=True, show_layer_names=True)",
+          ],
         },
         {
           cell_type: "code",
@@ -946,8 +1074,8 @@ class NetworkCodeGenerator {
             "    )\n",
             "]\n",
             "\n",
-            "print(\"Callbacks configured!\")"
-          ]
+            'print("Callbacks configured!")',
+          ],
         },
         {
           cell_type: "code",
@@ -965,15 +1093,13 @@ class NetworkCodeGenerator {
             "    verbose=1\n",
             ")\n",
             "\n",
-            "print(\"Training completed!\")"
-          ]
+            'print("Training completed!")',
+          ],
         },
         {
           cell_type: "markdown",
           metadata: {},
-          source: [
-            "## Results Visualization and Evaluation"
-          ]
+          source: ["## Results Visualization and Evaluation"],
         },
         {
           cell_type: "code",
@@ -1003,8 +1129,8 @@ class NetworkCodeGenerator {
             "axes[1].grid(True)\n",
             "\n",
             "plt.tight_layout()\n",
-            "plt.show()"
-          ]
+            "plt.show()",
+          ],
         },
         {
           cell_type: "code",
@@ -1014,8 +1140,8 @@ class NetworkCodeGenerator {
           source: [
             "# Evaluate on test set\n",
             "test_loss, test_accuracy = model.evaluate(X_test_scaled, y_test, verbose=0)\n",
-            "print(f\"Test Accuracy: {test_accuracy:.4f}\")\n",
-            "print(f\"Test Loss: {test_loss:.4f}\")\n",
+            'print(f"Test Accuracy: {test_accuracy:.4f}")\n',
+            'print(f"Test Loss: {test_loss:.4f}")\n',
             "\n",
             "# Make predictions\n",
             "y_pred_proba = model.predict(X_test_scaled)\n",
@@ -1023,7 +1149,7 @@ class NetworkCodeGenerator {
             "\n",
             "# Classification report\n",
             "from sklearn.metrics import classification_report, confusion_matrix\n",
-            "print(\"\\nClassification Report:\")\n",
+            'print("\\nClassification Report:")\n',
             "print(classification_report(y_test, y_pred))\n",
             "\n",
             "# Confusion Matrix\n",
@@ -1033,8 +1159,8 @@ class NetworkCodeGenerator {
             "plt.title('Confusion Matrix')\n",
             "plt.ylabel('Actual')\n",
             "plt.xlabel('Predicted')\n",
-            "plt.show()"
-          ]
+            "plt.show()",
+          ],
         },
         {
           cell_type: "markdown",
@@ -1042,8 +1168,8 @@ class NetworkCodeGenerator {
           source: [
             "## Save and Download Model\n",
             "\n",
-            "Save your trained model for future use:"
-          ]
+            "Save your trained model for future use:",
+          ],
         },
         {
           cell_type: "code",
@@ -1066,37 +1192,37 @@ class NetworkCodeGenerator {
             "# files.download('neural_network_model.h5')\n",
             "# files.download('scaler.pkl')\n",
             "\n",
-            "print(\"Training complete! Your model is ready to use.\")"
-          ]
-        }
+            'print("Training complete! Your model is ready to use.")',
+          ],
+        },
       ],
       metadata: {
         kernelspec: {
           display_name: "Python 3",
           language: "python",
-          name: "python3"
+          name: "python3",
         },
         language_info: {
           codemirror_mode: {
             name: "ipython",
-            version: 3
+            version: 3,
           },
           file_extension: ".py",
           mimetype: "text/x-python",
           name: "python",
           nbconvert_exporter: "python",
           pygments_lexer: "ipython3",
-          version: "3.8.0"
-        }
+          version: "3.8.0",
+        },
       },
       nbformat: 4,
-      nbformat_minor: 4
+      nbformat_minor: 4,
     };
   }
 
   generatePyTorchNotebook(): any {
     const code = this.generatePyTorchCode();
-    
+
     return {
       cells: [
         {
@@ -1114,8 +1240,8 @@ class NetworkCodeGenerator {
             "3. Upload your dataset or use the sample data generator\n",
             "4. Run the training cells\n",
             "\n",
-            "---"
-          ]
+            "---",
+          ],
         },
         {
           cell_type: "code",
@@ -1145,8 +1271,8 @@ class NetworkCodeGenerator {
             "if torch.cuda.is_available():\n",
             "    print(f'GPU: {torch.cuda.get_device_name(0)}')\n",
             "\n",
-            "print(\"Setup complete!\")"
-          ]
+            'print("Setup complete!")',
+          ],
         },
         {
           cell_type: "markdown",
@@ -1154,8 +1280,8 @@ class NetworkCodeGenerator {
           source: [
             "## Sample Data Generator\n",
             "\n",
-            "If you don't have your own dataset, use this cell to generate sample data for testing:"
-          ]
+            "If you don't have your own dataset, use this cell to generate sample data for testing:",
+          ],
         },
         {
           cell_type: "code",
@@ -1165,9 +1291,9 @@ class NetworkCodeGenerator {
           source: [
             "# Generate sample data for testing\n",
             "def generate_sample_data(n_samples=1000, n_features=100):\n",
-            "    \"\"\"\n",
+            '    """\n',
             "    Generate sample data for binary classification\n",
-            "    \"\"\"\n",
+            '    """\n',
             "    np.random.seed(42)\n",
             "    \n",
             "    # Generate random features\n",
@@ -1181,8 +1307,8 @@ class NetworkCodeGenerator {
             "\n",
             "# Generate sample data\n",
             "X, y = generate_sample_data(1000, 100)\n",
-            "print(f\"Generated data shape: X={X.shape}, y={y.shape}\")\n",
-            "print(f\"Class distribution: {np.bincount(y)}\")\n",
+            'print(f"Generated data shape: X={X.shape}, y={y.shape}")\n',
+            'print(f"Class distribution: {np.bincount(y)}")\n',
             "\n",
             "# Split the data\n",
             "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
@@ -1198,9 +1324,9 @@ class NetworkCodeGenerator {
             "X_test_tensor = torch.FloatTensor(X_test_scaled).to(device)\n",
             "y_test_tensor = torch.FloatTensor(y_test).to(device)\n",
             "\n",
-            "print(f\"Training data shape: {X_train_tensor.shape}\")\n",
-            "print(f\"Test data shape: {X_test_tensor.shape}\")"
-          ]
+            'print(f"Training data shape: {X_train_tensor.shape}")\n',
+            'print(f"Test data shape: {X_test_tensor.shape}")',
+          ],
         },
         {
           cell_type: "markdown",
@@ -1208,8 +1334,8 @@ class NetworkCodeGenerator {
           source: [
             "## Upload Your Own Dataset\n",
             "\n",
-            "Uncomment and modify the following cell to load your own dataset:"
-          ]
+            "Uncomment and modify the following cell to load your own dataset:",
+          ],
         },
         {
           cell_type: "code",
@@ -1239,8 +1365,8 @@ class NetworkCodeGenerator {
             "# X_test_tensor = torch.FloatTensor(X_test_scaled).to(device)\n",
             "# y_test_tensor = torch.FloatTensor(y_test).to(device)\n",
             "\n",
-            "print(\"Ready to load your dataset!\")"
-          ]
+            'print("Ready to load your dataset!")',
+          ],
         },
         {
           cell_type: "markdown",
@@ -1248,22 +1374,20 @@ class NetworkCodeGenerator {
           source: [
             "## Generated Neural Network Model\n",
             "\n",
-            "This is your custom neural network architecture:"
-          ]
+            "This is your custom neural network architecture:",
+          ],
         },
         {
           cell_type: "code",
           execution_count: null,
           metadata: {},
           outputs: [],
-          source: code.split('\n')
+          source: code.split("\n"),
         },
         {
           cell_type: "markdown",
           metadata: {},
-          source: [
-            "## Training Configuration and Data Loaders"
-          ]
+          source: ["## Training Configuration and Data Loaders"],
         },
         {
           cell_type: "code",
@@ -1290,10 +1414,10 @@ class NetworkCodeGenerator {
             "val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)\n",
             "test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)\n",
             "\n",
-            "print(f\"Training batches: {len(train_loader)}\")\n",
-            "print(f\"Validation batches: {len(val_loader)}\")\n",
-            "print(f\"Test batches: {len(test_loader)}\")"
-          ]
+            'print(f"Training batches: {len(train_loader)}")\n',
+            'print(f"Validation batches: {len(val_loader)}")\n',
+            'print(f"Test batches: {len(test_loader)}")',
+          ],
         },
         {
           cell_type: "code",
@@ -1309,17 +1433,15 @@ class NetworkCodeGenerator {
             "optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)\n",
             "scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)\n",
             "\n",
-            "print(\"Model created and moved to device!\")\n",
-            "print(f\"Total parameters: {sum(p.numel() for p in model.parameters())}\")\n",
-            "print(f\"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}\")"
-          ]
+            'print("Model created and moved to device!")\n',
+            'print(f"Total parameters: {sum(p.numel() for p in model.parameters())}")\n',
+            'print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")',
+          ],
         },
         {
           cell_type: "markdown",
           metadata: {},
-          source: [
-            "## Training Loop"
-          ]
+          source: ["## Training Loop"],
         },
         {
           cell_type: "code",
@@ -1373,8 +1495,8 @@ class NetworkCodeGenerator {
             "    epoch_acc = 100. * correct / total\n",
             "    return epoch_loss, epoch_acc\n",
             "\n",
-            "print(\"Training functions defined!\")"
-          ]
+            'print("Training functions defined!")',
+          ],
         },
         {
           cell_type: "code",
@@ -1392,7 +1514,7 @@ class NetworkCodeGenerator {
             "patience = 0\n",
             "max_patience = 10\n",
             "\n",
-            "print(\"Starting training...\")\n",
+            'print("Starting training...")\n',
             "\n",
             "for epoch in range(EPOCHS):\n",
             "    # Train\n",
@@ -1430,15 +1552,13 @@ class NetworkCodeGenerator {
             "    \n",
             "    print('-' * 50)\n",
             "\n",
-            "print(\"Training completed!\")"
-          ]
+            'print("Training completed!")',
+          ],
         },
         {
           cell_type: "markdown",
           metadata: {},
-          source: [
-            "## Results Visualization and Evaluation"
-          ]
+          source: ["## Results Visualization and Evaluation"],
         },
         {
           cell_type: "code",
@@ -1470,8 +1590,8 @@ class NetworkCodeGenerator {
             "plt.tight_layout()\n",
             "plt.show()\n",
             "\n",
-            "print(f\"Best validation accuracy: {max(val_accuracies):.2f}%\")"
-          ]
+            'print(f"Best validation accuracy: {max(val_accuracies):.2f}%")',
+          ],
         },
         {
           cell_type: "code",
@@ -1483,8 +1603,8 @@ class NetworkCodeGenerator {
             "model.load_state_dict(torch.load('best_model.pth'))\n",
             "test_loss, test_acc = validate_epoch(model, test_loader, criterion, device)\n",
             "\n",
-            "print(f\"Test Accuracy: {test_acc:.2f}%\")\n",
-            "print(f\"Test Loss: {test_loss:.4f}\")\n",
+            'print(f"Test Accuracy: {test_acc:.2f}%")\n',
+            'print(f"Test Loss: {test_loss:.4f}")\n',
             "\n",
             "# Generate predictions for confusion matrix\n",
             "model.eval()\n",
@@ -1501,7 +1621,7 @@ class NetworkCodeGenerator {
             "\n",
             "# Classification report\n",
             "from sklearn.metrics import classification_report, confusion_matrix\n",
-            "print(\"\\nClassification Report:\")\n",
+            'print("\\nClassification Report:")\n',
             "print(classification_report(all_targets, all_preds))\n",
             "\n",
             "# Confusion Matrix\n",
@@ -1511,8 +1631,8 @@ class NetworkCodeGenerator {
             "plt.title('Confusion Matrix')\n",
             "plt.ylabel('Actual')\n",
             "plt.xlabel('Predicted')\n",
-            "plt.show()"
-          ]
+            "plt.show()",
+          ],
         },
         {
           cell_type: "markdown",
@@ -1520,8 +1640,8 @@ class NetworkCodeGenerator {
           source: [
             "## Save and Download Model\n",
             "\n",
-            "Save your trained model for future use:"
-          ]
+            "Save your trained model for future use:",
+          ],
         },
         {
           cell_type: "code",
@@ -1553,32 +1673,32 @@ class NetworkCodeGenerator {
             "# files.download('neural_network_model.pth')\n",
             "# files.download('scaler.pkl')\n",
             "\n",
-            "print(\"Training complete! Your model is ready to use.\")"
-          ]
-        }
+            'print("Training complete! Your model is ready to use.")',
+          ],
+        },
       ],
       metadata: {
         kernelspec: {
           display_name: "Python 3",
           language: "python",
-          name: "python3"
+          name: "python3",
         },
         language_info: {
           codemirror_mode: {
             name: "ipython",
-            version: 3
+            version: 3,
           },
           file_extension: ".py",
           mimetype: "text/x-python",
           name: "python",
           nbconvert_exporter: "python",
           pygments_lexer: "ipython3",
-          version: "3.8.0"
+          version: "3.8.0",
         },
-        accelerator: "GPU"
+        accelerator: "GPU",
       },
       nbformat: 4,
-      nbformat_minor: 4
+      nbformat_minor: 4,
     };
   }
 }
@@ -1589,43 +1709,50 @@ interface CodeGeneratorPanelProps {
   edges: Edge[];
 }
 
-const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges }) => {
-  const [framework, setFramework] = useState<string>('tensorflow');
-  const [generatedCode, setGeneratedCode] = useState<string>('');
-  const [error, setError] = useState<string>('');
+const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({
+  nodes,
+  edges,
+}) => {
+  const [framework, setFramework] = useState<string>("tensorflow");
+  const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   const generateCode = () => {
     try {
-      setError('');
+      setError("");
       const generator = new NetworkCodeGenerator(nodes, edges);
-      
+
       let code: string;
-      if (framework === 'tensorflow') {
+
+      if (framework === "tensorflow") {
         code = generator.generateTensorFlowCode();
       } else {
         code = generator.generatePyTorchCode();
       }
-      
+
       setGeneratedCode(code);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      setGeneratedCode('');
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred",
+      );
+      setGeneratedCode("");
     }
   };
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(generatedCode);
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
+    } catch {
+      // Failed to copy to clipboard - user will see the copy button didn't work
     }
   };
 
   const downloadCode = () => {
-    const extension = framework === 'tensorflow' ? 'tf.py' : 'torch.py';
-    const blob = new Blob([generatedCode], { type: 'text/plain' });
+    const extension = framework === "tensorflow" ? "tf.py" : "torch.py";
+    const blob = new Blob([generatedCode], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
+
     a.href = url;
     a.download = `neural_network_${extension}`;
     a.click();
@@ -1636,33 +1763,47 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
     <div className="h-full overflow-auto bg-background">
       <Card className="m-4 shadow-lg">
         <CardHeader className="flex flex-col items-start">
-          <h2 className="text-2xl font-bold text-foreground">Neural Network Code Generator</h2>
+          <h2 className="text-2xl font-bold text-foreground">
+            Neural Network Code Generator
+          </h2>
           <p className="text-small text-default-500 mt-1">
             Generate production-ready code from your neural network design
           </p>
         </CardHeader>
-        
+
         <Divider />
-        
+
         <CardBody className="space-y-6">
           {/* Framework Selection */}
           <div>
-            <h3 className="text-lg font-semibold mb-3 text-foreground">Select Framework</h3>
+            <h3 className="text-lg font-semibold mb-3 text-foreground">
+              Select Framework
+            </h3>
             <RadioGroup
+              className="gap-4"
+              orientation="horizontal"
               value={framework}
               onValueChange={setFramework}
-              orientation="horizontal"
-              className="gap-4"
             >
-              <Radio value="tensorflow" description="Google's machine learning framework">
+              <Radio
+                description="Google's machine learning framework"
+                value="tensorflow"
+              >
                 <div className="flex items-center gap-2">
-                  <Chip color="warning" variant="flat" size="sm">TF</Chip>
+                  <Chip color="warning" size="sm" variant="flat">
+                    TF
+                  </Chip>
                   TensorFlow/Keras
                 </div>
               </Radio>
-              <Radio value="pytorch" description="Facebook's deep learning framework">
+              <Radio
+                description="Facebook's deep learning framework"
+                value="pytorch"
+              >
                 <div className="flex items-center gap-2">
-                  <Chip color="danger" variant="flat" size="sm">PT</Chip>
+                  <Chip color="danger" size="sm" variant="flat">
+                    PT
+                  </Chip>
                   PyTorch
                 </div>
               </Radio>
@@ -1674,10 +1815,9 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
           {/* Generate Button */}
           <div className="flex justify-center">
             <Button
+              className="font-semibold"
               color="primary"
               size="lg"
-              onPress={generateCode}
-              className="font-semibold"
               startContent={
                 <svg
                   className="w-5 h-5"
@@ -1686,13 +1826,14 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
                   viewBox="0 0 24 24"
                 >
                   <path
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
                   />
                 </svg>
               }
+              onPress={generateCode}
             >
               Generate Code
             </Button>
@@ -1702,9 +1843,9 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
           {error && (
             <Alert
               color="danger"
-              variant="faded"
-              title="Code Generation Error"
               description={error}
+              title="Code Generation Error"
+              variant="faded"
             />
           )}
 
@@ -1712,13 +1853,13 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
           {generatedCode && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-foreground">Generated Code</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Generated Code
+                </h3>
                 <div className="flex gap-2">
                   <Button
                     color="default"
-                    variant="flat"
                     size="sm"
-                    onPress={copyToClipboard}
                     startContent={
                       <svg
                         className="w-4 h-4"
@@ -1727,21 +1868,21 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
                         viewBox="0 0 24 24"
                       >
                         <path
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                         />
                       </svg>
                     }
+                    variant="flat"
+                    onPress={copyToClipboard}
                   >
                     Copy
                   </Button>
                   <Button
                     color="success"
-                    variant="flat"
                     size="sm"
-                    onPress={downloadCode}
                     startContent={
                       <svg
                         className="w-4 h-4"
@@ -1750,21 +1891,23 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
                         viewBox="0 0 24 24"
                       >
                         <path
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
                     }
+                    variant="flat"
+                    onPress={downloadCode}
                   >
                     Download
                   </Button>
                 </div>
               </div>
-              
-              <Snippet 
-                hideCopyButton 
+
+              <Snippet
+                hideCopyButton
                 hideSymbol
                 className="w-full"
                 classNames={{
@@ -1790,30 +1933,49 @@ const CodeGeneratorPanel: React.FC<CodeGeneratorPanelProps> = ({ nodes, edges })
                   viewBox="0 0 24 24"
                 >
                   <path
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
                 Instructions
               </h4>
               <div className="space-y-2 text-sm text-default-600">
                 <div className="flex items-start gap-2">
-                  <Chip color="primary" size="sm" variant="dot">1</Chip>
-                  <span>Make sure your flow has an Input node to define the network entry point</span>
+                  <Chip color="primary" size="sm" variant="dot">
+                    1
+                  </Chip>
+                  <span>
+                    Make sure your flow has an Input node to define the network
+                    entry point
+                  </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Chip color="primary" size="sm" variant="dot">2</Chip>
-                  <span>Connect nodes in the desired order to create the network architecture</span>
+                  <Chip color="primary" size="sm" variant="dot">
+                    2
+                  </Chip>
+                  <span>
+                    Connect nodes in the desired order to create the network
+                    architecture
+                  </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Chip color="primary" size="sm" variant="dot">3</Chip>
-                  <span>Configure node parameters using the node options panel</span>
+                  <Chip color="primary" size="sm" variant="dot">
+                    3
+                  </Chip>
+                  <span>
+                    Configure node parameters using the node options panel
+                  </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Chip color="primary" size="sm" variant="dot">4</Chip>
-                  <span>The generator follows the connection flow to create sequential models</span>
+                  <Chip color="primary" size="sm" variant="dot">
+                    4
+                  </Chip>
+                  <span>
+                    The generator follows the connection flow to create
+                    sequential models
+                  </span>
                 </div>
               </div>
             </CardBody>

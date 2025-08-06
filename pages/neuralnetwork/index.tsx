@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardBody } from "@heroui/react";
+import { Node } from "reactflow";
 
 import Sidebar from "@/components/Sidebar";
 import FlowCanvasWrapper from "@/components/FlowCanvasWrapper";
 
-const App: React.FC = () => {
-  const [selectedNode, setSelectedNode] = React.useState<any | null>(null);
+export default function NeuralNetworkPage() {
+  const [_selectedNode, setSelectedNode] = useState<Node | null>(null);
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -24,9 +25,6 @@ const App: React.FC = () => {
           <NodeOptions selectedNode={selectedNode} />
         </CardBody>
       </Card> */}
-      
     </div>
   );
-};
-
-export default App;
+}
