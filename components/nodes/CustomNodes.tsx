@@ -7,12 +7,16 @@ import clsx from "clsx";
 import { nodeStyles } from "./nodeStyles";
 
 const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const isProcessing = data.isProcessing || false;
+  const activationLevel = data.activationLevel || 0;
+
   return (
     <div
       className={clsx(
         nodeStyles.base,
         nodeStyles[type as keyof typeof nodeStyles] || nodeStyles.dense,
         selected && nodeStyles.selected,
+        isProcessing && "ring-2 ring-blue-400 ring-opacity-50 animate-pulse",
         "p-4",
       )}
     >
@@ -25,10 +29,25 @@ const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
 
       <div className="flex items-center gap-2">
         {data.icon && <Icon className="w-5 h-5" icon={data.icon} />}
-        <div>
-          <div className="font-bold text-sm">{data.label}</div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div className="font-bold text-sm">{data.label}</div>
+            {isProcessing && (
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-2"></div>
+            )}
+          </div>
           {data.details && (
             <div className="text-xs text-gray-500">{data.details}</div>
+          )}
+          {isProcessing && activationLevel > 0 && (
+            <div className="mt-2">
+              <div className="w-full bg-gray-600 rounded-full h-1">
+                <div 
+                  className="bg-blue-400 h-1 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(activationLevel * 100, 100)}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -190,25 +209,58 @@ const TextInput = ({ data, type, selected, isConnectable }: NodeProps) => {
     data.onChange?.(newValue);
   };
 
+  React.useEffect(() => {
+    setInputValue(data.value || "");
+  }, [data.value]);
+
+  const isProcessing = data.isProcessing || false;
+  const activationLevel = data.activationLevel || 0;
+
   return (
     <div
       className={clsx(
       "bg-gray-900 border-2 border-gray-700 rounded-lg shadow-md p-3 min-w-[200px]",
       "transition-all duration-200",
       selected ? "border-blue-500 shadow-lg" : "",
+      isProcessing ? "ring-2 ring-green-400 ring-opacity-50 animate-pulse" : "",
       )}
     >
       <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-gray-200">
-        {data.label || "Text Input"}
-      </label>
-      <input
-        type="text"
-        value={inputValue}
-        onChange={handleInputChange}
-        placeholder="Enter text..."
-        className="px-3 py-2 border border-gray-700 bg-gray-800 text-gray-100 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-200">
+            {data.label || "Text Input"}
+          </label>
+          {isProcessing && (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-xs text-green-400">Processing</span>
+            </div>
+          )}
+        </div>
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          placeholder="Enter text..."
+          className={clsx(
+            "px-3 py-2 border border-gray-700 bg-gray-800 text-gray-100 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+            isProcessing ? "border-green-400 bg-gray-750" : ""
+          )}
+        />
+        {isProcessing && activationLevel > 0 && (
+          <div className="mt-1">
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span>Activation</span>
+              <span>{activationLevel.toFixed(2)}</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-1">
+              <div 
+                className="bg-green-400 h-1 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(activationLevel * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       <Handle
       className={nodeStyles.handle}
