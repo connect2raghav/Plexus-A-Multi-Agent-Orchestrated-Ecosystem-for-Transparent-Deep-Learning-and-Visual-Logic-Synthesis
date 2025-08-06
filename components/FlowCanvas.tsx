@@ -95,6 +95,49 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       animated: true,
       type: "smooth",
     },
+    // Output -> Training Config (network connection)
+    {
+      id: "e-output-training",
+      source: "output-1",
+      target: "training-1",
+      sourceHandle: null,
+      targetHandle: "network",
+      animated: true,
+      type: "smooth",
+    },
+    // Optimizer -> Training Config
+    {
+      id: "e-optimizer-training",
+      source: "optimizer-1",
+      target: "training-1",
+      sourceHandle: null,
+      targetHandle: "optimizer",
+      animated: true,
+      type: "smooth",
+      style: { stroke: '#fb923c' },
+    },
+    // Loss -> Training Config
+    {
+      id: "e-loss-training",
+      source: "loss-1",
+      target: "training-1",
+      sourceHandle: null,
+      targetHandle: "loss",
+      animated: true,
+      type: "smooth",
+      style: { stroke: '#ef4444' },
+    },
+    // Training Config -> Metrics
+    {
+      id: "e-training-metrics",
+      source: "training-1",
+      target: "metrics-1",
+      sourceHandle: "metrics",
+      targetHandle: null,
+      animated: true,
+      type: "smooth",
+      style: { stroke: '#10b981' },
+    },
   ];
 
   const initialNodes: Node[] = [
@@ -289,7 +332,54 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           );
         },
       },
-      position: { x: 950, y: 300 },
+      position: { x: 950, y: 350 },
+    },
+    // Training Configuration Hub
+    {
+      id: "training-1",
+      type: "training_config",
+      data: {
+        label: "Training Config",
+        icon: "lucide:settings",
+        details: "Training Configuration Hub",
+        config: {
+          epochs: 50,
+          batch_size: 32,
+          validation_split: 0.2,
+          early_stopping: true,
+          save_best: true
+        },
+        onConfigChange: (newConfig: any) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === "training-1"
+                ? {
+                  ...node,
+                  data: { ...node.data, config: newConfig },
+                }
+                : node,
+            ),
+          );
+        },
+      },
+      position: { x: 1400, y: 200 },
+    },
+    // Metrics Node
+    {
+      id: "metrics-1",
+      type: "metrics",
+      data: {
+        label: "Training Metrics",
+        icon: "lucide:bar-chart-3",
+        details: "Model Performance",
+        metrics: {
+          accuracy: 0.94,
+          loss: 0.06,
+          val_accuracy: 0.91,
+          val_loss: 0.09
+        },
+      },
+      position: { x: 1650, y: 200 },
     },
   ];
 
@@ -414,6 +504,44 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
                       : node,
                   ),
                 );
+              },
+            }
+            : {}),
+          // Add configuration handling for training config nodes
+          ...(nodeData.type === "training_config"
+            ? {
+              config: {
+                epochs: 10,
+                batch_size: 32,
+                validation_split: 0.2,
+                early_stopping: false,
+                save_best: true
+              },
+              onConfigChange: (newConfig: any) => {
+                setNodes((nds) =>
+                  nds.map((node) =>
+                    node.id === newNode.id
+                      ? {
+                        ...node,
+                        data: {
+                          ...node.data,
+                          config: newConfig,
+                        },
+                      }
+                      : node,
+                  ),
+                );
+              },
+            }
+            : {}),
+          // Add metrics handling for metrics nodes
+          ...(nodeData.type === "metrics"
+            ? {
+              metrics: {
+                accuracy: 0.0,
+                loss: 0.0,
+                val_accuracy: 0.0,
+                val_loss: 0.0
               },
             }
             : {}),

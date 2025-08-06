@@ -199,6 +199,7 @@ class NetworkCodeGenerator {
     // Add model compilation with optimizer and loss from nodes
     const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop', 'adagrad', 'adamw'].includes(node.type));
     const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse', 'mae'].includes(node.type));
+    const trainingNode = this.nodes.find(node => node.type === 'training_config');
     
     modelBody.push("# Create and compile the model for gender classification");
     modelBody.push("model = create_gender_classification_model()");
@@ -246,8 +247,39 @@ class NetworkCodeGenerator {
     modelBody.push("# Model summary");
     modelBody.push("model.summary()");
     modelBody.push("");
-    modelBody.push("# Training example");
-    modelBody.push("# model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))");
+    
+    // Add training configuration if available
+    if (trainingNode) {
+      const config = trainingNode.data.config || {};
+      modelBody.push("# Training configuration");
+      modelBody.push(`epochs = ${config.epochs || 10}`);
+      modelBody.push(`batch_size = ${config.batch_size || 32}`);
+      modelBody.push(`validation_split = ${config.validation_split || 0.2}`);
+      modelBody.push("");
+      
+      if (config.early_stopping) {
+        modelBody.push("# Early stopping callback");
+        modelBody.push("from tensorflow.keras.callbacks import EarlyStopping");
+        modelBody.push("early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)");
+        modelBody.push("callbacks = [early_stopping]");
+      } else {
+        modelBody.push("callbacks = []");
+      }
+      modelBody.push("");
+      
+      modelBody.push("# Training example");
+      modelBody.push("# history = model.fit(");
+      modelBody.push("#     X_train, y_train,");
+      modelBody.push("#     epochs=epochs,");
+      modelBody.push("#     batch_size=batch_size,");
+      modelBody.push("#     validation_split=validation_split,");
+      modelBody.push("#     callbacks=callbacks,");
+      modelBody.push("#     verbose=1");
+      modelBody.push("# )");
+    } else {
+      modelBody.push("# Training example");
+      modelBody.push("# model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))");
+    }
 
     return [...imports, ...modelBody].join('\n');
   }
@@ -371,6 +403,7 @@ class NetworkCodeGenerator {
     // Add optimizer and loss handling
     const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop', 'adagrad', 'adamw'].includes(node.type));
     const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse', 'mae'].includes(node.type));
+    const trainingNode = this.nodes.find(node => node.type === 'training_config');
 
     const usage = [
       "",
@@ -422,14 +455,49 @@ class NetworkCodeGenerator {
     usage.push("# Model summary");
     usage.push("print(model)");
     usage.push("");
-    usage.push("# Training example");
-    usage.push("# for epoch in range(num_epochs):");
-    usage.push("#     for batch_idx, (data, targets) in enumerate(train_loader):");
-    usage.push("#         optimizer.zero_grad()");
-    usage.push("#         outputs = model(data)");
-    usage.push("#         loss = criterion(outputs, targets)");
-    usage.push("#         loss.backward()");
-    usage.push("#         optimizer.step()");
+    
+    // Add training configuration
+    if (trainingNode) {
+      const config = trainingNode.data.config || {};
+      usage.push("# Training configuration");
+      usage.push(`num_epochs = ${config.epochs || 10}`);
+      usage.push(`batch_size = ${config.batch_size || 32}`);
+      usage.push(`validation_split = ${config.validation_split || 0.2}`);
+      usage.push("");
+      usage.push("# Training loop example");
+      usage.push("# for epoch in range(num_epochs):");
+      usage.push("#     model.train()");
+      usage.push("#     running_loss = 0.0");
+      usage.push("#     for batch_idx, (data, targets) in enumerate(train_loader):");
+      usage.push("#         optimizer.zero_grad()");
+      usage.push("#         outputs = model(data)");
+      usage.push("#         loss = criterion(outputs, targets)");
+      usage.push("#         loss.backward()");
+      usage.push("#         optimizer.step()");
+      usage.push("#         running_loss += loss.item()");
+      usage.push("#");
+      usage.push("#     # Validation");
+      usage.push("#     model.eval()");
+      usage.push("#     val_loss = 0.0");
+      usage.push("#     correct = 0");
+      usage.push("#     with torch.no_grad():");
+      usage.push("#         for data, targets in val_loader:");
+      usage.push("#             outputs = model(data)");
+      usage.push("#             val_loss += criterion(outputs, targets).item()");
+      usage.push("#             pred = outputs.round()");
+      usage.push("#             correct += pred.eq(targets.view_as(pred)).sum().item()");
+      usage.push("#");
+      usage.push("#     print(f'Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader):.4f}, Val Acc: {100.*correct/len(val_loader.dataset):.2f}%')");
+    } else {
+      usage.push("# Training example");
+      usage.push("# for epoch in range(num_epochs):");
+      usage.push("#     for batch_idx, (data, targets) in enumerate(train_loader):");
+      usage.push("#         optimizer.zero_grad()");
+      usage.push("#         outputs = model(data)");
+      usage.push("#         loss = criterion(outputs, targets)");
+      usage.push("#         loss.backward()");
+      usage.push("#         optimizer.step()");
+    }
 
     return [
       ...imports,

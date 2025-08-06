@@ -912,6 +912,240 @@ const SchedulerNode = ({ data, type, selected, isConnectable }: NodeProps) => {
   );
 };
 
+// Training Configuration Node - Acts as a hub for optimizers, loss, and schedulers
+const TrainingConfigNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [config, setConfig] = useState(data.config || {
+    epochs: 10,
+    batch_size: 32,
+    validation_split: 0.2,
+    early_stopping: false,
+    save_best: true
+  });
+
+  const updateConfig = (key: string, value: any) => {
+    const newConfig = { ...config, [key]: value };
+    setConfig(newConfig);
+    if (data.onConfigChange) {
+      data.onConfigChange(newConfig);
+    }
+  };
+
+  return (
+    <div
+      className={clsx(
+        "bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg shadow-lg border-2",
+        "min-w-[240px] transition-all duration-200",
+        selected ? "border-white ring-2 ring-emerald-300" : "border-transparent",
+        isExpanded ? "min-h-[350px]" : "h-[120px]"
+      )}
+    >
+      {/* Multiple input handles for optimizer, loss, scheduler */}
+      <Handle
+        className="w-3 h-3 bg-orange-400"
+        id="optimizer"
+        isConnectable={isConnectable}
+        position={Position.Left}
+        style={{ top: '25%' }}
+        type="target"
+      />
+      <Handle
+        className="w-3 h-3 bg-red-500"
+        id="loss"
+        isConnectable={isConnectable}
+        position={Position.Left}
+        style={{ top: '50%' }}
+        type="target"
+      />
+      <Handle
+        className="w-3 h-3 bg-yellow-500"
+        id="scheduler"
+        isConnectable={isConnectable}
+        position={Position.Left}
+        style={{ top: '75%' }}
+        type="target"
+      />
+      
+      {/* Main network input from the last layer */}
+      <Handle
+        className="w-3 h-3 bg-blue-500"
+        id="network"
+        isConnectable={isConnectable}
+        position={Position.Top}
+        type="target"
+      />
+
+      <div 
+        className="p-4 cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Icon className="w-5 h-5" icon={data.icon || "lucide:settings"} />
+            <div>
+              <div className="font-bold text-sm">{data.label || "Training Config"}</div>
+              <div className="text-xs opacity-80">Epochs: {config.epochs}, Batch: {config.batch_size}</div>
+            </div>
+          </div>
+          <Icon 
+            icon={isExpanded ? "lucide:chevron-up" : "lucide:chevron-down"} 
+            className="w-4 h-4"
+          />
+        </div>
+
+        {/* Connection indicators */}
+        <div className="flex gap-1 text-xs opacity-90">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            <span>Optimizer</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span>Loss</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+            <span>Scheduler</span>
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-3 max-h-[230px] overflow-y-auto">
+          <div className="text-xs font-semibold opacity-90">Training Parameters:</div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs">Epochs</label>
+              <Input
+                size="sm"
+                type="number"
+                min="1"
+                value={config.epochs?.toString()}
+                onChange={(e) => updateConfig('epochs', parseInt(e.target.value))}
+                className="text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="text-xs">Batch Size</label>
+              <Input
+                size="sm"
+                type="number"
+                min="1"
+                value={config.batch_size?.toString()}
+                onChange={(e) => updateConfig('batch_size', parseInt(e.target.value))}
+                className="text-gray-800"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs">Validation Split</label>
+            <Input
+              size="sm"
+              type="number"
+              step="0.1"
+              min="0"
+              max="1"
+              value={config.validation_split?.toString()}
+              onChange={(e) => updateConfig('validation_split', parseFloat(e.target.value))}
+              className="text-gray-800"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              size="sm"
+              isSelected={config.early_stopping}
+              onValueChange={(value) => updateConfig('early_stopping', value)}
+            />
+            <label className="text-xs">Early Stopping</label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              size="sm"
+              isSelected={config.save_best}
+              onValueChange={(value) => updateConfig('save_best', value)}
+            />
+            <label className="text-xs">Save Best Model</label>
+          </div>
+        </div>
+      )}
+
+      {/* Output handle for metrics/results */}
+      <Handle
+        className="w-3 h-3 bg-green-500"
+        id="metrics"
+        isConnectable={isConnectable}
+        position={Position.Right}
+        type="source"
+      />
+    </div>
+  );
+};
+
+// Metrics Node - Shows training results
+const MetricsNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const [metrics] = useState(data.metrics || {
+    accuracy: 0.95,
+    loss: 0.05,
+    val_accuracy: 0.92,
+    val_loss: 0.08
+  });
+
+  return (
+    <div
+      className={clsx(
+        "bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-lg shadow-lg border-2",
+        "min-w-[180px] transition-all duration-200 p-4",
+        selected ? "border-white ring-2 ring-green-300" : "border-transparent"
+      )}
+    >
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
+
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-5 h-5" icon={data.icon} />
+        <div>
+          <div className="font-bold text-sm">{data.label}</div>
+          <div className="text-xs opacity-80">{data.details}</div>
+        </div>
+      </div>
+
+      <div className="space-y-2 text-xs">
+        <div className="flex justify-between">
+          <span>Accuracy:</span>
+          <span className="font-mono">{(metrics.accuracy * 100).toFixed(1)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Loss:</span>
+          <span className="font-mono">{metrics.loss.toFixed(3)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Val Acc:</span>
+          <span className="font-mono">{(metrics.val_accuracy * 100).toFixed(1)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Val Loss:</span>
+          <span className="font-mono">{metrics.val_loss.toFixed(3)}</span>
+        </div>
+      </div>
+
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Right}
+        type="source"
+      />
+    </div>
+  );
+};
+
 // Update the nodeTypes object to use renamed layers and new text nodes
 export const nodeTypes = {
   inputLayer: memo((props: NodeProps) => <InputLayer {...props} />),
@@ -969,6 +1203,10 @@ export const nodeTypes = {
   exponentiallr: memo((props: NodeProps) => <SchedulerNode {...props} />),
   cosineannealinglr: memo((props: NodeProps) => <SchedulerNode {...props} />),
   reducelronplateau: memo((props: NodeProps) => <SchedulerNode {...props} />),
+
+  // Training and Metrics
+  training_config: memo((props: NodeProps) => <TrainingConfigNode {...props} />),
+  metrics: memo((props: NodeProps) => <MetricsNode {...props} />),
   
   // Add other node types as needed
   softmax: memo((props: NodeProps) => <BaseNode {...props} />),

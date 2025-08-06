@@ -164,6 +164,23 @@ const nodeTypesByCategory = [
     ],
   },
   {
+    category: "Training",
+    nodes: [
+      {
+        type: "training_config",
+        label: "Training Config",
+        icon: "lucide:settings",
+        details: "Training Configuration Hub",
+      },
+      {
+        type: "metrics",
+        label: "Metrics",
+        icon: "lucide:bar-chart-3",
+        details: "Training Metrics",
+      },
+    ],
+  },
+  {
     category: "Optimizers",
     nodes: [
       {
