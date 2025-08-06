@@ -11,4 +11,8 @@ export const nodeStyles = {
   dropout: "rounded-lg min-w-[140px] border-dashed",
   lstm: "hexagon min-w-[180px]",
   concat: "parallelogram min-w-[160px]",
+  optimizer: "rounded-lg min-w-[200px] gradient-orange-pink",
+  algorithm: "rounded-lg min-w-[220px] gradient-multi",
+  loss: "rounded-lg min-w-[160px] gradient-red",
+  scheduler: "rounded-lg min-w-[180px] gradient-yellow",
 };

@@ -87,18 +87,27 @@ class NetworkCodeGenerator {
       ""
     ];
 
-    const layerDefinitions: string[] = [];
-    const modelBody = ["def create_model():"];
-    const connections = ["    # Layer connections"];
-
-    // Find input node
-    const inputNode = this.nodes.find(node => node.type === 'input');
+    const modelBody = ["def create_gender_classification_model():"];
+    
+    // Find input node - handle both 'input' and 'inputLayer' types
+    const inputNode = this.nodes.find(node => node.type === 'input' || node.type === 'inputLayer');
     if (!inputNode) {
       throw new Error("No input layer found");
     }
 
-    const inputShape = inputNode.data.count || 784;
-    modelBody.push(`    input_layer = layers.Input(shape=(${inputShape},))`);
+    // Handle image input shape for gender classification
+    const inputCount = inputNode.data.count || 150528; // 224*224*3
+    let inputShape;
+    if (inputCount === 150528 || inputCount > 100000) {
+      inputShape = "(224, 224, 3)"; // RGB image
+    } else if (inputCount === 784) {
+      inputShape = "(28, 28, 1)"; // Grayscale image
+    } else {
+      inputShape = `(${inputCount},)`; // Flat input
+    }
+    
+    modelBody.push(`    # Gender Classification Model Architecture`);
+    modelBody.push(`    input_layer = layers.Input(shape=${inputShape})`);
     
     let previousLayer = "input_layer";
     let layerCounter = 1;
@@ -106,7 +115,9 @@ class NetworkCodeGenerator {
     // Process nodes in topological order
     this.topology.forEach(nodeId => {
       const node = this.nodeMap.get(nodeId);
-      if (!node || node.type === 'input') return;
+      if (!node || node.type === 'input' || node.type === 'inputLayer' || 
+          node.type === 'adam' || node.type === 'sgd' || node.type === 'rmsprop' || 
+          node.type === 'bce' || node.type === 'crossentropy' || node.type === 'mse') return;
 
       const layerName = `layer_${layerCounter}`;
       let layerCode = "";
@@ -114,8 +125,9 @@ class NetworkCodeGenerator {
       switch (node.type) {
         case 'conv2d':
           const filters = node.data.params?.filters || 32;
-          const kernelSize = node.data.params?.kernel || 3;
-          layerCode = `    ${layerName} = layers.Conv2D(${filters}, (${kernelSize}, ${kernelSize}), activation='relu')(${previousLayer})`;
+          const kernelSize = node.data.params?.kernel_size || node.data.params?.kernel || 3;
+          const convActivation = node.data.params?.activation || 'relu';
+          layerCode = `    ${layerName} = layers.Conv2D(${filters}, (${kernelSize}, ${kernelSize}), activation='${convActivation}', padding='same')(${previousLayer})`;
           break;
           
         case 'maxpool':
@@ -129,8 +141,17 @@ class NetworkCodeGenerator {
           break;
           
         case 'activation':
-          const activation = node.data.params?.function || 'relu';
-          layerCode = `    ${layerName} = layers.Activation('${activation}')(${previousLayer})`;
+          const activationFunc = node.data.params?.function || 'relu';
+          layerCode = `    ${layerName} = layers.Activation('${activationFunc}')(${previousLayer})`;
+          break;
+        case 'flatten':
+          layerCode = `    ${layerName} = layers.Flatten()(${previousLayer})`;
+          break;
+          
+        case 'dense':
+          const denseUnits = node.data.params?.units || node.data.count || 128;
+          const denseActivation = node.data.params?.activation || 'relu';
+          layerCode = `    ${layerName} = layers.Dense(${denseUnits}, activation='${denseActivation}')(${previousLayer})`;
           break;
           
         case 'hidden':
@@ -143,14 +164,20 @@ class NetworkCodeGenerator {
           layerCode = `    ${layerName} = layers.LSTM(${lstmUnits})(${previousLayer})`;
           break;
           
+        case 'batchnorm':
+          layerCode = `    ${layerName} = layers.BatchNormalization()(${previousLayer})`;
+          break;
+          
         case 'concat':
           // Handle concatenation - would need multiple inputs
           layerCode = `    ${layerName} = layers.Concatenate()(${previousLayer})`;
           break;
           
         case 'output':
-          const outputUnits = node.data.count || 10;
-          layerCode = `    ${layerName} = layers.Dense(${outputUnits}, activation='softmax')(${previousLayer})`;
+        case 'outputLayer':
+          const outputUnits = node.data.count || 1;
+          const outputActivation = node.data.params?.activation || (outputUnits === 1 ? 'sigmoid' : 'softmax');
+          layerCode = `    ${layerName} = layers.Dense(${outputUnits}, activation='${outputActivation}')(${previousLayer})`;
           break;
           
         default:
@@ -168,16 +195,59 @@ class NetworkCodeGenerator {
     modelBody.push(`    model = Model(inputs=input_layer, outputs=${previousLayer})`);
     modelBody.push("    return model");
     modelBody.push("");
-    modelBody.push("# Create and compile the model");
-    modelBody.push("model = create_model()");
+    
+    // Add model compilation with optimizer and loss from nodes
+    const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop', 'adagrad', 'adamw'].includes(node.type));
+    const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse', 'mae'].includes(node.type));
+    
+    modelBody.push("# Create and compile the model for gender classification");
+    modelBody.push("model = create_gender_classification_model()");
+    
+    let optimizerCode = "adam";
+    if (optimizerNode) {
+      const params = optimizerNode.data.params || {};
+      switch (optimizerNode.type) {
+        case 'adam':
+          optimizerCode = `tf.keras.optimizers.Adam(learning_rate=${params.lr || 0.001}, beta_1=${params.beta1 || 0.9}, beta_2=${params.beta2 || 0.999})`;
+          break;
+        case 'sgd':
+          optimizerCode = `tf.keras.optimizers.SGD(learning_rate=${params.lr || 0.01}, momentum=${params.momentum || 0.9})`;
+          break;
+        case 'rmsprop':
+          optimizerCode = `tf.keras.optimizers.RMSprop(learning_rate=${params.lr || 0.01})`;
+          break;
+      }
+    }
+    
+    let lossCode = "binary_crossentropy";
+    if (lossNode) {
+      switch (lossNode.type) {
+        case 'bce':
+          lossCode = "binary_crossentropy";
+          break;
+        case 'crossentropy':
+          lossCode = "categorical_crossentropy";
+          break;
+        case 'mse':
+          lossCode = "mean_squared_error";
+          break;
+        case 'mae':
+          lossCode = "mean_absolute_error";
+          break;
+      }
+    }
+    
     modelBody.push("model.compile(");
-    modelBody.push("    optimizer='adam',");
-    modelBody.push("    loss='categorical_crossentropy',");
+    modelBody.push(`    optimizer=${optimizerCode},`);
+    modelBody.push(`    loss='${lossCode}',`);
     modelBody.push("    metrics=['accuracy']");
     modelBody.push(")");
     modelBody.push("");
     modelBody.push("# Model summary");
     modelBody.push("model.summary()");
+    modelBody.push("");
+    modelBody.push("# Training example");
+    modelBody.push("# model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val))");
 
     return [...imports, ...modelBody].join('\n');
   }
@@ -187,18 +257,19 @@ class NetworkCodeGenerator {
       "import torch",
       "import torch.nn as nn",
       "import torch.nn.functional as F",
+      "import torch.optim as optim",
       "import numpy as np",
       ""
     ];
 
-    const classDefinition = ["class NeuralNetwork(nn.Module):"];
+    const classDefinition = ["class GenderClassificationModel(nn.Module):"];
     const initMethod = ["    def __init__(self):"];
-    initMethod.push("        super(NeuralNetwork, self).__init__()");
+    initMethod.push("        super(GenderClassificationModel, self).__init__()");
     
     const forwardMethod = ["    def forward(self, x):"];
 
-    // Find input node
-    const inputNode = this.nodes.find(node => node.type === 'input');
+    // Find input node - handle both types
+    const inputNode = this.nodes.find(node => node.type === 'input' || node.type === 'inputLayer');
     if (!inputNode) {
       throw new Error("No input layer found");
     }
@@ -209,7 +280,9 @@ class NetworkCodeGenerator {
     // Process nodes in topological order
     this.topology.forEach(nodeId => {
       const node = this.nodeMap.get(nodeId);
-      if (!node || node.type === 'input') return;
+      if (!node || node.type === 'input' || node.type === 'inputLayer' || 
+          node.type === 'adam' || node.type === 'sgd' || node.type === 'rmsprop' || 
+          node.type === 'bce' || node.type === 'crossentropy' || node.type === 'mse') return;
 
       const layerName = `layer${layerCounter}`;
       let initCode = "";
@@ -218,9 +291,9 @@ class NetworkCodeGenerator {
       switch (node.type) {
         case 'conv2d':
           const filters = node.data.params?.filters || 32;
-          const kernelSize = node.data.params?.kernel || 3;
-          const inChannels = layerCounter === 1 ? 1 : 32; // Simplified
-          initCode = `        self.${layerName} = nn.Conv2d(${inChannels}, ${filters}, ${kernelSize})`;
+          const kernelSize = node.data.params?.kernel_size || node.data.params?.kernel || 3;
+          const inChannels = layerCounter === 1 ? 3 : 32; // Assuming RGB input, then 32 channels
+          initCode = `        self.${layerName} = nn.Conv2d(${inChannels}, ${filters}, ${kernelSize}, padding=1)`;
           forwardCode = `        ${previousTensor} = F.relu(self.${layerName}(${previousTensor}))`;
           break;
           
@@ -229,15 +302,29 @@ class NetworkCodeGenerator {
           forwardCode = `        ${previousTensor} = F.max_pool2d(${previousTensor}, ${poolSize})`;
           break;
           
+        case 'flatten':
+          forwardCode = `        ${previousTensor} = ${previousTensor}.view(${previousTensor}.size(0), -1)`;
+          break;
+          
+        case 'dense':
+          const denseUnits = node.data.params?.units || node.data.count || 128;
+          const inputFeatures = layerCounter === 1 ? 784 : 128; // Simplified
+          initCode = `        self.${layerName} = nn.Linear(${inputFeatures}, ${denseUnits})`;
+          forwardCode = `        ${previousTensor} = F.relu(self.${layerName}(${previousTensor}))`;
+          break;
+          
         case 'dropout':
           const dropoutRate = node.data.params?.rate || 0.5;
-          initCode = `        self.${layerName} = nn.Dropout(${dropoutRate})`;
-          forwardCode = `        ${previousTensor} = self.${layerName}(${previousTensor})`;
+          forwardCode = `        ${previousTensor} = F.dropout(${previousTensor}, p=${dropoutRate}, training=self.training)`;
+          break;
+          
+        case 'batchnorm':
+          forwardCode = `        ${previousTensor} = F.batch_norm(${previousTensor})`;
           break;
           
         case 'activation':
-          const activation = node.data.params?.function || 'relu';
-          forwardCode = `        ${previousTensor} = F.${activation}(${previousTensor})`;
+          const activationFunc = node.data.params?.function || 'relu';
+          forwardCode = `        ${previousTensor} = F.${activationFunc}(${previousTensor})`;
           break;
           
         case 'hidden':
@@ -254,10 +341,15 @@ class NetworkCodeGenerator {
           break;
           
         case 'output':
-          const outputUnits = node.data.count || 10;
+        case 'outputLayer':
+          const outputUnits = node.data.count || 1;
           const inputUnits = 128; // Simplified
           initCode = `        self.${layerName} = nn.Linear(${inputUnits}, ${outputUnits})`;
-          forwardCode = `        ${previousTensor} = self.${layerName}(${previousTensor})`;
+          if (outputUnits === 1) {
+            forwardCode = `        ${previousTensor} = torch.sigmoid(self.${layerName}(${previousTensor}))`;
+          } else {
+            forwardCode = `        ${previousTensor} = self.${layerName}(${previousTensor})`;
+          }
           break;
           
         default:
@@ -276,18 +368,68 @@ class NetworkCodeGenerator {
 
     forwardMethod.push(`        return ${previousTensor}`);
 
+    // Add optimizer and loss handling
+    const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop', 'adagrad', 'adamw'].includes(node.type));
+    const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse', 'mae'].includes(node.type));
+
     const usage = [
       "",
-      "# Create model instance",
-      "model = NeuralNetwork()",
+      "# Create model instance for gender classification",
+      "model = GenderClassificationModel()",
       "",
-      "# Define loss and optimizer",
-      "criterion = nn.CrossEntropyLoss()",
-      "optimizer = torch.optim.Adam(model.parameters(), lr=0.001)",
-      "",
-      "# Model summary",
-      "print(model)"
+      "# Define loss function"
     ];
+
+    let lossCode = "nn.BCELoss()";
+    if (lossNode) {
+      switch (lossNode.type) {
+        case 'bce':
+          lossCode = "nn.BCELoss()";
+          break;
+        case 'crossentropy':
+          lossCode = "nn.CrossEntropyLoss()";
+          break;
+        case 'mse':
+          lossCode = "nn.MSELoss()";
+          break;
+        case 'mae':
+          lossCode = "nn.L1Loss()";
+          break;
+      }
+    }
+    
+    usage.push(`criterion = ${lossCode}`);
+    usage.push("");
+
+    let optimizerCode = "optim.Adam(model.parameters(), lr=0.001)";
+    if (optimizerNode) {
+      const params = optimizerNode.data.params || {};
+      switch (optimizerNode.type) {
+        case 'adam':
+          optimizerCode = `optim.Adam(model.parameters(), lr=${params.lr || 0.001}, betas=(${params.beta1 || 0.9}, ${params.beta2 || 0.999}))`;
+          break;
+        case 'sgd':
+          optimizerCode = `optim.SGD(model.parameters(), lr=${params.lr || 0.01}, momentum=${params.momentum || 0.9})`;
+          break;
+        case 'rmsprop':
+          optimizerCode = `optim.RMSprop(model.parameters(), lr=${params.lr || 0.01})`;
+          break;
+      }
+    }
+
+    usage.push(`optimizer = ${optimizerCode}`);
+    usage.push("");
+    usage.push("# Model summary");
+    usage.push("print(model)");
+    usage.push("");
+    usage.push("# Training example");
+    usage.push("# for epoch in range(num_epochs):");
+    usage.push("#     for batch_idx, (data, targets) in enumerate(train_loader):");
+    usage.push("#         optimizer.zero_grad()");
+    usage.push("#         outputs = model(data)");
+    usage.push("#         loss = criterion(outputs, targets)");
+    usage.push("#         loss.backward()");
+    usage.push("#         optimizer.step()");
 
     return [
       ...imports,

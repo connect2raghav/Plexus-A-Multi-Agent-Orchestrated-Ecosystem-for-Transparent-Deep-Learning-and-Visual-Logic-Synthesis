@@ -971,4 +971,6 @@ export const nodeTypes = {
   reducelronplateau: memo((props: NodeProps) => <SchedulerNode {...props} />),
   
   // Add other node types as needed
+  softmax: memo((props: NodeProps) => <BaseNode {...props} />),
+  recurrent: memo((props: NodeProps) => <BaseNode {...props} />),
 };
