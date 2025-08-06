@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Node, Edge } from 'reactflow';
 import { 
   Card, 
   CardBody, 
@@ -12,27 +13,6 @@ import {
   Snippet,
   Alert
 } from "@heroui/react";
-
-// Type definitions
-interface NodeData {
-  label: string;
-  params?: Record<string, any>;
-  count?: number;
-  onChange?: (newCount: number) => void;
-}
-
-interface Node {
-  id: string;
-  type: string;
-  position: { x: number; y: number };
-  data: NodeData;
-}
-
-interface Edge {
-  id: string;
-  source: string;
-  target: string;
-}
 
 // Code generation utilities
 class NetworkCodeGenerator {
