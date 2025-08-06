@@ -1,5 +1,5 @@
-import React, { useCallback, useRef, useState } from "react";
-import { Code, Copy, Download, Network, Play, Pause, BarChart3, Server } from 'lucide-react';
+import React, { useCallback, useRef, useState, useEffect } from "react";
+import { Code, Copy, Download, Network, X } from 'lucide-react';
 import ReactFlow, {
   Background,
   Controls,
@@ -15,13 +15,11 @@ import ReactFlow, {
 import { Icon } from "@iconify/react";
 import { nodeTypes } from "./nodes/CustomNodes";
 import { NetworkCodeGenerator } from "./CodeGenerator";
-import InferenceEngine from "./InferenceEngine";
-import ColabInferenceEngine from "./ColabInferenceEngine";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
 import { Button } from "@heroui/button";
-import { Card, CardBody, CardFooter, RadioGroup, Radio, Switch } from "@heroui/react";
+import { Card, CardBody, CardFooter, RadioGroup, Radio } from "@heroui/react";
 
 
 
@@ -69,7 +67,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         icon: "lucide:type",
         details: "Enter text here",
         value: "Hello World",
-        isProcessing: false,
         onChange: (newValue: string) => {
           setNodes((nds) =>
             nds.map((node) =>
@@ -173,16 +170,51 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showPanel, setShowPanel] = useState(false);
-  const [showInferencePanel, setShowInferencePanel] = useState(false);
-  const [isInferenceRunning, setIsInferenceRunning] = useState(false);
-  const [useRealNetwork, setUseRealNetwork] = useState(false);
   const [framework, setFramework] = useState<"tensorflow" | "pytorch">("tensorflow");
   const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const { project, fitView } = useReactFlow();
+
+  // Helper function to close panel and reset state
+  const closePanel = useCallback(() => {
+    setShowPanel(false);
+    setGeneratedCode("");
+    setError("");
+  }, []);
+
+  // Handle clicking outside the panel to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showPanel && 
+        panelRef.current && 
+        !panelRef.current.contains(event.target as HTMLElement) &&
+        !(event.target as Element).closest('[aria-label="Show code panel"]')
+      ) {
+        closePanel();
+      }
+    };
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showPanel) {
+        closePanel();
+      }
+    };
+
+    if (showPanel) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [showPanel, closePanel]);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
@@ -434,49 +466,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     }
   };
 
-  // Get current input value for inference
-  const getCurrentInputValue = (): string => {
-    const inputNode = nodes.find(n => n.type === 'textInput');
-    return inputNode?.data?.value || 'Hello World';
-  };
-
-  // Handle inference stats updates
-  const handleInferenceStatsUpdate = (stats: any) => {
-    // Update metrics node with real stats
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.type === 'metrics') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              metrics: {
-                accuracy: stats.accuracy,
-                loss: stats.loss,
-                val_accuracy: stats.accuracy - 0.02,
-                val_loss: stats.loss + 0.05
-              }
-            },
-          };
-        }
-        
-        // Update node processing states based on layer outputs
-        if (node.id in stats.layerOutputs) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              isProcessing: isInferenceRunning,
-              activationLevel: stats.layerOutputs[node.id] || 0,
-            },
-          };
-        }
-        
-        return node;
-      }),
-    );
-  };
-
   return (
     <div ref={reactFlowWrapper} style={{ width: "100%", height: "100%", position: "relative" }}>
       <ReactFlow
@@ -518,40 +507,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         
         <Button
           isIconOnly
-          aria-label="Toggle real/simulated network"
-          color={useRealNetwork ? "success" : "default"}
-          variant={useRealNetwork ? "solid" : "faded"}
-          onClick={() => setUseRealNetwork(!useRealNetwork)}
-          className="shadow-md"
-          title={useRealNetwork ? "Using Real Neural Network (Colab)" : "Using Simulated Network"}
-        >
-          <Server className="w-5 h-5" />
-        </Button>
-        
-        <Button
-          isIconOnly
-          aria-label="Show inference panel"
-          color={isInferenceRunning ? "success" : "default"}
-          variant={showInferencePanel ? "solid" : "faded"}
-          onClick={() => setShowInferencePanel((prev) => !prev)}
-          className="shadow-md"
-        >
-          <BarChart3 className="w-5 h-5" />
-        </Button>
-
-        <Button
-          isIconOnly
-          aria-label={isInferenceRunning ? "Stop inference" : "Start inference"}
-          color={isInferenceRunning ? "danger" : "success"}
-          variant="faded"
-          onClick={() => setIsInferenceRunning((prev) => !prev)}
-          className="shadow-md"
-        >
-          {isInferenceRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-        </Button>
-        
-        <Button
-          isIconOnly
           aria-label="Show code panel"
           color="default"
           variant="faded"
@@ -564,7 +519,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
 
       {showPanel && (
         <Card
-          className="shadow-lg border"
+          ref={panelRef}
+          className="shadow-lg border animate-in slide-in-from-right-4 fade-in-0 duration-200"
           style={{
             position: "absolute",
             top: 100,
@@ -576,7 +532,19 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           }}
         >
           <CardBody className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Generate Neural Network Code</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Generate Neural Network Code</h2>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onClick={closePanel}
+                aria-label="Close panel"
+                className="text-foreground-400 hover:text-foreground-600 hover:bg-default-100"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
             
             {!generatedCode && (
               <>
@@ -707,36 +675,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             </CardFooter>
           )}
         </Card>
-      )}
-
-      {/* Real-time Inference Panel */}
-      {showInferencePanel && (
-        <div
-          className="absolute top-100 left-24 z-20"
-          style={{
-            width: 400,
-            maxHeight: "80vh",
-            maxWidth: "90vw",
-          }}
-        >
-          {useRealNetwork ? (
-            <ColabInferenceEngine
-              nodes={nodes}
-              edges={edges}
-              inputValue={getCurrentInputValue()}
-              isRunning={isInferenceRunning}
-              onStatsUpdate={handleInferenceStatsUpdate}
-            />
-          ) : (
-            <InferenceEngine
-              nodes={nodes}
-              edges={edges}
-              inputValue={getCurrentInputValue()}
-              isRunning={isInferenceRunning}
-              onStatsUpdate={handleInferenceStatsUpdate}
-            />
-          )}
-        </div>
       )}
     </div>
   );
