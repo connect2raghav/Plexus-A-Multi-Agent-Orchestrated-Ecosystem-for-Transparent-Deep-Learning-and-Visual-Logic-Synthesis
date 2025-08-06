@@ -738,6 +738,849 @@ class NetworkCodeGenerator {
       ...usage
     ].join('\n');
   }
+
+  generateTensorFlowNotebook(): any {
+    const code = this.generateTensorFlowCode();
+    
+    return {
+      cells: [
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "# Neural Network Training - TensorFlow\n",
+            "\n",
+            "This notebook contains the generated neural network architecture and training code.\n",
+            "Upload this to Google Colab to start training your model!\n",
+            "\n",
+            "## Setup Instructions:\n",
+            "1. Upload this notebook to Google Colab\n",
+            "2. Run the installation cell to install dependencies\n",
+            "3. Upload your dataset or use the sample data generator\n",
+            "4. Run the training cells\n",
+            "\n",
+            "---"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Install required packages\n",
+            "!pip install tensorflow pandas numpy matplotlib seaborn scikit-learn\n",
+            "\n",
+            "# Import basic libraries\n",
+            "import os\n",
+            "import numpy as np\n",
+            "import pandas as pd\n",
+            "import matplotlib.pyplot as plt\n",
+            "import seaborn as sns\n",
+            "from sklearn.model_selection import train_test_split\n",
+            "from sklearn.preprocessing import StandardScaler\n",
+            "\n",
+            "print(\"Setup complete!\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Sample Data Generator\n",
+            "\n",
+            "If you don't have your own dataset, use this cell to generate sample data for testing:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Generate sample data for testing\n",
+            "def generate_sample_data(n_samples=1000, n_features=100):\n",
+            "    \"\"\"\n",
+            "    Generate sample data for binary classification\n",
+            "    \"\"\"\n",
+            "    np.random.seed(42)\n",
+            "    \n",
+            "    # Generate random features\n",
+            "    X = np.random.randn(n_samples, n_features)\n",
+            "    \n",
+            "    # Create simple linear relationship for classification\n",
+            "    weights = np.random.randn(n_features) * 0.1\n",
+            "    y = (X @ weights + np.random.randn(n_samples) * 0.1 > 0).astype(int)\n",
+            "    \n",
+            "    return X, y\n",
+            "\n",
+            "# Generate sample data\n",
+            "X, y = generate_sample_data(1000, 100)\n",
+            "print(f\"Generated data shape: X={X.shape}, y={y.shape}\")\n",
+            "print(f\"Class distribution: {np.bincount(y)}\")\n",
+            "\n",
+            "# Split the data\n",
+            "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+            "\n",
+            "# Normalize the data\n",
+            "scaler = StandardScaler()\n",
+            "X_train_scaled = scaler.fit_transform(X_train)\n",
+            "X_test_scaled = scaler.transform(X_test)\n",
+            "\n",
+            "print(f\"Training data shape: {X_train_scaled.shape}\")\n",
+            "print(f\"Test data shape: {X_test_scaled.shape}\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Upload Your Own Dataset\n",
+            "\n",
+            "Uncomment and modify the following cell to load your own dataset:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Uncomment to upload your own dataset\n",
+            "# from google.colab import files\n",
+            "# uploaded = files.upload()\n",
+            "\n",
+            "# # Load your dataset\n",
+            "# # Example for CSV:\n",
+            "# df = pd.read_csv('your_dataset.csv')\n",
+            "# X = df.drop('target_column', axis=1).values\n",
+            "# y = df['target_column'].values\n",
+            "\n",
+            "# # Preprocess your data as needed\n",
+            "# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+            "# scaler = StandardScaler()\n",
+            "# X_train_scaled = scaler.fit_transform(X_train)\n",
+            "# X_test_scaled = scaler.transform(X_test)\n",
+            "\n",
+            "print(\"Ready to load your dataset!\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Generated Neural Network Model\n",
+            "\n",
+            "This is your custom neural network architecture:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: code.split('\n')
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Training Configuration and Execution"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Training configuration\n",
+            "BATCH_SIZE = 32\n",
+            "EPOCHS = 50\n",
+            "LEARNING_RATE = 0.001\n",
+            "VALIDATION_SPLIT = 0.2\n",
+            "\n",
+            "# Create and compile the model\n",
+            "model = create_gender_classification_model()\n",
+            "\n",
+            "# Compile the model\n",
+            "model.compile(\n",
+            "    optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),\n",
+            "    loss='binary_crossentropy',\n",
+            "    metrics=['accuracy']\n",
+            ")\n",
+            "\n",
+            "# Display model summary\n",
+            "model.summary()\n",
+            "\n",
+            "# Plot model architecture\n",
+            "tf.keras.utils.plot_model(model, show_shapes=True, show_layer_names=True)"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Set up callbacks for better training\n",
+            "callbacks = [\n",
+            "    tf.keras.callbacks.EarlyStopping(\n",
+            "        monitor='val_loss',\n",
+            "        patience=10,\n",
+            "        restore_best_weights=True,\n",
+            "        verbose=1\n",
+            "    ),\n",
+            "    tf.keras.callbacks.ReduceLROnPlateau(\n",
+            "        monitor='val_loss',\n",
+            "        factor=0.5,\n",
+            "        patience=5,\n",
+            "        min_lr=1e-7,\n",
+            "        verbose=1\n",
+            "    ),\n",
+            "    tf.keras.callbacks.ModelCheckpoint(\n",
+            "        'best_model.h5',\n",
+            "        monitor='val_accuracy',\n",
+            "        save_best_only=True,\n",
+            "        verbose=1\n",
+            "    )\n",
+            "]\n",
+            "\n",
+            "print(\"Callbacks configured!\")"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Train the model\n",
+            "history = model.fit(\n",
+            "    X_train_scaled, y_train,\n",
+            "    batch_size=BATCH_SIZE,\n",
+            "    epochs=EPOCHS,\n",
+            "    validation_split=VALIDATION_SPLIT,\n",
+            "    callbacks=callbacks,\n",
+            "    verbose=1\n",
+            ")\n",
+            "\n",
+            "print(\"Training completed!\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Results Visualization and Evaluation"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Plot training history\n",
+            "fig, axes = plt.subplots(1, 2, figsize=(15, 5))\n",
+            "\n",
+            "# Plot training & validation accuracy\n",
+            "axes[0].plot(history.history['accuracy'], label='Training Accuracy')\n",
+            "axes[0].plot(history.history['val_accuracy'], label='Validation Accuracy')\n",
+            "axes[0].set_title('Model Accuracy')\n",
+            "axes[0].set_xlabel('Epoch')\n",
+            "axes[0].set_ylabel('Accuracy')\n",
+            "axes[0].legend()\n",
+            "axes[0].grid(True)\n",
+            "\n",
+            "# Plot training & validation loss\n",
+            "axes[1].plot(history.history['loss'], label='Training Loss')\n",
+            "axes[1].plot(history.history['val_loss'], label='Validation Loss')\n",
+            "axes[1].set_title('Model Loss')\n",
+            "axes[1].set_xlabel('Epoch')\n",
+            "axes[1].set_ylabel('Loss')\n",
+            "axes[1].legend()\n",
+            "axes[1].grid(True)\n",
+            "\n",
+            "plt.tight_layout()\n",
+            "plt.show()"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Evaluate on test set\n",
+            "test_loss, test_accuracy = model.evaluate(X_test_scaled, y_test, verbose=0)\n",
+            "print(f\"Test Accuracy: {test_accuracy:.4f}\")\n",
+            "print(f\"Test Loss: {test_loss:.4f}\")\n",
+            "\n",
+            "# Make predictions\n",
+            "y_pred_proba = model.predict(X_test_scaled)\n",
+            "y_pred = (y_pred_proba > 0.5).astype(int).flatten()\n",
+            "\n",
+            "# Classification report\n",
+            "from sklearn.metrics import classification_report, confusion_matrix\n",
+            "print(\"\\nClassification Report:\")\n",
+            "print(classification_report(y_test, y_pred))\n",
+            "\n",
+            "# Confusion Matrix\n",
+            "cm = confusion_matrix(y_test, y_pred)\n",
+            "plt.figure(figsize=(8, 6))\n",
+            "sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')\n",
+            "plt.title('Confusion Matrix')\n",
+            "plt.ylabel('Actual')\n",
+            "plt.xlabel('Predicted')\n",
+            "plt.show()"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Save and Download Model\n",
+            "\n",
+            "Save your trained model for future use:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Save the model\n",
+            "model.save('neural_network_model.h5')\n",
+            "print(\"Model saved as 'neural_network_model.h5'\")\n",
+            "\n",
+            "# Save the scaler for future use\n",
+            "import pickle\n",
+            "with open('scaler.pkl', 'wb') as f:\n",
+            "    pickle.dump(scaler, f)\n",
+            "print(\"Scaler saved as 'scaler.pkl'\")\n",
+            "\n",
+            "# Download files (uncomment to download)\n",
+            "# from google.colab import files\n",
+            "# files.download('neural_network_model.h5')\n",
+            "# files.download('scaler.pkl')\n",
+            "\n",
+            "print(\"Training complete! Your model is ready to use.\")"
+          ]
+        }
+      ],
+      metadata: {
+        kernelspec: {
+          display_name: "Python 3",
+          language: "python",
+          name: "python3"
+        },
+        language_info: {
+          codemirror_mode: {
+            name: "ipython",
+            version: 3
+          },
+          file_extension: ".py",
+          mimetype: "text/x-python",
+          name: "python",
+          nbconvert_exporter: "python",
+          pygments_lexer: "ipython3",
+          version: "3.8.0"
+        }
+      },
+      nbformat: 4,
+      nbformat_minor: 4
+    };
+  }
+
+  generatePyTorchNotebook(): any {
+    const code = this.generatePyTorchCode();
+    
+    return {
+      cells: [
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "# Neural Network Training - PyTorch\n",
+            "\n",
+            "This notebook contains the generated neural network architecture and training code.\n",
+            "Upload this to Google Colab to start training your model!\n",
+            "\n",
+            "## Setup Instructions:\n",
+            "1. Upload this notebook to Google Colab\n",
+            "2. Run the installation cell to install dependencies\n",
+            "3. Upload your dataset or use the sample data generator\n",
+            "4. Run the training cells\n",
+            "\n",
+            "---"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Install required packages\n",
+            "!pip install torch torchvision pandas numpy matplotlib seaborn scikit-learn\n",
+            "\n",
+            "# Import basic libraries\n",
+            "import os\n",
+            "import numpy as np\n",
+            "import pandas as pd\n",
+            "import matplotlib.pyplot as plt\n",
+            "import seaborn as sns\n",
+            "from sklearn.model_selection import train_test_split\n",
+            "from sklearn.preprocessing import StandardScaler\n",
+            "import torch\n",
+            "import torch.nn as nn\n",
+            "import torch.optim as optim\n",
+            "from torch.utils.data import DataLoader, TensorDataset\n",
+            "\n",
+            "# Check if CUDA is available\n",
+            "device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\n",
+            "print(f'Using device: {device}')\n",
+            "if torch.cuda.is_available():\n",
+            "    print(f'GPU: {torch.cuda.get_device_name(0)}')\n",
+            "\n",
+            "print(\"Setup complete!\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Sample Data Generator\n",
+            "\n",
+            "If you don't have your own dataset, use this cell to generate sample data for testing:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Generate sample data for testing\n",
+            "def generate_sample_data(n_samples=1000, n_features=100):\n",
+            "    \"\"\"\n",
+            "    Generate sample data for binary classification\n",
+            "    \"\"\"\n",
+            "    np.random.seed(42)\n",
+            "    \n",
+            "    # Generate random features\n",
+            "    X = np.random.randn(n_samples, n_features)\n",
+            "    \n",
+            "    # Create simple linear relationship for classification\n",
+            "    weights = np.random.randn(n_features) * 0.1\n",
+            "    y = (X @ weights + np.random.randn(n_samples) * 0.1 > 0).astype(int)\n",
+            "    \n",
+            "    return X, y\n",
+            "\n",
+            "# Generate sample data\n",
+            "X, y = generate_sample_data(1000, 100)\n",
+            "print(f\"Generated data shape: X={X.shape}, y={y.shape}\")\n",
+            "print(f\"Class distribution: {np.bincount(y)}\")\n",
+            "\n",
+            "# Split the data\n",
+            "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+            "\n",
+            "# Normalize the data\n",
+            "scaler = StandardScaler()\n",
+            "X_train_scaled = scaler.fit_transform(X_train)\n",
+            "X_test_scaled = scaler.transform(X_test)\n",
+            "\n",
+            "# Convert to PyTorch tensors\n",
+            "X_train_tensor = torch.FloatTensor(X_train_scaled).to(device)\n",
+            "y_train_tensor = torch.FloatTensor(y_train).to(device)\n",
+            "X_test_tensor = torch.FloatTensor(X_test_scaled).to(device)\n",
+            "y_test_tensor = torch.FloatTensor(y_test).to(device)\n",
+            "\n",
+            "print(f\"Training data shape: {X_train_tensor.shape}\")\n",
+            "print(f\"Test data shape: {X_test_tensor.shape}\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Upload Your Own Dataset\n",
+            "\n",
+            "Uncomment and modify the following cell to load your own dataset:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Uncomment to upload your own dataset\n",
+            "# from google.colab import files\n",
+            "# uploaded = files.upload()\n",
+            "\n",
+            "# # Load your dataset\n",
+            "# # Example for CSV:\n",
+            "# df = pd.read_csv('your_dataset.csv')\n",
+            "# X = df.drop('target_column', axis=1).values\n",
+            "# y = df['target_column'].values\n",
+            "\n",
+            "# # Preprocess your data as needed\n",
+            "# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+            "# scaler = StandardScaler()\n",
+            "# X_train_scaled = scaler.fit_transform(X_train)\n",
+            "# X_test_scaled = scaler.transform(X_test)\n",
+            "\n",
+            "# # Convert to PyTorch tensors\n",
+            "# X_train_tensor = torch.FloatTensor(X_train_scaled).to(device)\n",
+            "# y_train_tensor = torch.FloatTensor(y_train).to(device)\n",
+            "# X_test_tensor = torch.FloatTensor(X_test_scaled).to(device)\n",
+            "# y_test_tensor = torch.FloatTensor(y_test).to(device)\n",
+            "\n",
+            "print(\"Ready to load your dataset!\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Generated Neural Network Model\n",
+            "\n",
+            "This is your custom neural network architecture:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: code.split('\n')
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Training Configuration and Data Loaders"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Training configuration\n",
+            "BATCH_SIZE = 32\n",
+            "EPOCHS = 50\n",
+            "LEARNING_RATE = 0.001\n",
+            "VALIDATION_SPLIT = 0.2\n",
+            "\n",
+            "# Create data loaders\n",
+            "# Split training data for validation\n",
+            "val_size = int(len(X_train_tensor) * VALIDATION_SPLIT)\n",
+            "train_size = len(X_train_tensor) - val_size\n",
+            "\n",
+            "train_dataset = TensorDataset(X_train_tensor[:train_size], y_train_tensor[:train_size])\n",
+            "val_dataset = TensorDataset(X_train_tensor[train_size:], y_train_tensor[train_size:])\n",
+            "test_dataset = TensorDataset(X_test_tensor, y_test_tensor)\n",
+            "\n",
+            "train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)\n",
+            "val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)\n",
+            "test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)\n",
+            "\n",
+            "print(f\"Training batches: {len(train_loader)}\")\n",
+            "print(f\"Validation batches: {len(val_loader)}\")\n",
+            "print(f\"Test batches: {len(test_loader)}\")"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Create model instance\n",
+            "model = GenderClassificationModel().to(device)\n",
+            "\n",
+            "# Define loss function and optimizer\n",
+            "criterion = nn.BCELoss()\n",
+            "optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)\n",
+            "scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)\n",
+            "\n",
+            "print(\"Model created and moved to device!\")\n",
+            "print(f\"Total parameters: {sum(p.numel() for p in model.parameters())}\")\n",
+            "print(f\"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Training Loop"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Training function\n",
+            "def train_epoch(model, train_loader, criterion, optimizer, device):\n",
+            "    model.train()\n",
+            "    running_loss = 0.0\n",
+            "    correct = 0\n",
+            "    total = 0\n",
+            "    \n",
+            "    for batch_idx, (data, targets) in enumerate(train_loader):\n",
+            "        data, targets = data.to(device), targets.to(device)\n",
+            "        \n",
+            "        optimizer.zero_grad()\n",
+            "        outputs = model(data).squeeze()\n",
+            "        loss = criterion(outputs, targets)\n",
+            "        loss.backward()\n",
+            "        optimizer.step()\n",
+            "        \n",
+            "        running_loss += loss.item()\n",
+            "        predicted = (outputs > 0.5).float()\n",
+            "        total += targets.size(0)\n",
+            "        correct += (predicted == targets).sum().item()\n",
+            "    \n",
+            "    epoch_loss = running_loss / len(train_loader)\n",
+            "    epoch_acc = 100. * correct / total\n",
+            "    return epoch_loss, epoch_acc\n",
+            "\n",
+            "def validate_epoch(model, val_loader, criterion, device):\n",
+            "    model.eval()\n",
+            "    running_loss = 0.0\n",
+            "    correct = 0\n",
+            "    total = 0\n",
+            "    \n",
+            "    with torch.no_grad():\n",
+            "        for data, targets in val_loader:\n",
+            "            data, targets = data.to(device), targets.to(device)\n",
+            "            outputs = model(data).squeeze()\n",
+            "            loss = criterion(outputs, targets)\n",
+            "            \n",
+            "            running_loss += loss.item()\n",
+            "            predicted = (outputs > 0.5).float()\n",
+            "            total += targets.size(0)\n",
+            "            correct += (predicted == targets).sum().item()\n",
+            "    \n",
+            "    epoch_loss = running_loss / len(val_loader)\n",
+            "    epoch_acc = 100. * correct / total\n",
+            "    return epoch_loss, epoch_acc\n",
+            "\n",
+            "print(\"Training functions defined!\")"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Training loop with history tracking\n",
+            "train_losses = []\n",
+            "train_accuracies = []\n",
+            "val_losses = []\n",
+            "val_accuracies = []\n",
+            "\n",
+            "best_val_acc = 0.0\n",
+            "patience = 0\n",
+            "max_patience = 10\n",
+            "\n",
+            "print(\"Starting training...\")\n",
+            "\n",
+            "for epoch in range(EPOCHS):\n",
+            "    # Train\n",
+            "    train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)\n",
+            "    \n",
+            "    # Validate\n",
+            "    val_loss, val_acc = validate_epoch(model, val_loader, criterion, device)\n",
+            "    \n",
+            "    # Update learning rate\n",
+            "    scheduler.step(val_loss)\n",
+            "    \n",
+            "    # Store metrics\n",
+            "    train_losses.append(train_loss)\n",
+            "    train_accuracies.append(train_acc)\n",
+            "    val_losses.append(val_loss)\n",
+            "    val_accuracies.append(val_acc)\n",
+            "    \n",
+            "    # Print progress\n",
+            "    print(f'Epoch {epoch+1}/{EPOCHS}:')\n",
+            "    print(f'  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%')\n",
+            "    print(f'  Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%')\n",
+            "    \n",
+            "    # Early stopping\n",
+            "    if val_acc > best_val_acc:\n",
+            "        best_val_acc = val_acc\n",
+            "        patience = 0\n",
+            "        # Save best model\n",
+            "        torch.save(model.state_dict(), 'best_model.pth')\n",
+            "        print(f'  New best model saved! Val Acc: {val_acc:.2f}%')\n",
+            "    else:\n",
+            "        patience += 1\n",
+            "        if patience >= max_patience:\n",
+            "            print(f'Early stopping at epoch {epoch+1}')\n",
+            "            break\n",
+            "    \n",
+            "    print('-' * 50)\n",
+            "\n",
+            "print(\"Training completed!\")"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Results Visualization and Evaluation"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Plot training history\n",
+            "fig, axes = plt.subplots(1, 2, figsize=(15, 5))\n",
+            "\n",
+            "# Plot training & validation accuracy\n",
+            "axes[0].plot(train_accuracies, label='Training Accuracy')\n",
+            "axes[0].plot(val_accuracies, label='Validation Accuracy')\n",
+            "axes[0].set_title('Model Accuracy')\n",
+            "axes[0].set_xlabel('Epoch')\n",
+            "axes[0].set_ylabel('Accuracy (%)')\n",
+            "axes[0].legend()\n",
+            "axes[0].grid(True)\n",
+            "\n",
+            "# Plot training & validation loss\n",
+            "axes[1].plot(train_losses, label='Training Loss')\n",
+            "axes[1].plot(val_losses, label='Validation Loss')\n",
+            "axes[1].set_title('Model Loss')\n",
+            "axes[1].set_xlabel('Epoch')\n",
+            "axes[1].set_ylabel('Loss')\n",
+            "axes[1].legend()\n",
+            "axes[1].grid(True)\n",
+            "\n",
+            "plt.tight_layout()\n",
+            "plt.show()\n",
+            "\n",
+            "print(f\"Best validation accuracy: {max(val_accuracies):.2f}%\")"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Load best model and evaluate on test set\n",
+            "model.load_state_dict(torch.load('best_model.pth'))\n",
+            "test_loss, test_acc = validate_epoch(model, test_loader, criterion, device)\n",
+            "\n",
+            "print(f\"Test Accuracy: {test_acc:.2f}%\")\n",
+            "print(f\"Test Loss: {test_loss:.4f}\")\n",
+            "\n",
+            "# Generate predictions for confusion matrix\n",
+            "model.eval()\n",
+            "all_preds = []\n",
+            "all_targets = []\n",
+            "\n",
+            "with torch.no_grad():\n",
+            "    for data, targets in test_loader:\n",
+            "        data, targets = data.to(device), targets.to(device)\n",
+            "        outputs = model(data).squeeze()\n",
+            "        predicted = (outputs > 0.5).float()\n",
+            "        all_preds.extend(predicted.cpu().numpy())\n",
+            "        all_targets.extend(targets.cpu().numpy())\n",
+            "\n",
+            "# Classification report\n",
+            "from sklearn.metrics import classification_report, confusion_matrix\n",
+            "print(\"\\nClassification Report:\")\n",
+            "print(classification_report(all_targets, all_preds))\n",
+            "\n",
+            "# Confusion Matrix\n",
+            "cm = confusion_matrix(all_targets, all_preds)\n",
+            "plt.figure(figsize=(8, 6))\n",
+            "sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')\n",
+            "plt.title('Confusion Matrix')\n",
+            "plt.ylabel('Actual')\n",
+            "plt.xlabel('Predicted')\n",
+            "plt.show()"
+          ]
+        },
+        {
+          cell_type: "markdown",
+          metadata: {},
+          source: [
+            "## Save and Download Model\n",
+            "\n",
+            "Save your trained model for future use:"
+          ]
+        },
+        {
+          cell_type: "code",
+          execution_count: null,
+          metadata: {},
+          outputs: [],
+          source: [
+            "# Save the complete model\n",
+            "torch.save({\n",
+            "    'model_state_dict': model.state_dict(),\n",
+            "    'optimizer_state_dict': optimizer.state_dict(),\n",
+            "    'train_losses': train_losses,\n",
+            "    'val_losses': val_losses,\n",
+            "    'train_accuracies': train_accuracies,\n",
+            "    'val_accuracies': val_accuracies,\n",
+            "    'best_val_acc': best_val_acc\n",
+            "}, 'neural_network_model.pth')\n",
+            "\n",
+            "print(\"Model saved as 'neural_network_model.pth'\")\n",
+            "\n",
+            "# Save the scaler for future use\n",
+            "import pickle\n",
+            "with open('scaler.pkl', 'wb') as f:\n",
+            "    pickle.dump(scaler, f)\n",
+            "print(\"Scaler saved as 'scaler.pkl'\")\n",
+            "\n",
+            "# Download files (uncomment to download)\n",
+            "# from google.colab import files\n",
+            "# files.download('neural_network_model.pth')\n",
+            "# files.download('scaler.pkl')\n",
+            "\n",
+            "print(\"Training complete! Your model is ready to use.\")"
+          ]
+        }
+      ],
+      metadata: {
+        kernelspec: {
+          display_name: "Python 3",
+          language: "python",
+          name: "python3"
+        },
+        language_info: {
+          codemirror_mode: {
+            name: "ipython",
+            version: 3
+          },
+          file_extension: ".py",
+          mimetype: "text/x-python",
+          name: "python",
+          nbconvert_exporter: "python",
+          pygments_lexer: "ipython3",
+          version: "3.8.0"
+        },
+        accelerator: "GPU"
+      },
+      nbformat: 4,
+      nbformat_minor: 4
+    };
+  }
 }
 
 // React component for code generation

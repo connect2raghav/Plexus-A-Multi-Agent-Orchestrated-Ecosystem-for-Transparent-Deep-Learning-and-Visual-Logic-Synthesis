@@ -31,112 +31,45 @@ interface FlowCanvasProps {
 }
 
 const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
-  // Name-based Gender Classification Model Architecture
+  // Simple Text Processing Neural Network
   const initialEdges: Edge[] = [
-    // Text Input -> Embedding Layer
+    // Text Input -> Input Layer
     {
-      id: "e-input-embedding",
+      id: "e-textinput-inputlayer",
       source: "input-1",
-      target: "embedding-1",
+      target: "inputlayer-1",
       animated: true,
       type: "smooth",
     },
-    // Embedding -> LSTM Layer
+    // Input Layer -> Dense Layer
     {
-      id: "e-embedding-lstm",
-      source: "embedding-1",
-      target: "lstm-1",
+      id: "e-inputlayer-dense",
+      source: "inputlayer-1",
+      target: "dense-1",
       animated: true,
       type: "smooth",
     },
-    // LSTM -> Dense Layer 1
+    // Dense -> Output
     {
-      id: "e-lstm-dense1",
-      source: "lstm-1",
-      target: "dense1-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Dense 1 -> Dropout
-    {
-      id: "e-dense1-dropout",
-      source: "dense1-1",
-      target: "dropout-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Dropout -> Dense Layer 2
-    {
-      id: "e-dropout-dense2",
-      source: "dropout-1",
-      target: "dense2-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Dense 2 -> Output
-    {
-      id: "e-dense2-output",
-      source: "dense2-1",
+      id: "e-dense-output",
+      source: "dense-1",
       target: "output-1",
       animated: true,
       type: "smooth",
     },
-    // Output -> Training Config (network connection)
-    {
-      id: "e-output-training",
-      source: "output-1",
-      target: "training-1",
-      sourceHandle: null,
-      targetHandle: "network",
-      animated: true,
-      type: "smooth",
-    },
-    // Optimizer -> Training Config
-    {
-      id: "e-optimizer-training",
-      source: "optimizer-1",
-      target: "training-1",
-      sourceHandle: null,
-      targetHandle: "optimizer",
-      animated: true,
-      type: "smooth",
-      style: { stroke: '#fb923c' },
-    },
-    // Loss -> Training Config
-    {
-      id: "e-loss-training",
-      source: "loss-1",
-      target: "training-1",
-      sourceHandle: null,
-      targetHandle: "loss",
-      animated: true,
-      type: "smooth",
-      style: { stroke: '#ef4444' },
-    },
-    // Training Config -> Metrics
-    {
-      id: "e-training-metrics",
-      source: "training-1",
-      target: "metrics-1",
-      sourceHandle: "metrics",
-      targetHandle: null,
-      animated: true,
-      type: "smooth",
-      style: { stroke: '#10b981' },
-    },
   ];
 
   const initialNodes: Node[] = [
-    // Text Input Layer - For name input
+    // Text Input (for user interaction/inference)
     {
       id: "input-1",
       type: "textInput",
       data: {
-        label: "Name Input",
+        label: "Text Input",
         icon: "lucide:type",
-        details: "Enter person's name",
-        value: "Sarah",
-        isProcessing: false, // Will be updated during inference
+        details: "Enter text here",
+        value: "Hello World",
+        isProcessing: false,
         onChange: (newValue: string) => {
           setNodes((nds) =>
             nds.map((node) =>
@@ -152,30 +85,26 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 50, y: 200 },
     },
-    // Embedding Layer - Convert text to numerical representation
+    // Input Layer (neural network entry point)
     {
-      id: "embedding-1",
-      type: "embedding",
+      id: "inputlayer-1",
+      type: "inputLayer",
       data: {
-        label: "Name Embedding",
-        icon: "lucide:hash",
-        details: "Text to Vector Embedding",
-        params: { 
-          vocab_size: 10000, 
-          embedding_dim: 64,
-          input_length: 20 // Max name length
-        },
-        count: 64,
+        label: "Input Layer (100)",
+        icon: "lucide:square-dot-minus",
+        details: "Network input layer - text vectorization",
+        count: 1,
+        params: { shape: [100] },
         onChange: (newCount: number) => {
           setNodes((nds) =>
             nds.map((node) =>
-              node.id === "embedding-1"
+              node.id === "inputlayer-1"
                 ? {
                   ...node,
                   data: { 
                     ...node.data, 
                     count: Math.max(1, newCount),
-                    params: { ...node.data.params, embedding_dim: newCount }
+                    params: { shape: [newCount] }
                   },
                 }
                 : node,
@@ -185,25 +114,20 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 300, y: 200 },
     },
-    // LSTM Layer - Process sequence of characters/sounds
+    // Dense Layer (hidden layer)
     {
-      id: "lstm-1",
-      type: "lstm",
+      id: "dense-1",
+      type: "dense",
       data: {
-        label: "LSTM (128)",
-        icon: "lucide:activity",
-        details: "Sequence Processing",
-        params: { 
-          units: 128, 
-          return_sequences: false,
-          dropout: 0.2,
-          recurrent_dropout: 0.2
-        },
-        count: 128,
+        label: "Dense (32)",
+        icon: "lucide:grid",
+        details: "32 neurons, ReLU activation",
+        count: 32,
+        params: { units: 32, activation: 'relu' },
         onChange: (newCount: number) => {
           setNodes((nds) =>
             nds.map((node) =>
-              node.id === "lstm-1"
+              node.id === "dense-1"
                 ? {
                   ...node,
                   data: { 
@@ -219,85 +143,15 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 550, y: 200 },
     },
-    // First Dense Layer
-    {
-      id: "dense1-1",
-      type: "dense",
-      data: {
-        label: "Dense (64)",
-        icon: "lucide:grid",
-        details: "64 neurons, ReLU activation",
-        count: 64,
-        params: { units: 64, activation: 'relu' },
-        onChange: (newCount: number) => {
-          setNodes((nds) =>
-            nds.map((node) =>
-              node.id === "dense1-1"
-                ? {
-                  ...node,
-                  data: { 
-                    ...node.data, 
-                    count: Math.max(1, newCount),
-                    params: { ...node.data.params, units: newCount }
-                  },
-                }
-                : node,
-            ),
-          );
-        },
-      },
-      position: { x: 800, y: 200 },
-    },
-    // Dropout Layer
-    {
-      id: "dropout-1",
-      type: "dropout",
-      data: {
-        label: "Dropout (0.3)",
-        icon: "lucide:cloud-rain",
-        details: "30% dropout rate",
-        params: { rate: 0.3 },
-      },
-      position: { x: 1000, y: 200 },
-    },
-    // Second Dense Layer
-    {
-      id: "dense2-1",
-      type: "dense",
-      data: {
-        label: "Dense (32)",
-        icon: "lucide:grid",
-        details: "32 neurons, ReLU activation",
-        count: 32,
-        params: { units: 32, activation: 'relu' },
-        onChange: (newCount: number) => {
-          setNodes((nds) =>
-            nds.map((node) =>
-              node.id === "dense2-1"
-                ? {
-                  ...node,
-                  data: { 
-                    ...node.data, 
-                    count: Math.max(1, newCount),
-                    params: { ...node.data.params, units: newCount }
-                  },
-                }
-                : node,
-            ),
-          );
-        },
-      },
-      position: { x: 1200, y: 200 },
-    },
-    // Output Layer - Binary classification (Male/Female)
+    // Output Layer
     {
       id: "output-1",
       type: "outputLayer",
       data: {
-        label: "Gender Output",
-        count: 1, // Binary classification - sigmoid output
-        icon: "lucide:user-check",
-        details: "Binary: Male(0)/Female(1)",
+        label: "Text Output",
+        count: 1,
+        icon: "lucide:arrow-right",
+        details: "Final output",
         params: { activation: 'sigmoid', units: 1 },
         onChange: (newCount: number) => {
           setNodes((nds) =>
@@ -312,102 +166,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           );
         },
       },
-      position: { x: 1400, y: 200 },
-    },
-    // Adam Optimizer - Good for text processing
-    {
-      id: "optimizer-1",
-      type: "adam",
-      data: {
-        label: "Adam Optimizer",
-        icon: "lucide:zap",
-        details: "Learning Rate: 0.001",
-        params: { lr: 0.001, beta1: 0.9, beta2: 0.999 },
-        onParamsChange: (newParams: any) => {
-          setNodes((nds) =>
-            nds.map((node) =>
-              node.id === "optimizer-1"
-                ? {
-                  ...node,
-                  data: { ...node.data, params: newParams },
-                }
-                : node,
-            ),
-          );
-        },
-      },
-      position: { x: 800, y: 350 },
-    },
-    // Binary Cross Entropy Loss
-    {
-      id: "loss-1",
-      type: "bce",
-      data: {
-        label: "Binary Cross Entropy",
-        icon: "lucide:target",
-        details: "Binary Classification Loss",
-        params: { reduction: 'mean' },
-        onParamsChange: (newParams: any) => {
-          setNodes ((nds) =>
-            nds.map((node) =>
-              node.id === "loss-1"
-                ? {
-                  ...node,
-                  data: { ...node.data, params: newParams },
-                }
-                : node,
-            ),
-          );
-        },
-      },
-      position: { x: 1000, y: 350 },
-    },
-    // Training Configuration Hub
-    {
-      id: "training-1",
-      type: "training_config",
-      data: {
-        label: "Training Config",
-        icon: "lucide:settings",
-        details: "Training Configuration Hub",
-        config: {
-          epochs: 100,
-          batch_size: 64,
-          validation_split: 0.2,
-          early_stopping: true,
-          save_best: true
-        },
-        onConfigChange: (newConfig: any) => {
-          setNodes((nds) =>
-            nds.map((node) =>
-              node.id === "training-1"
-                ? {
-                  ...node,
-                  data: { ...node.data, config: newConfig },
-                }
-                : node,
-            ),
-          );
-        },
-      },
-      position: { x: 1600, y: 200 },
-    },
-    // Metrics Node - Shows results for name-based gender classification
-    {
-      id: "metrics-1",
-      type: "metrics",
-      data: {
-        label: "Gender Prediction Metrics",
-        icon: "lucide:bar-chart-3",
-        details: "Name-based Gender Classification",
-        metrics: {
-          accuracy: 0.87,
-          loss: 0.35,
-          val_accuracy: 0.84,
-          val_loss: 0.42
-        },
-      },
-      position: { x: 1850, y: 200 },
+      position: { x: 800, y: 200 },
     },
   ];
 
@@ -647,10 +406,38 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     URL.revokeObjectURL(url);
   };
 
+  const downloadNotebook = () => {
+    try {
+      const generator = new NetworkCodeGenerator(nodes, edges);
+      let notebook;
+      let filename;
+      
+      if (framework === 'tensorflow') {
+        notebook = generator.generateTensorFlowNotebook();
+        filename = 'tensorflow_training_notebook.ipynb';
+      } else {
+        notebook = generator.generatePyTorchNotebook();
+        filename = 'pytorch_training_notebook.ipynb';
+      }
+      
+      const blob = new Blob([JSON.stringify(notebook, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate notebook');
+    }
+  };
+
   // Get current input value for inference
   const getCurrentInputValue = (): string => {
     const inputNode = nodes.find(n => n.type === 'textInput');
-    return inputNode?.data?.value || 'Sarah';
+    return inputNode?.data?.value || 'Hello World';
   };
 
   // Handle inference stats updates
@@ -793,9 +580,25 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             
             {!generatedCode && (
               <>
-                <p className="text-foreground-500 mb-6">
+                <p className="text-foreground-500 mb-4">
                   Select your preferred framework to generate code for your neural network.
                 </p>
+                
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <Icon icon="simple-icons:jupyter" className="text-blue-600 text-xl mt-0.5" />
+                    <div>
+                      <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                        Ready for Google Colab!
+                      </h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-400">
+                        Get a complete Jupyter notebook with data loading, training, and evaluation code. 
+                        Perfect for uploading directly to Google Colab to start training your model.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
                 <RadioGroup
                   label="Select Framework"
                   value={framework}
@@ -847,7 +650,16 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
                       onClick={downloadCode}
                       startContent={<Download size={16} />}
                     >
-                      Download
+                      Download .py
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="primary"
+                      variant="ghost"
+                      onClick={downloadNotebook}
+                      startContent={<Icon icon="simple-icons:jupyter" />}
+                    >
+                      Download .ipynb
                     </Button>
                     <Button
                       size="sm"
@@ -870,16 +682,28 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           
           {!generatedCode && (
             <CardFooter className="px-6 pb-6 pt-0">
-              <Button
-                color="primary"
-                variant="solid"
-                fullWidth
-                onPress={handleGenerate}
-                isLoading={isGenerating}
-                startContent={!isGenerating && <Icon icon="lucide:code" />}
-              >
-                {isGenerating ? "Generating..." : "Generate Code"}
-              </Button>
+              <div className="flex gap-2 w-full">
+                <Button
+                  color="primary"
+                  variant="solid"
+                  className="flex-1"
+                  onPress={handleGenerate}
+                  isLoading={isGenerating}
+                  startContent={!isGenerating && <Icon icon="lucide:code" />}
+                >
+                  {isGenerating ? "Generating..." : "Generate Code"}
+                </Button>
+                <Button
+                  color="secondary"
+                  variant="solid"
+                  className="flex-1"
+                  onPress={downloadNotebook}
+                  isLoading={isGenerating}
+                  startContent={!isGenerating && <Icon icon="simple-icons:jupyter" />}
+                >
+                  {isGenerating ? "Generating..." : "Get Colab Notebook"}
+                </Button>
+              </div>
             </CardFooter>
           )}
         </Card>
