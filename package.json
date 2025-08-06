@@ -23,6 +23,7 @@
     "@heroui/theme": "2.4.20",
     "@iconify/react": "^6.0.0",
     "@react-aria/visually-hidden": "3.8.26",
+    "@tensorflow/tfjs": "^4.22.0",
     "@types/dagre": "^0.7.53",
     "clsx": "2.1.1",
     "dagre": "^0.8.5",

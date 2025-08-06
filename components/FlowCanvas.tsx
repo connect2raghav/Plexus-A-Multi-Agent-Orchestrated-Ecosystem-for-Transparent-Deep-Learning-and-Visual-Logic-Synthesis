@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Code, Copy, Download, Network, Play, Pause, BarChart3 } from 'lucide-react';
+import { Code, Copy, Download, Network, Play, Pause, BarChart3, Server } from 'lucide-react';
 import ReactFlow, {
   Background,
   Controls,
@@ -16,11 +16,12 @@ import { Icon } from "@iconify/react";
 import { nodeTypes } from "./nodes/CustomNodes";
 import { NetworkCodeGenerator } from "./CodeGenerator";
 import InferenceEngine from "./InferenceEngine";
+import ColabInferenceEngine from "./ColabInferenceEngine";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
 import { Button } from "@heroui/button";
-import { Card, CardBody, CardFooter, RadioGroup, Radio } from "@heroui/react";
+import { Card, CardBody, CardFooter, RadioGroup, Radio, Switch } from "@heroui/react";
 
 
 
@@ -415,6 +416,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   const [showPanel, setShowPanel] = useState(false);
   const [showInferencePanel, setShowInferencePanel] = useState(false);
   const [isInferenceRunning, setIsInferenceRunning] = useState(false);
+  const [useRealNetwork, setUseRealNetwork] = useState(false);
   const [framework, setFramework] = useState<"tensorflow" | "pytorch">("tensorflow");
   const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState("");
@@ -729,6 +731,18 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         
         <Button
           isIconOnly
+          aria-label="Toggle real/simulated network"
+          color={useRealNetwork ? "success" : "default"}
+          variant={useRealNetwork ? "solid" : "faded"}
+          onClick={() => setUseRealNetwork(!useRealNetwork)}
+          className="shadow-md"
+          title={useRealNetwork ? "Using Real Neural Network (Colab)" : "Using Simulated Network"}
+        >
+          <Server className="w-5 h-5" />
+        </Button>
+        
+        <Button
+          isIconOnly
           aria-label="Show inference panel"
           color={isInferenceRunning ? "success" : "default"}
           variant={showInferencePanel ? "solid" : "faded"}
@@ -881,13 +895,23 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
             maxWidth: "90vw",
           }}
         >
-          <InferenceEngine
-            nodes={nodes}
-            edges={edges}
-            inputValue={getCurrentInputValue()}
-            isRunning={isInferenceRunning}
-            onStatsUpdate={handleInferenceStatsUpdate}
-          />
+          {useRealNetwork ? (
+            <ColabInferenceEngine
+              nodes={nodes}
+              edges={edges}
+              inputValue={getCurrentInputValue()}
+              isRunning={isInferenceRunning}
+              onStatsUpdate={handleInferenceStatsUpdate}
+            />
+          ) : (
+            <InferenceEngine
+              nodes={nodes}
+              edges={edges}
+              inputValue={getCurrentInputValue()}
+              isRunning={isInferenceRunning}
+              onStatsUpdate={handleInferenceStatsUpdate}
+            />
+          )}
         </div>
       )}
     </div>

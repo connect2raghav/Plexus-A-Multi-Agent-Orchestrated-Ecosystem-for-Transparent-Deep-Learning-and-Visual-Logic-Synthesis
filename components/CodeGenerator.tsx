@@ -11,7 +11,8 @@ import {
   Chip,
   Code,
   Snippet,
-  Alert
+  Alert,
+  Progress
 } from "@heroui/react";
 
 // Code generation utilities
@@ -77,6 +78,234 @@ class NetworkCodeGenerator {
     }
     
     return sorted;
+  }
+
+  generateTensorFlowJSCode(): string {
+    const imports = [
+      "import * as tf from '@tensorflow/tfjs';",
+      "",
+      "// Gender Classification Model with TensorFlow.js",
+      "class GenderClassificationModel {",
+      "  constructor() {",
+      "    this.model = null;",
+      "    this.isTraining = false;",
+      "  }",
+      "",
+    ];
+
+    const modelBody = ["  async buildModel() {"];
+    
+    // Find input node
+    const inputNode = this.nodes.find(node => node.type === 'input' || node.type === 'inputLayer' || node.type === 'textInput');
+    if (!inputNode) {
+      throw new Error("No input layer found");
+    }
+
+    // Handle text input for gender classification
+    const inputCount = inputNode.data.count || 50; // Max name length
+    let inputShape;
+    if (inputNode.type === 'textInput') {
+      inputShape = `[null, ${inputCount}]`; // Variable sequence length
+    } else {
+      inputShape = `[null, ${inputCount}]`;
+    }
+    
+    modelBody.push(`    // Gender Classification Model Architecture`);
+    modelBody.push(`    const input = tf.input({shape: ${inputShape}});`);
+    
+    let previousLayer = "input";
+    let layerCounter = 1;
+
+    // Process nodes in topological order
+    this.topology.forEach(nodeId => {
+      const node = this.nodeMap.get(nodeId);
+      if (!node || node.type === 'input' || node.type === 'inputLayer' || node.type === 'textInput' ||
+          node.type === 'adam' || node.type === 'sgd' || node.type === 'rmsprop' || 
+          node.type === 'bce' || node.type === 'crossentropy' || node.type === 'mse') return;
+
+      const layerName = `layer${layerCounter}`;
+      let layerCode = "";
+
+      switch (node.type) {
+        case 'embedding':
+          const vocabSize = node.data.params?.vocab_size || 10000;
+          const embeddingDim = node.data.params?.embedding_dim || node.data.count || 64;
+          layerCode = `    const ${layerName} = tf.layers.embedding({inputDim: ${vocabSize}, outputDim: ${embeddingDim}, maskZero: true}).apply(${previousLayer});`;
+          break;
+
+        case 'lstm':
+          const lstmUnits = node.data.params?.units || node.data.count || 64;
+          const returnSequences = node.data.params?.return_sequences || false;
+          layerCode = `    const ${layerName} = tf.layers.lstm({units: ${lstmUnits}, returnSequences: ${returnSequences}, dropout: 0.1}).apply(${previousLayer});`;
+          break;
+
+        case 'dense':
+          const denseUnits = node.data.params?.units || node.data.count || 128;
+          const denseActivation = node.data.params?.activation || 'relu';
+          layerCode = `    const ${layerName} = tf.layers.dense({units: ${denseUnits}, activation: '${denseActivation}'}).apply(${previousLayer});`;
+          break;
+          
+        case 'dropout':
+          const dropoutRate = node.data.params?.rate || 0.5;
+          layerCode = `    const ${layerName} = tf.layers.dropout({rate: ${dropoutRate}}).apply(${previousLayer});`;
+          break;
+
+        case 'flatten':
+          layerCode = `    const ${layerName} = tf.layers.flatten().apply(${previousLayer});`;
+          break;
+
+        case 'batchnorm':
+          layerCode = `    const ${layerName} = tf.layers.batchNormalization().apply(${previousLayer});`;
+          break;
+
+        case 'output':
+        case 'outputLayer':
+        case 'textOutput':
+          const outputUnits = node.data.count || 1;
+          const outputActivation = node.data.params?.activation || (outputUnits === 1 ? 'sigmoid' : 'softmax');
+          layerCode = `    const ${layerName} = tf.layers.dense({units: ${outputUnits}, activation: '${outputActivation}', name: 'output'}).apply(${previousLayer});`;
+          break;
+          
+        default:
+          layerCode = `    // ${node.type} layer - implementation needed`;
+      }
+
+      if (layerCode) {
+        modelBody.push(layerCode);
+        previousLayer = layerName;
+        layerCounter++;
+      }
+    });
+
+    modelBody.push("");
+    modelBody.push(`    this.model = tf.model({inputs: input, outputs: ${previousLayer}});`);
+    
+    // Add optimizer and loss from nodes
+    const optimizerNode = this.nodes.find(node => node.type && ['adam', 'sgd', 'rmsprop'].includes(node.type));
+    const lossNode = this.nodes.find(node => node.type && ['bce', 'crossentropy', 'mse'].includes(node.type));
+    
+    let optimizerCode = "'adam'";
+    if (optimizerNode) {
+      const params = optimizerNode.data.params || {};
+      switch (optimizerNode.type) {
+        case 'adam':
+          optimizerCode = `tf.train.adam(${params.lr || 0.001})`;
+          break;
+        case 'sgd':
+          optimizerCode = `tf.train.sgd(${params.lr || 0.01})`;
+          break;
+        case 'rmsprop':
+          optimizerCode = `tf.train.rmsprop(${params.lr || 0.01})`;
+          break;
+      }
+    }
+    
+    let lossCode = "'binaryCrossentropy'";
+    if (lossNode) {
+      switch (lossNode.type) {
+        case 'bce':
+          lossCode = "'binaryCrossentropy'";
+          break;
+        case 'crossentropy':
+          lossCode = "'categoricalCrossentropy'";
+          break;
+        case 'mse':
+          lossCode = "'meanSquaredError'";
+          break;
+      }
+    }
+    
+    modelBody.push("");
+    modelBody.push("    // Compile the model");
+    modelBody.push("    this.model.compile({");
+    modelBody.push(`      optimizer: ${optimizerCode},`);
+    modelBody.push(`      loss: ${lossCode},`);
+    modelBody.push("      metrics: ['accuracy']");
+    modelBody.push("    });");
+    modelBody.push("");
+    modelBody.push("    console.log('Model built successfully');");
+    modelBody.push("    this.model.summary();");
+    modelBody.push("  }");
+
+    // Add training method
+    const trainingMethod = [
+      "",
+      "  async train(trainingData, validationData, options = {}) {",
+      "    if (!this.model) {",
+      "      throw new Error('Model not built. Call buildModel() first.');",
+      "    }",
+      "",
+      "    this.isTraining = true;",
+      "    const epochs = options.epochs || 10;",
+      "    const batchSize = options.batchSize || 32;",
+      "    const validationSplit = options.validationSplit || 0.2;",
+      "",
+      "    try {",
+      "      const history = await this.model.fit(trainingData.x, trainingData.y, {",
+      "        epochs: epochs,",
+      "        batchSize: batchSize,",
+      "        validationSplit: validationSplit,",
+      "        shuffle: true,",
+      "        callbacks: {",
+      "          onEpochEnd: (epoch, logs) => {",
+      "            console.log(`Epoch ${epoch + 1}/${epochs} - Loss: ${logs.loss.toFixed(4)} - Accuracy: ${logs.acc.toFixed(4)}`);",
+      "            if (logs.val_loss) {",
+      "              console.log(`  Val Loss: ${logs.val_loss.toFixed(4)} - Val Accuracy: ${logs.val_acc.toFixed(4)}`);",
+      "            }",
+      "            // Call progress callback if provided",
+      "            if (options.onProgress) {",
+      "              options.onProgress(epoch + 1, epochs, logs);",
+      "            }",
+      "          }",
+      "        }",
+      "      });",
+      "",
+      "      this.isTraining = false;",
+      "      return history;",
+      "    } catch (error) {",
+      "      this.isTraining = false;",
+      "      throw error;",
+      "    }",
+      "  }",
+      "",
+      "  async predict(inputData) {",
+      "    if (!this.model) {",
+      "      throw new Error('Model not built. Call buildModel() first.');",
+      "    }",
+      "",
+      "    const prediction = this.model.predict(inputData);",
+      "    return prediction;",
+      "  }",
+      "",
+      "  getModel() {",
+      "    return this.model;",
+      "  }",
+      "}",
+      "",
+      "// Usage Example:",
+      "// const model = new GenderClassificationModel();",
+      "// await model.buildModel();",
+      "// ",
+      "// // Prepare your data",
+      "// const trainingData = {",
+      "//   x: tf.tensor2d([...]), // Your input sequences",
+      "//   y: tf.tensor2d([...])  // Your labels (0 for male, 1 for female)",
+      "// };",
+      "//",
+      "// // Train the model",
+      "// await model.train(trainingData, null, {",
+      "//   epochs: 20,",
+      "//   batchSize: 32,",
+      "//   onProgress: (epoch, totalEpochs, logs) => {",
+      "//     console.log(`Training progress: ${epoch}/${totalEpochs}`);",
+      "//   }",
+      "// });",
+      "//",
+      "// // Make predictions",
+      "// const prediction = await model.predict(tf.tensor2d([[...]]));"
+    ];
+
+    return [...imports, ...modelBody, ...trainingMethod].join('\n');
   }
 
   generateTensorFlowCode(): string {
