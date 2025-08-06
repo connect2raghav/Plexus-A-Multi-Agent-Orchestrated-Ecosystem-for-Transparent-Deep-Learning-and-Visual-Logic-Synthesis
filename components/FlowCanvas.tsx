@@ -29,68 +29,52 @@ interface FlowCanvasProps {
 }
 
 const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
-  // Gender Classification Model Architecture
+  // Name-based Gender Classification Model Architecture
   const initialEdges: Edge[] = [
-    // Input -> First Conv Layer
+    // Text Input -> Embedding Layer
     {
-      id: "e-input-conv1",
+      id: "e-input-embedding",
       source: "input-1",
-      target: "conv1-1",
+      target: "embedding-1",
       animated: true,
       type: "smooth",
     },
-    // First Conv -> First MaxPool
+    // Embedding -> LSTM Layer
     {
-      id: "e-conv1-pool1",
-      source: "conv1-1",
-      target: "pool1-1",
+      id: "e-embedding-lstm",
+      source: "embedding-1",
+      target: "lstm-1",
       animated: true,
       type: "smooth",
     },
-    // First MaxPool -> Second Conv
+    // LSTM -> Dense Layer 1
     {
-      id: "e-pool1-conv2",
-      source: "pool1-1",
-      target: "conv2-1",
+      id: "e-lstm-dense1",
+      source: "lstm-1",
+      target: "dense1-1",
       animated: true,
       type: "smooth",
     },
-    // Second Conv -> Second MaxPool
+    // Dense 1 -> Dropout
     {
-      id: "e-conv2-pool2",
-      source: "conv2-1",
-      target: "pool2-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Second MaxPool -> Flatten
-    {
-      id: "e-pool2-flatten",
-      source: "pool2-1",
-      target: "flatten-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Flatten -> Dense Layer
-    {
-      id: "e-flatten-dense",
-      source: "flatten-1",
-      target: "dense-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Dense -> Dropout
-    {
-      id: "e-dense-dropout",
-      source: "dense-1",
+      id: "e-dense1-dropout",
+      source: "dense1-1",
       target: "dropout-1",
       animated: true,
       type: "smooth",
     },
-    // Dropout -> Output
+    // Dropout -> Dense Layer 2
     {
-      id: "e-dropout-output",
+      id: "e-dropout-dense2",
       source: "dropout-1",
+      target: "dense2-1",
+      animated: true,
+      type: "smooth",
+    },
+    // Dense 2 -> Output
+    {
+      id: "e-dense2-output",
+      source: "dense2-1",
       target: "output-1",
       animated: true,
       type: "smooth",
@@ -141,22 +125,22 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   ];
 
   const initialNodes: Node[] = [
-    // Input Layer - 224x224x3 for RGB images
+    // Text Input Layer - For name input
     {
       id: "input-1",
-      type: "inputLayer",
+      type: "textInput",
       data: {
-        label: "Image Input",
-        count: 224*224*3, // 150,528 pixels for 224x224 RGB image
-        icon: "lucide:image",
-        details: "224x224x3 RGB Image Input",
-        onChange: (newCount: number) => {
+        label: "Name Input",
+        icon: "lucide:type",
+        details: "Enter person's name",
+        value: "Sarah",
+        onChange: (newValue: string) => {
           setNodes((nds) =>
             nds.map((node) =>
               node.id === "input-1"
                 ? {
                   ...node,
-                  data: { ...node.data, count: Math.max(1, newCount) },
+                  data: { ...node.data, value: newValue },
                 }
                 : node,
             ),
@@ -165,101 +149,142 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 50, y: 200 },
     },
-    // First Convolutional Layer
+    // Embedding Layer - Convert text to numerical representation
     {
-      id: "conv1-1",
-      type: "conv2d",
+      id: "embedding-1",
+      type: "embedding",
       data: {
-        label: "Conv2D (32 filters)",
-        icon: "lucide:square",
-        details: "32 filters, 3x3 kernel",
-        params: { filters: 32, kernel_size: 3, activation: 'relu' },
-      },
-      position: { x: 200, y: 150 },
-    },
-    // First Max Pooling Layer
-    {
-      id: "pool1-1",
-      type: "maxpool",
-      data: {
-        label: "MaxPool2D",
-        icon: "lucide:minimize-2",
-        details: "2x2 pool size",
-        params: { pool_size: 2 },
-      },
-      position: { x: 350, y: 150 },
-    },
-    // Second Convolutional Layer
-    {
-      id: "conv2-1",
-      type: "conv2d",
-      data: {
-        label: "Conv2D (64 filters)",
-        icon: "lucide:square",
-        details: "64 filters, 3x3 kernel",
-        params: { filters: 64, kernel_size: 3, activation: 'relu' },
-      },
-      position: { x: 500, y: 150 },
-    },
-    // Second Max Pooling Layer
-    {
-      id: "pool2-1",
-      type: "maxpool",
-      data: {
-        label: "MaxPool2D",
-        icon: "lucide:minimize-2",
-        details: "2x2 pool size",
-        params: { pool_size: 2 },
-      },
-      position: { x: 650, y: 150 },
-    },
-    // Flatten Layer
-    {
-      id: "flatten-1",
-      type: "flatten",
-      data: {
-        label: "Flatten",
-        icon: "lucide:align-horizontal-space-around",
-        details: "Flatten to 1D",
-      },
-      position: { x: 800, y: 150 },
-    },
-    // Dense Layer
-    {
-      id: "dense-1",
-      type: "dense",
-      data: {
-        label: "Dense (128)",
-        icon: "lucide:grid",
-        details: "128 neurons, ReLU activation",
-        count: 128,
-        params: { units: 128, activation: 'relu' },
+        label: "Name Embedding",
+        icon: "lucide:hash",
+        details: "Text to Vector Embedding",
+        params: { 
+          vocab_size: 10000, 
+          embedding_dim: 64,
+          input_length: 20 // Max name length
+        },
+        count: 64,
         onChange: (newCount: number) => {
           setNodes((nds) =>
             nds.map((node) =>
-              node.id === "dense-1"
+              node.id === "embedding-1"
                 ? {
                   ...node,
-                  data: { ...node.data, count: Math.max(1, newCount) },
+                  data: { 
+                    ...node.data, 
+                    count: Math.max(1, newCount),
+                    params: { ...node.data.params, embedding_dim: newCount }
+                  },
                 }
                 : node,
             ),
           );
         },
       },
-      position: { x: 950, y: 150 },
+      position: { x: 300, y: 200 },
+    },
+    // LSTM Layer - Process sequence of characters/sounds
+    {
+      id: "lstm-1",
+      type: "lstm",
+      data: {
+        label: "LSTM (128)",
+        icon: "lucide:activity",
+        details: "Sequence Processing",
+        params: { 
+          units: 128, 
+          return_sequences: false,
+          dropout: 0.2,
+          recurrent_dropout: 0.2
+        },
+        count: 128,
+        onChange: (newCount: number) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === "lstm-1"
+                ? {
+                  ...node,
+                  data: { 
+                    ...node.data, 
+                    count: Math.max(1, newCount),
+                    params: { ...node.data.params, units: newCount }
+                  },
+                }
+                : node,
+            ),
+          );
+        },
+      },
+      position: { x: 550, y: 200 },
+    },
+    // First Dense Layer
+    {
+      id: "dense1-1",
+      type: "dense",
+      data: {
+        label: "Dense (64)",
+        icon: "lucide:grid",
+        details: "64 neurons, ReLU activation",
+        count: 64,
+        params: { units: 64, activation: 'relu' },
+        onChange: (newCount: number) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === "dense1-1"
+                ? {
+                  ...node,
+                  data: { 
+                    ...node.data, 
+                    count: Math.max(1, newCount),
+                    params: { ...node.data.params, units: newCount }
+                  },
+                }
+                : node,
+            ),
+          );
+        },
+      },
+      position: { x: 800, y: 200 },
     },
     // Dropout Layer
     {
       id: "dropout-1",
       type: "dropout",
       data: {
-        label: "Dropout (0.5)",
+        label: "Dropout (0.3)",
         icon: "lucide:cloud-rain",
-        details: "50% dropout rate",
-        params: { rate: 0.5 },
+        details: "30% dropout rate",
+        params: { rate: 0.3 },
       },
-      position: { x: 1100, y: 150 },
+      position: { x: 1000, y: 200 },
+    },
+    // Second Dense Layer
+    {
+      id: "dense2-1",
+      type: "dense",
+      data: {
+        label: "Dense (32)",
+        icon: "lucide:grid",
+        details: "32 neurons, ReLU activation",
+        count: 32,
+        params: { units: 32, activation: 'relu' },
+        onChange: (newCount: number) => {
+          setNodes((nds) =>
+            nds.map((node) =>
+              node.id === "dense2-1"
+                ? {
+                  ...node,
+                  data: { 
+                    ...node.data, 
+                    count: Math.max(1, newCount),
+                    params: { ...node.data.params, units: newCount }
+                  },
+                }
+                : node,
+            ),
+          );
+        },
+      },
+      position: { x: 1200, y: 200 },
     },
     // Output Layer - Binary classification (Male/Female)
     {
@@ -268,8 +293,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       data: {
         label: "Gender Output",
         count: 1, // Binary classification - sigmoid output
-        icon: "lucide:user",
-        details: "Binary: Male/Female",
+        icon: "lucide:user-check",
+        details: "Binary: Male(0)/Female(1)",
         params: { activation: 'sigmoid', units: 1 },
         onChange: (newCount: number) => {
           setNodes((nds) =>
@@ -284,9 +309,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           );
         },
       },
-      position: { x: 1250, y: 150 },
+      position: { x: 1400, y: 200 },
     },
-    // Add optimizer node
+    // Adam Optimizer - Good for text processing
     {
       id: "optimizer-1",
       type: "adam",
@@ -308,9 +333,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           );
         },
       },
-      position: { x: 650, y: 300 },
+      position: { x: 800, y: 350 },
     },
-    // Add loss function
+    // Binary Cross Entropy Loss
     {
       id: "loss-1",
       type: "bce",
@@ -320,7 +345,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         details: "Binary Classification Loss",
         params: { reduction: 'mean' },
         onParamsChange: (newParams: any) => {
-          setNodes((nds) =>
+          setNodes ((nds) =>
             nds.map((node) =>
               node.id === "loss-1"
                 ? {
@@ -332,7 +357,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           );
         },
       },
-      position: { x: 950, y: 350 },
+      position: { x: 1000, y: 350 },
     },
     // Training Configuration Hub
     {
@@ -343,8 +368,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         icon: "lucide:settings",
         details: "Training Configuration Hub",
         config: {
-          epochs: 50,
-          batch_size: 32,
+          epochs: 100,
+          batch_size: 64,
           validation_split: 0.2,
           early_stopping: true,
           save_best: true
@@ -362,24 +387,24 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           );
         },
       },
-      position: { x: 1400, y: 200 },
+      position: { x: 1600, y: 200 },
     },
-    // Metrics Node
+    // Metrics Node - Shows results for name-based gender classification
     {
       id: "metrics-1",
       type: "metrics",
       data: {
-        label: "Training Metrics",
+        label: "Gender Prediction Metrics",
         icon: "lucide:bar-chart-3",
-        details: "Model Performance",
+        details: "Name-based Gender Classification",
         metrics: {
-          accuracy: 0.94,
-          loss: 0.06,
-          val_accuracy: 0.91,
-          val_loss: 0.09
+          accuracy: 0.87,
+          loss: 0.35,
+          val_accuracy: 0.84,
+          val_loss: 0.42
         },
       },
-      position: { x: 1650, y: 200 },
+      position: { x: 1850, y: 200 },
     },
   ];
 
@@ -433,14 +458,14 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       console.log("Adding node of type:", nodeData.type);
 
       // Check if trying to add input/output node when one already exists
-      const hasInputNode = nodes.some((node) => node.type === "input");
-      const hasOutputNode = nodes.some((node) => node.type === "output");
+      const hasInputNode = nodes.some((node) => node.type === "textInput" || node.type === "inputLayer");
+      const hasOutputNode = nodes.some((node) => node.type === "outputLayer");
 
-      if (nodeData.type === "input" && hasInputNode) {
+      if ((nodeData.type === "textInput" || nodeData.type === "inputLayer") && hasInputNode) {
         alert("Only one input node is allowed");
         return;
       }
-      if (nodeData.type === "output" && hasOutputNode) {
+      if (nodeData.type === "outputLayer" && hasOutputNode) {
         alert("Only one output node is allowed");
         return;
       }
@@ -458,13 +483,17 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           label: nodeData.label,
           icon: nodeData.icon,
           details: nodeData.details,
-          ...(["input", "output", "hidden"].includes(nodeData.type)
+          ...(["inputLayer", "outputLayer", "hidden", "dense", "embedding", "lstm"].includes(nodeData.type)
             ? {
               count:
-                nodeData.type === "input"
+                nodeData.type === "inputLayer"
                   ? 784
-                  : nodeData.type === "output"
-                    ? 10
+                  : nodeData.type === "outputLayer"
+                    ? 1
+                  : nodeData.type === "embedding"
+                    ? 64
+                  : nodeData.type === "lstm" 
+                    ? 128
                     : 128,
               onChange: (newCount: number) => {
                 setNodes((nds) =>
@@ -475,6 +504,27 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
                         data: {
                           ...node.data,
                           count: Math.max(1, newCount),
+                        },
+                      }
+                      : node,
+                  ),
+                );
+              },
+            }
+            : {}),
+          // Add text value handling for text input nodes
+          ...(nodeData.type === "textInput"
+            ? {
+              value: "Enter name...",
+              onChange: (newValue: string) => {
+                setNodes((nds) =>
+                  nds.map((node) =>
+                    node.id === newNode.id
+                      ? {
+                        ...node,
+                        data: {
+                          ...node.data,
+                          value: newValue,
                         },
                       }
                       : node,
