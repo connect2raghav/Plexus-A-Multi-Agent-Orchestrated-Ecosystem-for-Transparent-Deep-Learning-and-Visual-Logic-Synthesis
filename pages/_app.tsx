@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { fontSans, fontMono } from "@/config/fonts";
 import { ToastProvider } from "@/components/ToastProvider";
 import "@/styles/globals.css";
+import "@/styles/nodes.css";
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();

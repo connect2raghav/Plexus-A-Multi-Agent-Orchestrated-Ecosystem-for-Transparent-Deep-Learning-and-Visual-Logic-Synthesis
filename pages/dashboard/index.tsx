@@ -588,7 +588,10 @@ const DashboardPage: React.FC = () => {
   );
 
   return (
-    <DefaultLayout title="Dashboard" description="Manage your neural networks and explore new possibilities">
+    <DefaultLayout
+      description="Manage your neural networks and explore new possibilities"
+      title="Dashboard"
+    >
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

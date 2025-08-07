@@ -127,7 +127,6 @@ const SaveProjectModal: React.FC<SaveProjectModalProps> = ({
             )}
 
             <Input
-              autoFocus
               isRequired
               label="Project Name"
               placeholder={suggestedName}
@@ -148,10 +147,14 @@ const SaveProjectModal: React.FC<SaveProjectModalProps> = ({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-default-700 mb-2 block">
+                <label
+                  className="text-sm font-medium text-default-700 mb-2 block"
+                  htmlFor="framework-radio"
+                >
                   Framework
                 </label>
                 <RadioGroup
+                  id="framework-radio"
                   orientation="vertical"
                   size="sm"
                   value={framework}
@@ -165,10 +168,14 @@ const SaveProjectModal: React.FC<SaveProjectModalProps> = ({
               </div>
 
               <div>
-                <label className="text-sm font-medium text-default-700 mb-2 block">
+                <label
+                  className="text-sm font-medium text-default-700 mb-2 block"
+                  htmlFor="status-radio"
+                >
                   Status
                 </label>
                 <RadioGroup
+                  id="status-radio"
                   orientation="vertical"
                   size="sm"
                   value={status}

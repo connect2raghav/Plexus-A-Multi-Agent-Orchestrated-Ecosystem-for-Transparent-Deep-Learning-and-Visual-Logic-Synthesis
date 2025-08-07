@@ -27,7 +27,6 @@ import { useToast } from "./ToastProvider";
 
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
 import "reactflow/dist/style.css";
-import "@/styles/nodes.css";
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;

@@ -1,4 +1,3 @@
-import { Navbar } from "@/components/navbar";
 import { Head } from "@/layouts/head";
 
 interface DefaultLayoutProps {
@@ -14,10 +13,8 @@ export default function DefaultLayout({
 }: DefaultLayoutProps) {
   return (
     <div className="relative flex flex-col h-screen">
-      <Head title={title} description={description} />
-      <main className="flex-grow">
-        {children}
-      </main>
+      <Head description={description} title={title} />
+      <main className="flex-grow">{children}</main>
     </div>
   );
 }

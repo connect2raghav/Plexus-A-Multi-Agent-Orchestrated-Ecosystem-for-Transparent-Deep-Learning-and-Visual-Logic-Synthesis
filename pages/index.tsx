@@ -2,19 +2,19 @@ import { Button } from "@heroui/button";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { useRouter } from "next/router";
-import { 
-  Brain, 
-  Zap, 
-  Code, 
-  Download, 
-  Users, 
+import {
+  Brain,
+  Zap,
+  Code,
+  Download,
+  Users,
   Star,
   ArrowRight,
   Play,
   MousePointer,
   Layers,
   BarChart3,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 
 import { NeoDLogo } from "@/components/NeoDLogo";
@@ -24,7 +24,10 @@ export default function IndexPage() {
   const router = useRouter();
 
   return (
-    <DefaultLayout title="Home" description="Create powerful neural networks with visual drag-and-drop interface">
+    <DefaultLayout
+      description="Create powerful neural networks with visual drag-and-drop interface"
+      title="Home"
+    >
       {/* Hero Section */}
       <section className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-950/30 dark:to-secondary-950/30 px-6 py-20">
         <div className="text-center max-w-5xl mx-auto">
@@ -32,13 +35,13 @@ export default function IndexPage() {
           <div className="flex justify-center mb-6">
             <NeoDLogo size="xl" />
           </div>
-          
-          <Chip 
-            size="sm" 
-            variant="flat" 
-            color="primary" 
+
+          <Chip
             className="mb-6"
+            color="primary"
+            size="sm"
             startContent={<Sparkles className="w-3 h-3" />}
+            variant="flat"
           >
             Visual Neural Network Designer
           </Chip>
@@ -54,37 +57,38 @@ export default function IndexPage() {
 
           {/* Subtitle */}
           <p className="text-xl md:text-2xl text-default-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Create, train, and deploy neural networks with an intuitive drag-and-drop interface. 
-            No coding required – from prototype to production in minutes.
+            Create, train, and deploy neural networks with an intuitive
+            drag-and-drop interface. No coding required – from prototype to
+            production in minutes.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
             <Button
-              size="lg"
-              color="primary"
               className="text-lg px-8 py-6 h-auto font-semibold"
+              color="primary"
+              size="lg"
               startContent={<Play className="w-5 h-5" />}
               onPress={() => router.push("/neuralnetwork")}
             >
               Start Building
             </Button>
-            
+
             <Button
-              size="lg"
-              variant="bordered"
               className="text-lg px-8 py-6 h-auto"
+              size="lg"
               startContent={<BarChart3 className="w-5 h-5" />}
+              variant="bordered"
               onPress={() => router.push("/dashboard")}
             >
               View Dashboard
             </Button>
-            
+
             <Button
-              size="lg"
-              variant="ghost"
               className="text-lg px-8 py-6 h-auto"
+              size="lg"
               startContent={<Users className="w-5 h-5" />}
+              variant="ghost"
               onPress={() => router.push("/login")}
             >
               Login
@@ -118,7 +122,8 @@ export default function IndexPage() {
               Why Choose NeoD?
             </h2>
             <p className="text-lg text-default-600 max-w-2xl mx-auto">
-              Powerful features designed to make AI development accessible to everyone
+              Powerful features designed to make AI development accessible to
+              everyone
             </p>
           </div>
 
@@ -133,8 +138,8 @@ export default function IndexPage() {
               </CardHeader>
               <CardBody className="p-0">
                 <p className="text-default-600">
-                  Build complex neural networks by simply dragging and connecting layers. 
-                  No coding experience required.
+                  Build complex neural networks by simply dragging and
+                  connecting layers. No coding experience required.
                 </p>
               </CardBody>
             </Card>
@@ -148,8 +153,8 @@ export default function IndexPage() {
               </CardHeader>
               <CardBody className="p-0">
                 <p className="text-default-600">
-                  Start with proven architectures like CNN, RNN, Transformers, and more. 
-                  Customize to fit your needs.
+                  Start with proven architectures like CNN, RNN, Transformers,
+                  and more. Customize to fit your needs.
                 </p>
               </CardBody>
             </Card>
@@ -159,12 +164,14 @@ export default function IndexPage() {
                 <div className="p-3 rounded-xl bg-success-100 dark:bg-success-900/30 mb-3">
                   <Code className="w-6 h-6 text-success" />
                 </div>
-                <h3 className="text-xl font-semibold">Multi-Framework Export</h3>
+                <h3 className="text-xl font-semibold">
+                  Multi-Framework Export
+                </h3>
               </CardHeader>
               <CardBody className="p-0">
                 <p className="text-default-600">
-                  Generate clean, production-ready code for TensorFlow, PyTorch, or 
-                  export as Jupyter notebooks.
+                  Generate clean, production-ready code for TensorFlow, PyTorch,
+                  or export as Jupyter notebooks.
                 </p>
               </CardBody>
             </Card>
@@ -178,8 +185,8 @@ export default function IndexPage() {
               </CardHeader>
               <CardBody className="p-0">
                 <p className="text-default-600">
-                  Get instant feedback on your network architecture with built-in 
-                  validation and optimization suggestions.
+                  Get instant feedback on your network architecture with
+                  built-in validation and optimization suggestions.
                 </p>
               </CardBody>
             </Card>
@@ -193,7 +200,7 @@ export default function IndexPage() {
               </CardHeader>
               <CardBody className="p-0">
                 <p className="text-default-600">
-                  Deploy your models directly to cloud platforms or download 
+                  Deploy your models directly to cloud platforms or download
                   complete training scripts ready for production.
                 </p>
               </CardBody>
@@ -208,8 +215,8 @@ export default function IndexPage() {
               </CardHeader>
               <CardBody className="p-0">
                 <p className="text-default-600">
-                  AI-powered recommendations help optimize your network architecture 
-                  for better performance and efficiency.
+                  AI-powered recommendations help optimize your network
+                  architecture for better performance and efficiency.
                 </p>
               </CardBody>
             </Card>
@@ -224,23 +231,24 @@ export default function IndexPage() {
             Ready to Build Your First Neural Network?
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Join thousands of developers and researchers who trust NeoD for their AI projects.
+            Join thousands of developers and researchers who trust NeoD for
+            their AI projects.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
-              size="lg"
-              color="default"
               className="text-lg px-8 py-6 h-auto font-semibold"
+              color="default"
+              size="lg"
               startContent={<Play className="w-5 h-5" />}
               onPress={() => router.push("/neuralnetwork")}
             >
               Start Building Now
             </Button>
             <Button
-              size="lg"
-              variant="bordered"
               className="text-lg px-8 py-6 h-auto border-white text-white hover:bg-white hover:text-primary"
+              size="lg"
               startContent={<ArrowRight className="w-5 h-5" />}
+              variant="bordered"
               onPress={() => router.push("/about")}
             >
               Learn More

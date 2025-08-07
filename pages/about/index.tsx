@@ -4,7 +4,10 @@ import { NeoDLogo } from "@/components/NeoDLogo";
 
 export default function AboutPage() {
   return (
-    <DefaultLayout title="About" description="Learn more about NeoD - Visual Neural Network Designer">
+    <DefaultLayout
+      description="Learn more about NeoD - Visual Neural Network Designer"
+      title="About"
+    >
       <section className="flex flex-col items-center justify-center gap-8 py-8 md:py-10">
         <div className="inline-block max-w-4xl text-center justify-center">
           <div className="flex justify-center mb-6">
@@ -20,9 +23,9 @@ export default function AboutPage() {
           <p className="text-lg text-default-700">
             NeoD is a revolutionary visual neural network designer that empowers
             users to create, train, and deploy AI models using an intuitive
-            drag-and-drop interface. Whether you're a beginner exploring machine
-            learning or an expert prototyping complex architectures, NeoD makes
-            neural network development accessible and efficient.
+            drag-and-drop interface. Whether you&apos;re a beginner exploring
+            machine learning or an expert prototyping complex architectures,
+            NeoD makes neural network development accessible and efficient.
           </p>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">

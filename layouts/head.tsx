@@ -9,16 +9,15 @@ interface HeadProps {
 }
 
 export const Head = ({ title, description }: HeadProps) => {
-  const pageTitle = title ? `${title} - ${siteConfig.name}` : `${siteConfig.name} - Visual Neural Network Designer`;
+  const pageTitle = title
+    ? `${title} - ${siteConfig.name}`
+    : `${siteConfig.name} - Visual Neural Network Designer`;
   const pageDescription = description || siteConfig.description;
+
   return (
     <NextHead>
       <title>{pageTitle}</title>
-      <meta
-        key="title"
-        content={pageTitle}
-        property="og:title"
-      />
+      <meta key="title" content={pageTitle} property="og:title" />
       <meta content={pageDescription} property="og:description" />
       <meta content={pageDescription} name="description" />
       <meta
