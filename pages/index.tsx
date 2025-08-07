@@ -52,9 +52,18 @@ export default function IndexPage() {
               radius: "full",
               variant: "shadow",
             })}
-            href={siteConfig.links.docs}
+            href="/dashboard"
           >
-            Try the Builder
+            Go to Dashboard
+          </Link>
+          <Link
+            className={buttonStyles({
+              variant: "bordered", 
+              radius: "full",
+            })}
+            href="/neuralnetwork"
+          >
+            Neural Network Builder
           </Link>
           <Link
             isExternal
