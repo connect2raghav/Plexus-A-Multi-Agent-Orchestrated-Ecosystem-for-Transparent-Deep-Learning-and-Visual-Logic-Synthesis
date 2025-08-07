@@ -7,7 +7,8 @@ import {
   Code, 
   Settings,
   Menu,
-  X 
+  X,
+  Save 
 } from "lucide-react";
 import { Node, Edge } from "reactflow";
 
@@ -15,6 +16,7 @@ import ModelTemplates from "./ModelTemplates";
 import ModelValidator from "./ModelValidator";
 import PerformanceAnalysis from "./PerformanceAnalysis";
 import ProjectManager from "./ProjectManager";
+import { SavedProject } from "@/utils/projectStorage";
 
 interface FloatingToolbarProps {
   nodes: Node[];
@@ -24,7 +26,9 @@ interface FloatingToolbarProps {
   onIssueSelect: (nodeId: string) => void;
   onLayout: () => void;
   onToggleCodePanel: () => void;
+  onSaveProject: () => void;
   showCodePanel: boolean;
+  currentProject?: SavedProject | null;
 }
 
 const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
@@ -35,7 +39,9 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onIssueSelect,
   onLayout,
   onToggleCodePanel,
+  onSaveProject,
   showCodePanel,
+  currentProject,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -43,6 +49,18 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
     <div className="flex flex-col gap-2">
       {/* Always Visible - Key Actions */}
       <div className="flex gap-2">
+        <Tooltip content={currentProject ? "Update Project" : "Save Project"}>
+          <Button
+            isIconOnly
+            className="shadow-lg"
+            color="success"
+            variant="flat"
+            onClick={onSaveProject}
+          >
+            <Save className="w-4 h-4" />
+          </Button>
+        </Tooltip>
+
         <Tooltip content="Auto Layout">
           <Button
             isIconOnly

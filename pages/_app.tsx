@@ -5,6 +5,7 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useRouter } from "next/router";
 
 import { fontSans, fontMono } from "@/config/fonts";
+import { ToastProvider } from "@/components/ToastProvider";
 import "@/styles/globals.css";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -13,7 +14,9 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <HeroUIProvider navigate={router.push}>
       <NextThemesProvider attribute="class" defaultTheme="light">
-        <Component {...pageProps} />
+        <ToastProvider>
+          <Component {...pageProps} />
+        </ToastProvider>
       </NextThemesProvider>
     </HeroUIProvider>
   );

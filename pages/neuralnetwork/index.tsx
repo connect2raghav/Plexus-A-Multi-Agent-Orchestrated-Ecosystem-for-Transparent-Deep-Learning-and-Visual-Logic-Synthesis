@@ -5,16 +5,23 @@ import { useRouter } from "next/router";
 
 import EnhancedSidebar from "@/components/EnhancedSidebar";
 import FlowCanvasWrapper from "@/components/FlowCanvasWrapper";
+import ProjectStorage from "@/utils/projectStorage";
 
 export default function NeuralNetworkPage() {
   const [_selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [templateType, setTemplateType] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     // Check if there's a template query parameter
     if (router.query.template) {
       setTemplateType(router.query.template as string);
+    }
+    
+    // Check if there's a project query parameter
+    if (router.query.project) {
+      setProjectId(router.query.project as string);
     }
   }, [router.query]);
 
@@ -27,6 +34,7 @@ export default function NeuralNetworkPage() {
             <FlowCanvasWrapper 
               onNodeSelect={setSelectedNode} 
               templateType={templateType}
+              projectId={projectId}
             />
           </CardBody>
         </Card>

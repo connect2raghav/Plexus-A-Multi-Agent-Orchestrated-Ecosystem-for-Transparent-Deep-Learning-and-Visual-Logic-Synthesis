@@ -8,6 +8,7 @@ import FlowCanvas from "./FlowCanvas";
 interface FlowCanvasWrapperProps {
   onNodeSelect: (node: Node | null) => void;
   templateType?: string | null;
+  projectId?: string | null;
 }
 
 // Create a wrapper component that includes the Provider

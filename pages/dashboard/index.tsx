@@ -52,9 +52,12 @@ import {
   Heart,
   Share2,
   Code,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
 import DefaultLayout from "@/layouts/default";
+import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
 
 interface ProjectStats {
   totalProjects: number;
@@ -99,49 +102,66 @@ const DashboardPage: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
+  
+  // Load saved projects on component mount
+  useEffect(() => {
+    const projects = ProjectStorage.getAllProjects();
+    setSavedProjects(projects);
+  }, []);
   
   // Mock data - In real app, this would come from API/localStorage
   const [stats, setStats] = useState<ProjectStats>({
-    totalProjects: 12,
-    recentActivity: 8,
-    totalNodes: 156,
-    modelsDeployed: 3,
+    totalProjects: 0,
+    recentActivity: 0,
+    totalNodes: 0,
+    modelsDeployed: 0,
     favoriteTemplates: 5,
     completedTutorials: 7,
   });
 
-  const [recentProjects, setRecentProjects] = useState([
-    {
-      id: "1",
-      name: "Image Classifier CNN",
-      lastModified: new Date("2025-08-06"),
-      nodes: 8,
-      framework: "tensorflow",
-      category: "vision",
-      status: "completed",
-      accuracy: 94.2,
-    },
-    {
-      id: "2", 
-      name: "Sentiment Analysis LSTM",
-      lastModified: new Date("2025-08-05"),
-      nodes: 12,
-      framework: "pytorch",
-      category: "nlp",
-      status: "training",
-      accuracy: 87.5,
-    },
-    {
-      id: "3",
-      name: "Stock Price Predictor",
-      lastModified: new Date("2025-08-04"),
-      nodes: 6,
-      framework: "tensorflow",
-      category: "time-series",
-      status: "draft",
-      accuracy: null,
-    },
-  ]);
+  // Update stats when projects change
+  useEffect(() => {
+    const totalProjects = savedProjects.length;
+    const recentActivity = savedProjects.filter(p => 
+      new Date().getTime() - p.lastModified.getTime() < 7 * 24 * 60 * 60 * 1000
+    ).length;
+    const totalNodes = savedProjects.reduce((sum, p) => sum + p.nodeCount, 0);
+    const modelsDeployed = savedProjects.filter(p => p.status === 'completed').length;
+
+    setStats(prev => ({
+      ...prev,
+      totalProjects,
+      recentActivity,
+      totalNodes,
+      modelsDeployed,
+    }));
+  }, [savedProjects]);
+
+  // Get recent projects from saved projects
+  const recentProjects = savedProjects.slice(0, 3).map(project => ({
+    id: project.id,
+    name: project.name,
+    lastModified: project.lastModified,
+    nodes: project.nodeCount,
+    framework: project.framework,
+    category: project.category,
+    status: project.status,
+    accuracy: project.accuracy || null,
+    templateType: project.templateType,
+  }));
+
+  // Handle opening a project
+  const handleOpenProject = (projectId: string) => {
+    router.push(`/neuralnetwork?project=${projectId}`);
+  };
+
+  // Handle deleting a project
+  const handleDeleteProject = (projectId: string) => {
+    ProjectStorage.deleteProject(projectId);
+    const updatedProjects = ProjectStorage.getAllProjects();
+    setSavedProjects(updatedProjects);
+  };
 
   const quickActions: QuickAction[] = [
     {
@@ -347,42 +367,78 @@ const DashboardPage: React.FC = () => {
           </div>
         </CardHeader>
         <CardBody>
-          <div className="space-y-3">
-            {recentProjects.map((project) => (
-              <div key={project.id} className="flex items-center gap-4 p-3 bg-default-50 rounded-lg hover:bg-default-100 transition-colors cursor-pointer">
-                <Avatar
-                  icon={<Brain className="w-5 h-5" />}
-                  className="bg-primary-100 text-primary"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium">{project.name}</h4>
-                    <Chip size="sm" variant="flat" color="primary">
-                      {project.framework}
-                    </Chip>
-                    <Chip 
-                      size="sm" 
-                      variant="flat"
-                      color={project.status === "completed" ? "success" : 
-                             project.status === "training" ? "warning" : "default"}
-                    >
-                      {project.status}
-                    </Chip>
+          {recentProjects.length === 0 ? (
+            <div className="text-center py-8">
+              <Brain className="w-12 h-12 text-default-300 mx-auto mb-4" />
+              <p className="text-default-500 mb-4">No projects yet</p>
+              <Button 
+                color="primary" 
+                variant="flat"
+                onPress={() => router.push("/neuralnetwork")}
+              >
+                Create Your First Project
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentProjects.map((project) => (
+                <div key={project.id} className="flex items-center gap-4 p-3 bg-default-50 rounded-lg hover:bg-default-100 transition-colors">
+                  <Avatar
+                    icon={<Brain className="w-5 h-5" />}
+                    className="bg-primary-100 text-primary"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">{project.name}</h4>
+                      <Chip size="sm" variant="flat" color="primary">
+                        {project.framework}
+                      </Chip>
+                      <Chip 
+                        size="sm" 
+                        variant="flat"
+                        color={project.status === "completed" ? "success" : 
+                               project.status === "training" ? "warning" : "default"}
+                      >
+                        {project.status}
+                      </Chip>
+                      {project.templateType && (
+                        <Chip size="sm" variant="flat" color="secondary">
+                          {project.templateType}
+                        </Chip>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 mt-1 text-sm text-default-500">
+                      <span>{project.nodes} nodes</span>
+                      <span>{project.lastModified.toLocaleDateString()}</span>
+                      {project.accuracy && (
+                        <span className="text-success">{project.accuracy}% accuracy</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-default-500">
-                    <span>{project.nodes} nodes</span>
-                    <span>{project.lastModified.toLocaleDateString()}</span>
-                    {project.accuracy && (
-                      <span className="text-success">{project.accuracy}% accuracy</span>
-                    )}
+                  <div className="flex gap-2">
+                    <Button 
+                      isIconOnly 
+                      size="sm" 
+                      variant="light"
+                      color="primary"
+                      onPress={() => handleOpenProject(project.id)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      isIconOnly 
+                      size="sm" 
+                      variant="light"
+                      color="danger"
+                      onPress={() => handleDeleteProject(project.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <Button isIconOnly size="sm" variant="light">
-                  <Play className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardBody>
       </Card>
     </div>
