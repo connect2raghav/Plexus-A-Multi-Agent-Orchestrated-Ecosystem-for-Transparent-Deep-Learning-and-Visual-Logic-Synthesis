@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from "react";
-import { Code, Copy, Download, Network, X } from "lucide-react";
+import { Code, Copy, Download, Network, X, BookOpen, CheckCircle, BarChart3, Save, FolderOpen } from "lucide-react";
 import ReactFlow, {
   Background,
   Controls,
@@ -19,6 +19,11 @@ import { Button } from "@heroui/button";
 import { nodeTypes } from "./nodes/CustomNodes";
 import { NetworkCodeGenerator } from "./CodeGenerator";
 import { getLayoutedElements } from "./utils/layoutUtils";
+import ModelTemplates from "./ModelTemplates";
+import ModelValidator from "./ModelValidator";
+import PerformanceAnalysis from "./PerformanceAnalysis";
+import ProjectManager from "./ProjectManager";
+import HelpSystem from "./HelpSystem";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
 
@@ -174,6 +179,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
   const [generatedCode, setGeneratedCode] = useState("");
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -431,6 +437,38 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     [setNodes, project, nodes],
   );
 
+  // Handle loading a template
+  const handleLoadTemplate = useCallback((template: any) => {
+    setNodes(template.nodes);
+    setEdges(template.edges);
+    
+    // Auto-layout the loaded template
+    setTimeout(() => {
+      onLayout();
+    }, 100);
+  }, [setNodes, setEdges]);
+
+  // Handle loading a project  
+  const handleLoadProject = useCallback((project: any) => {
+    setNodes(project.nodes);
+    setEdges(project.edges);
+    
+    // Auto-layout the loaded project
+    setTimeout(() => {
+      onLayout();
+    }, 100);
+  }, [setNodes, setEdges]);
+
+  // Handle highlighting a node (from validator)
+  const handleIssueSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    
+    // Clear highlight after 3 seconds
+    setTimeout(() => {
+      setSelectedNodeId(null);
+    }, 3000);
+  }, []);
+
   const handleGenerate = async () => {
     try {
       setIsGenerating(true);
@@ -520,7 +558,16 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         edges={edges}
         fitViewOptions={{ padding: 0.2 }}
         nodeTypes={nodeTypes}
-        nodes={nodes}
+        nodes={nodes.map(node => ({
+          ...node,
+          style: {
+            ...node.style,
+            ...(selectedNodeId === node.id ? {
+              boxShadow: '0 0 0 3px #3b82f6',
+              border: '2px solid #3b82f6',
+            } : {})
+          }
+        }))}
         selectNodesOnDrag={false}
         onConnect={onConnect}
         onDragOver={onDragOver}
@@ -535,16 +582,42 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
 
       {/* Control buttons */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-        <Button
-          isIconOnly
-          aria-label="Auto layout"
-          className="shadow-md"
-          color="default"
-          variant="faded"
-          onClick={onLayout}
-        >
-          <Network className="w-5 h-5" />
-        </Button>
+        {/* Project Management */}
+        <div className="flex gap-2">
+          <ProjectManager
+            currentNodes={nodes}
+            currentEdges={edges}
+            onLoadProject={handleLoadProject}
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <ModelTemplates onLoadTemplate={handleLoadTemplate} />
+          
+          <ModelValidator 
+            nodes={nodes} 
+            edges={edges} 
+            onIssueSelect={handleIssueSelect}
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <PerformanceAnalysis 
+            nodes={nodes} 
+            edges={edges}
+          />
+
+          <Button
+            isIconOnly
+            aria-label="Auto layout"
+            className="shadow-md"
+            color="default"
+            variant="faded"
+            onClick={onLayout}
+          >
+            <Network className="w-5 h-5" />
+          </Button>
+        </div>
 
         <Button
           isIconOnly
@@ -732,6 +805,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           )}
         </Card>
       )}
+
+      {/* Help System */}
+      <HelpSystem />
     </div>
   );
 };

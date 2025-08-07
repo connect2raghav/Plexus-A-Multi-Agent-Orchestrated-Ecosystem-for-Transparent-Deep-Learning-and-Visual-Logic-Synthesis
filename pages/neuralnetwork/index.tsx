@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardBody } from "@heroui/react";
 import { Node } from "reactflow";
 
-import Sidebar from "@/components/Sidebar";
+import EnhancedSidebar from "@/components/EnhancedSidebar";
 import FlowCanvasWrapper from "@/components/FlowCanvasWrapper";
 
 export default function NeuralNetworkPage() {
@@ -10,7 +10,7 @@ export default function NeuralNetworkPage() {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      <Sidebar />
+      <EnhancedSidebar />
       <div className="flex flex-col flex-1">
         <Card className="flex-1 m-4">
           <CardBody>
@@ -18,13 +18,6 @@ export default function NeuralNetworkPage() {
           </CardBody>
         </Card>
       </div>
-      {/* <Card className="w-80 m-4">
-        <CardBody>
-          <h2 className="text-lg font-semibold mb-2">Node Options</h2>
-          <Divider className="my-2" />
-          <NodeOptions selectedNode={selectedNode} />
-        </CardBody>
-      </Card> */}
     </div>
   );
 }
