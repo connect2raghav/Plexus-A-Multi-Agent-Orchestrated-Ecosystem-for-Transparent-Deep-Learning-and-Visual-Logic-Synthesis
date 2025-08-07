@@ -173,38 +173,52 @@ const DashboardPage: React.FC = () => {
 
   const quickActions: QuickAction[] = [
     {
-      id: "new-project",
-      title: "New Project",
-      description: "Start building a neural network from scratch",
+      id: "blank",
+      title: "Blank Canvas",
+      description: "Start from scratch with a custom architecture",
       icon: "lucide:plus",
       color: "primary",
       action: () => router.push("/neuralnetwork"),
     },
     {
-      id: "browse-templates",
-      title: "Browse Templates", 
-      description: "Explore pre-built neural network architectures",
-      icon: "lucide:book-open",
+      id: "feedforward",
+      title: "Feedforward NN", 
+      description: "Basic neural network for classification and regression",
+      icon: "lucide:layers",
       color: "secondary",
-      action: () => router.push("/neuralnetwork?tab=templates"),
-      badge: "50+ templates",
+      action: () => router.push("/neuralnetwork?template=feedforward"),
     },
     {
-      id: "import-project",
-      title: "Import Project",
-      description: "Load a project from file or GitHub",
-      icon: "lucide:download",
+      id: "cnn",
+      title: "CNN",
+      description: "Convolutional Neural Network for image recognition",
+      icon: "lucide:image",
       color: "success",
-      action: () => {},
+      action: () => router.push("/neuralnetwork?template=cnn"),
     },
     {
-      id: "tutorials",
-      title: "Learn & Practice",
-      description: "Interactive tutorials and examples",
-      icon: "lucide:graduation-cap",
+      id: "rnn",
+      title: "RNN/LSTM",
+      description: "Recurrent Neural Network for sequences and text",
+      icon: "lucide:message-square",
       color: "warning",
-      action: () => setSelectedTab("tutorials"),
-      badge: "New",
+      action: () => router.push("/neuralnetwork?template=rnn"),
+    },
+    {
+      id: "autoencoder",
+      title: "Autoencoder",
+      description: "Compression and reconstruction networks",
+      icon: "lucide:compress",
+      color: "danger",
+      action: () => router.push("/neuralnetwork?template=autoencoder"),
+    },
+    {
+      id: "transformer",
+      title: "Transformer",
+      description: "Attention-based models for modern NLP",
+      icon: "lucide:cpu",
+      color: "secondary",
+      action: () => router.push("/neuralnetwork?template=transformer"),
     },
   ];
 
@@ -404,100 +418,14 @@ const DashboardPage: React.FC = () => {
 
   const renderOverview = () => (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-100 rounded-lg">
-                <Brain className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-default-500">Projects</p>
-                <p className="text-xl font-bold">{stats.totalProjects}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-success-100 rounded-lg">
-                <Activity className="w-5 h-5 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-default-500">Active</p>
-                <p className="text-xl font-bold">{stats.recentActivity}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning-100 rounded-lg">
-                <Target className="w-5 h-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-default-500">Nodes</p>
-                <p className="text-xl font-bold">{stats.totalNodes}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-secondary-100 rounded-lg">
-                <Zap className="w-5 h-5 text-secondary" />
-              </div>
-              <div>
-                <p className="text-sm text-default-500">Deployed</p>
-                <p className="text-xl font-bold">{stats.modelsDeployed}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-danger-100 rounded-lg">
-                <Heart className="w-5 h-5 text-danger" />
-              </div>
-              <div>
-                <p className="text-sm text-default-500">Favorites</p>
-                <p className="text-xl font-bold">{stats.favoriteTemplates}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Award className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-default-500">Learned</p>
-                <p className="text-xl font-bold">{stats.completedTutorials}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
+      {/* Neural Network Quick Actions */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Quick Actions</h3>
+          <h3 className="text-lg font-semibold">Start Building</h3>
+          <p className="text-default-500">Choose a neural network type to get started</p>
         </CardHeader>
         <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickActions.map((action) => (
               <Card 
                 key={action.id}
@@ -507,8 +435,8 @@ const DashboardPage: React.FC = () => {
               >
                 <CardBody className="p-4">
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 bg-${action.color}-100 rounded-lg`}>
-                      <Icon icon={action.icon} className={`w-5 h-5 text-${action.color}`} />
+                    <div className={`p-3 bg-${action.color}-100 rounded-lg`}>
+                      <Icon icon={action.icon} className={`w-6 h-6 text-${action.color}`} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
