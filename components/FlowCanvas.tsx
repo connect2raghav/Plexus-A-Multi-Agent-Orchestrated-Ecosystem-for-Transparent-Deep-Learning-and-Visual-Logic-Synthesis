@@ -19,6 +19,7 @@ import { Button } from "@heroui/button";
 import { nodeTypes } from "./nodes/CustomNodes";
 import { NetworkCodeGenerator } from "./CodeGenerator";
 import { getLayoutedElements } from "./utils/layoutUtils";
+import { getTemplateByType } from "./templates/templateDefinitions";
 import ModelTemplates from "./ModelTemplates";
 import ModelValidator from "./ModelValidator";
 import PerformanceAnalysis from "./PerformanceAnalysis";
@@ -30,39 +31,12 @@ import "@/styles/nodes.css";
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
+  templateType?: string | null;
 }
 
-const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
-  // Simple Text Processing Neural Network
-  const initialEdges: Edge[] = [
-    // Text Input -> Input Layer
-    {
-      id: "e-textinput-inputlayer",
-      source: "input-1",
-      target: "inputlayer-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Input Layer -> Dense Layer
-    {
-      id: "e-inputlayer-dense",
-      source: "inputlayer-1",
-      target: "dense-1",
-      animated: true,
-      type: "smooth",
-    },
-    // Dense -> Output
-    {
-      id: "e-dense-output",
-      source: "dense-1",
-      target: "output-1",
-      animated: true,
-      type: "smooth",
-    },
-  ];
-
-  const initialNodes: Node[] = [
-    // Text Input (for user interaction/inference)
+const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType }) => {
+  // Default simple text processing network
+  const getDefaultNodes = (): Node[] => [
     {
       id: "input-1",
       type: "textInput",
@@ -86,7 +60,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 50, y: 200 },
     },
-    // Input Layer (neural network entry point)
     {
       id: "inputlayer-1",
       type: "inputLayer",
@@ -115,7 +88,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 300, y: 200 },
     },
-    // Dense Layer (hidden layer)
     {
       id: "dense-1",
       type: "dense",
@@ -144,7 +116,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
       },
       position: { x: 550, y: 200 },
     },
-    // Output Layer
     {
       id: "output-1",
       type: "outputLayer",
@@ -171,8 +142,43 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
     },
   ];
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const getDefaultEdges = (): Edge[] => [
+    {
+      id: "e-textinput-inputlayer",
+      source: "input-1",
+      target: "inputlayer-1",
+      animated: true,
+      type: "smooth",
+    },
+    {
+      id: "e-inputlayer-dense",
+      source: "inputlayer-1",
+      target: "dense-1",
+      animated: true,
+      type: "smooth",
+    },
+    {
+      id: "e-dense-output",
+      source: "dense-1",
+      target: "output-1",
+      animated: true,
+      type: "smooth",
+    },
+  ];
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(getDefaultNodes());
+  const [edges, setEdges, onEdgesChange] = useEdgesState(getDefaultEdges());
+  
+  // Update nodes and edges when template type changes
+  useEffect(() => {
+    if (templateType) {
+      const template = getTemplateByType(templateType);
+      if (template) {
+        setNodes(template.nodes);
+        setEdges(template.edges);
+      }
+    }
+  }, [templateType, setNodes, setEdges]);
   const [showPanel, setShowPanel] = useState(false);
   const [framework, setFramework] = useState<"tensorflow" | "pytorch">(
     "tensorflow",

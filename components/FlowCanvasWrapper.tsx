@@ -1,13 +1,17 @@
 import React from "react";
 import { ReactFlowProvider } from "reactflow";
+import { Node } from "reactflow";
 
 import "reactflow/dist/style.css";
 import FlowCanvas from "./FlowCanvas";
 
-// ...existing code...
+interface FlowCanvasWrapperProps {
+  onNodeSelect: (node: Node | null) => void;
+  templateType?: string | null;
+}
 
 // Create a wrapper component that includes the Provider
-const FlowCanvasWrapper: React.FC<any> = (props) => {
+const FlowCanvasWrapper: React.FC<FlowCanvasWrapperProps> = (props) => {
   return (
     <ReactFlowProvider>
       <FlowCanvas {...props} />
