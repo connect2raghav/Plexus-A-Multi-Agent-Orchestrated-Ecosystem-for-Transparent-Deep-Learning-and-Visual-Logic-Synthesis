@@ -3,6 +3,8 @@ import type { AppProps } from "next/app";
 import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useRouter } from "next/router";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { fontSans, fontMono } from "@/config/fonts";
 import { ToastProvider } from "@/components/ToastProvider";
@@ -17,6 +19,8 @@ export default function App({ Component, pageProps }: AppProps) {
       <NextThemesProvider attribute="class" defaultTheme="light">
         <ToastProvider>
           <Component {...pageProps} />
+          <Analytics />
+          <SpeedInsights />
         </ToastProvider>
       </NextThemesProvider>
     </HeroUIProvider>
