@@ -24,6 +24,7 @@ import ModelValidator from "./ModelValidator";
 import PerformanceAnalysis from "./PerformanceAnalysis";
 import ProjectManager from "./ProjectManager";
 import HelpSystem from "./HelpSystem";
+import FloatingToolbar from "./FloatingToolbar";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
 
@@ -580,55 +581,23 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
         <Background color="#aaa" gap={20} />
       </ReactFlow>
 
-      {/* Control buttons */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-        {/* Project Management */}
-        <div className="flex gap-2">
-          <ProjectManager
-            currentNodes={nodes}
-            currentEdges={edges}
-            onLoadProject={handleLoadProject}
-          />
-        </div>
+      {/* Collapsible Toolbar - Top Right */}
+      <div className="absolute top-4 right-4 z-10">
+        <FloatingToolbar
+          nodes={nodes}
+          edges={edges}
+          onLoadTemplate={handleLoadTemplate}
+          onLoadProject={handleLoadProject}
+          onIssueSelect={handleIssueSelect}
+          onLayout={onLayout}
+          onToggleCodePanel={() => setShowPanel((prev) => !prev)}
+          showCodePanel={showPanel}
+        />
+      </div>
 
-        <div className="flex gap-2">
-          <ModelTemplates onLoadTemplate={handleLoadTemplate} />
-          
-          <ModelValidator 
-            nodes={nodes} 
-            edges={edges} 
-            onIssueSelect={handleIssueSelect}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <PerformanceAnalysis 
-            nodes={nodes} 
-            edges={edges}
-          />
-
-          <Button
-            isIconOnly
-            aria-label="Auto layout"
-            className="shadow-md"
-            color="default"
-            variant="faded"
-            onClick={onLayout}
-          >
-            <Network className="w-5 h-5" />
-          </Button>
-        </div>
-
-        <Button
-          isIconOnly
-          aria-label="Show code panel"
-          className="shadow-md"
-          color="default"
-          variant="faded"
-          onClick={() => setShowPanel((prev) => !prev)}
-        >
-          <Code className="w-5 h-5" />
-        </Button>
+      {/* Help System - Positioned below toolbar */}
+      <div className="absolute top-16 right-4 z-10">
+        <HelpSystem />
       </div>
 
       {showPanel && (
@@ -637,12 +606,12 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           className="shadow-lg border animate-in slide-in-from-right-4 fade-in-0 duration-200"
           style={{
             position: "absolute",
-            top: 100,
-            right: 24,
+            top: 60,
+            right: 20,
             width: generatedCode ? 600 : 360,
-            maxHeight: "80vh",
-            zIndex: 20,
-            maxWidth: "90vw",
+            maxHeight: "calc(100vh - 100px)",
+            zIndex: 30, // Higher than toolbar
+            maxWidth: "calc(100vw - 40px)",
           }}
         >
           <CardBody className="p-6">
@@ -805,9 +774,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect }) => {
           )}
         </Card>
       )}
-
-      {/* Help System */}
-      <HelpSystem />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Card, CardBody, Button, Input, Chip, Divider, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { Search, Star, StarOff, History, Filter, X } from "lucide-react";
+import { Search, Star, StarOff, History, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 
 const nodeTypesByCategory = [
   {
@@ -417,6 +417,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   // Flatten all nodes for easier searching
   const allNodes = useMemo(() => {
@@ -430,6 +431,12 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
     const cats = ["all", ...nodeTypesByCategory.map(cat => cat.category.toLowerCase())];
     return cats;
   }, []);
+
+  // Show limited categories by default, all when expanded
+  const displayedCategories = useMemo(() => {
+    if (showAllCategories) return categories;
+    return categories.slice(0, 6); // Show first 6 categories
+  }, [categories, showAllCategories]);
 
   // Filter nodes based on search, category, and favorites
   const filteredNodes = useMemo(() => {
@@ -451,11 +458,6 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
       filtered = filtered.filter(node => 
         node.category.toLowerCase() === selectedCategory
       );
-    }
-
-    // Filter by favorites if enabled
-    if (showOnlyFavorites) {
-      filtered = filtered.filter(node => favorites.has(node.type));
     }
 
     // Sort by popularity and favorites
@@ -528,7 +530,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
             <h2 className="text-lg font-semibold">Node Library</h2>
             <div className="flex items-center gap-1">
               <Tooltip content="Show only favorites">
-                <Button
+                {/* <Button
                   isIconOnly
                   size="sm"
                   variant={showOnlyFavorites ? "solid" : "light"}
@@ -536,7 +538,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                   onPress={() => setShowOnlyFavorites(!showOnlyFavorites)}
                 >
                   <Star className="w-4 h-4" />
-                </Button>
+                </Button> */}
               </Tooltip>
               <Chip size="sm" variant="flat">
                 {filteredNodes.length}
@@ -570,22 +572,36 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
           </div>
 
           {/* Category Filter */}
-          <div className="flex flex-wrap gap-1">
-            {categories.map((category) => (
-              <Chip
-                key={category}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {displayedCategories.map((category) => (
+                <Chip
+                  key={category}
+                  size="sm"
+                  variant={selectedCategory === category ? "solid" : "flat"}
+                  color={selectedCategory === category ? "primary" : "default"}
+                  className="cursor-pointer capitalize"
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category === "all" ? "All" : category.replace(/([A-Z])/g, ' $1').trim()}
+                </Chip>
+              ))}
+            </div>
+            
+            {categories.length > 6 && (
+              <Button
                 size="sm"
-                variant={selectedCategory === category ? "solid" : "flat"}
-                color={selectedCategory === category ? "primary" : "default"}
-                className="cursor-pointer capitalize"
-                onClick={() => setSelectedCategory(category)}
+                variant="light"
+                className="h-6 text-xs"
+                startContent={showAllCategories ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                onPress={() => setShowAllCategories(!showAllCategories)}
               >
-                {category === "all" ? "All" : category.replace(/([A-Z])/g, ' $1').trim()}
-              </Chip>
-            ))}
+                {showAllCategories ? "Show Less" : `Show ${categories.length - 6} More`}
+              </Button>
+            )}
           </div>
 
-          {/* Recently Used */}
+          {/* Recently Used
           {recentlyUsed.length > 0 && !searchQuery && selectedCategory === "all" && (
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -613,7 +629,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
               </div>
               <Divider className="my-3" />
             </div>
-          )}
+          )} */}
 
           {/* Nodes List */}
           <div className="space-y-4 overflow-y-auto max-h-[60vh]">
@@ -641,7 +657,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                           </div>
                         </div>
                       </Button>
-                      <Button
+                      {/* <Button
                         isIconOnly
                         size="sm"
                         variant="light"
@@ -652,7 +668,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                         ) : (
                           <StarOff className="w-4 h-4 text-default-400" />
                         )}
-                      </Button>
+                      </Button> */}
                     </div>
                   ))}
                 </div>
