@@ -5,7 +5,6 @@ import { useRouter } from "next/router";
 
 import EnhancedSidebar from "@/components/EnhancedSidebar";
 import FlowCanvasWrapper from "@/components/FlowCanvasWrapper";
-import ProjectStorage from "@/utils/projectStorage";
 
 export default function NeuralNetworkPage() {
   const [_selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -18,7 +17,7 @@ export default function NeuralNetworkPage() {
     if (router.query.template) {
       setTemplateType(router.query.template as string);
     }
-    
+
     // Check if there's a project query parameter
     if (router.query.project) {
       setProjectId(router.query.project as string);
@@ -31,10 +30,10 @@ export default function NeuralNetworkPage() {
       <div className="flex flex-col flex-1">
         <Card className="flex-1 m-4">
           <CardBody>
-            <FlowCanvasWrapper 
-              onNodeSelect={setSelectedNode} 
-              templateType={templateType}
+            <FlowCanvasWrapper
               projectId={projectId}
+              templateType={templateType}
+              onNodeSelect={setSelectedNode}
             />
           </CardBody>
         </Card>

@@ -6,17 +6,10 @@ import {
   CardHeader,
   Button,
   Chip,
-  Progress,
   Avatar,
-  Divider,
   Input,
   Select,
   SelectItem,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   useDisclosure,
   Tabs,
   Tab,
@@ -25,33 +18,12 @@ import { Icon } from "@iconify/react";
 import {
   Plus,
   Search,
-  Filter,
-  TrendingUp,
-  Clock,
   Brain,
   Database,
-  BookOpen,
-  Github,
   ExternalLink,
-  Play,
   Download,
-  Star,
-  Users,
   BarChart3,
-  Zap,
-  Globe,
-  FileText,
-  Video,
-  Bookmark,
   Settings,
-  Award,
-  Target,
-  Activity,
-  Calendar,
-  Eye,
-  Heart,
-  Share2,
-  Code,
   Edit,
   Trash2,
 } from "lucide-react";
@@ -59,6 +31,7 @@ import {
 import DefaultLayout from "@/layouts/default";
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
 import SettingsModal from "@/components/SettingsModal";
+import { NeoDLogo } from "@/components/NeoDLogo";
 
 interface ProjectStats {
   totalProjects: number;
@@ -95,8 +68,6 @@ interface Dataset {
   popularity: number;
 }
 
-
-
 const DashboardPage: React.FC = () => {
   const router = useRouter();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -105,13 +76,14 @@ const DashboardPage: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState("all");
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  
+
   // Load saved projects on component mount
   useEffect(() => {
     const projects = ProjectStorage.getAllProjects();
+
     setSavedProjects(projects);
   }, []);
-  
+
   // Mock data - In real app, this would come from API/localStorage
   const [stats, setStats] = useState<ProjectStats>({
     totalProjects: 0,
@@ -125,13 +97,17 @@ const DashboardPage: React.FC = () => {
   // Update stats when projects change
   useEffect(() => {
     const totalProjects = savedProjects.length;
-    const recentActivity = savedProjects.filter(p => 
-      new Date().getTime() - p.lastModified.getTime() < 7 * 24 * 60 * 60 * 1000
+    const recentActivity = savedProjects.filter(
+      (p) =>
+        new Date().getTime() - p.lastModified.getTime() <
+        7 * 24 * 60 * 60 * 1000,
     ).length;
     const totalNodes = savedProjects.reduce((sum, p) => sum + p.nodeCount, 0);
-    const modelsDeployed = savedProjects.filter(p => p.status === 'completed').length;
+    const modelsDeployed = savedProjects.filter(
+      (p) => p.status === "completed",
+    ).length;
 
-    setStats(prev => ({
+    setStats((prev) => ({
       ...prev,
       totalProjects,
       recentActivity,
@@ -141,7 +117,7 @@ const DashboardPage: React.FC = () => {
   }, [savedProjects]);
 
   // Get recent projects from saved projects
-  const recentProjects = savedProjects.slice(0, 3).map(project => ({
+  const recentProjects = savedProjects.slice(0, 3).map((project) => ({
     id: project.id,
     name: project.name,
     lastModified: project.lastModified,
@@ -162,6 +138,7 @@ const DashboardPage: React.FC = () => {
   const handleDeleteProject = (projectId: string) => {
     ProjectStorage.deleteProject(projectId);
     const updatedProjects = ProjectStorage.getAllProjects();
+
     setSavedProjects(updatedProjects);
   };
 
@@ -176,7 +153,7 @@ const DashboardPage: React.FC = () => {
     },
     {
       id: "feedforward",
-      title: "Feedforward NN", 
+      title: "Feedforward NN",
       description: "Basic neural network for classification and regression",
       icon: "lucide:layers",
       color: "secondary",
@@ -236,7 +213,7 @@ const DashboardPage: React.FC = () => {
       id: "cifar10",
       name: "CIFAR-10",
       description: "60,000 color images in 10 classes",
-      size: "163 MB", 
+      size: "163 MB",
       format: "Images (32x32x3)",
       category: "vision",
       difficulty: "intermediate",
@@ -254,7 +231,7 @@ const DashboardPage: React.FC = () => {
       size: "80 MB",
       format: "Text sequences",
       category: "nlp",
-      difficulty: "intermediate", 
+      difficulty: "intermediate",
       downloadUrl: "https://keras.io/api/datasets/imdb/",
       tags: ["sentiment", "nlp", "text classification"],
       samples: 50000,
@@ -295,21 +272,31 @@ const DashboardPage: React.FC = () => {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "beginner": return "success";
-      case "intermediate": return "warning"; 
-      case "advanced": return "danger";
-      default: return "default";
+      case "beginner":
+        return "success";
+      case "intermediate":
+        return "warning";
+      case "advanced":
+        return "danger";
+      default:
+        return "default";
     }
   };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case "vision": return "lucide:eye";
-      case "nlp": return "lucide:message-square";
-      case "audio": return "lucide:headphones";
-      case "tabular": return "lucide:table";
-      case "time-series": return "lucide:trending-up";
-      default: return "lucide:database";
+      case "vision":
+        return "lucide:eye";
+      case "nlp":
+        return "lucide:message-square";
+      case "audio":
+        return "lucide:headphones";
+      case "tabular":
+        return "lucide:table";
+      case "time-series":
+        return "lucide:trending-up";
+      default:
+        return "lucide:database";
     }
   };
 
@@ -319,12 +306,14 @@ const DashboardPage: React.FC = () => {
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Start Building</h3>
-          <p className="text-default-500">Choose a neural network type to get started</p>
+          <p className="text-default-500">
+            Choose a neural network type to get started
+          </p>
         </CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickActions.map((action) => (
-              <Card 
+              <Card
                 key={action.id}
                 isPressable
                 className="hover:shadow-lg transition-shadow"
@@ -333,18 +322,23 @@ const DashboardPage: React.FC = () => {
                 <CardBody className="p-4">
                   <div className="flex items-start gap-3">
                     <div className={`p-3 bg-${action.color}-100 rounded-lg`}>
-                      <Icon icon={action.icon} className={`w-6 h-6 text-${action.color}`} />
+                      <Icon
+                        className={`w-6 h-6 text-${action.color}`}
+                        icon={action.icon}
+                      />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="font-medium">{action.title}</h4>
                         {action.badge && (
-                          <Chip size="sm" color={action.color} variant="flat">
+                          <Chip color={action.color} size="sm" variant="flat">
                             {action.badge}
                           </Chip>
                         )}
                       </div>
-                      <p className="text-sm text-default-500 mt-1">{action.description}</p>
+                      <p className="text-sm text-default-500 mt-1">
+                        {action.description}
+                      </p>
                     </div>
                   </div>
                 </CardBody>
@@ -359,9 +353,9 @@ const DashboardPage: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Recent Projects</h3>
-            <Button 
-              size="sm" 
-              variant="flat" 
+            <Button
+              size="sm"
+              variant="flat"
               onPress={() => router.push("/projects")}
             >
               View All
@@ -373,8 +367,8 @@ const DashboardPage: React.FC = () => {
             <div className="text-center py-8">
               <Brain className="w-12 h-12 text-default-300 mx-auto mb-4" />
               <p className="text-default-500 mb-4">No projects yet</p>
-              <Button 
-                color="primary" 
+              <Button
+                color="primary"
                 variant="flat"
                 onPress={() => router.push("/neuralnetwork")}
               >
@@ -384,27 +378,35 @@ const DashboardPage: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {recentProjects.map((project) => (
-                <div key={project.id} className="flex items-center gap-4 p-3 bg-default-50 rounded-lg hover:bg-default-100 transition-colors">
+                <div
+                  key={project.id}
+                  className="flex items-center gap-4 p-3 bg-default-50 rounded-lg hover:bg-default-100 transition-colors"
+                >
                   <Avatar
-                    icon={<Brain className="w-5 h-5" />}
                     className="bg-primary-100 text-primary"
+                    icon={<Brain className="w-5 h-5" />}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium">{project.name}</h4>
-                      <Chip size="sm" variant="flat" color="primary">
+                      <Chip color="primary" size="sm" variant="flat">
                         {project.framework}
                       </Chip>
-                      <Chip 
-                        size="sm" 
+                      <Chip
+                        color={
+                          project.status === "completed"
+                            ? "success"
+                            : project.status === "training"
+                              ? "warning"
+                              : "default"
+                        }
+                        size="sm"
                         variant="flat"
-                        color={project.status === "completed" ? "success" : 
-                               project.status === "training" ? "warning" : "default"}
                       >
                         {project.status}
                       </Chip>
                       {project.templateType && (
-                        <Chip size="sm" variant="flat" color="secondary">
+                        <Chip color="secondary" size="sm" variant="flat">
                           {project.templateType}
                         </Chip>
                       )}
@@ -413,25 +415,27 @@ const DashboardPage: React.FC = () => {
                       <span>{project.nodes} nodes</span>
                       <span>{project.lastModified.toLocaleDateString()}</span>
                       {project.accuracy && (
-                        <span className="text-success">{project.accuracy}% accuracy</span>
+                        <span className="text-success">
+                          {project.accuracy}% accuracy
+                        </span>
                       )}
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      isIconOnly 
-                      size="sm" 
-                      variant="light"
+                    <Button
+                      isIconOnly
                       color="primary"
+                      size="sm"
+                      variant="light"
                       onPress={() => handleOpenProject(project.id)}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button 
-                      isIconOnly 
-                      size="sm" 
-                      variant="light"
+                    <Button
+                      isIconOnly
                       color="danger"
+                      size="sm"
+                      variant="light"
                       onPress={() => handleDeleteProject(project.id)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -451,21 +455,25 @@ const DashboardPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-semibold">Datasets</h3>
-          <p className="text-default-500">Curated datasets for training your models</p>
+          <p className="text-default-500">
+            Curated datasets for training your models
+          </p>
         </div>
         <div className="flex gap-2">
           <Input
+            className="w-64"
             placeholder="Search datasets..."
             startContent={<Search className="w-4 h-4" />}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-64"
           />
           <Select
-            placeholder="Category"
             className="w-32"
+            placeholder="Category"
             selectedKeys={[filterCategory]}
-            onSelectionChange={(keys) => setFilterCategory(Array.from(keys)[0] as string)}
+            onSelectionChange={(keys) =>
+              setFilterCategory(Array.from(keys)[0] as string)
+            }
           >
             <SelectItem key="all">All</SelectItem>
             <SelectItem key="vision">Vision</SelectItem>
@@ -478,27 +486,39 @@ const DashboardPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {datasets
-          .filter(dataset => 
-            (filterCategory === "all" || dataset.category === filterCategory) &&
-            (searchQuery === "" || 
-             dataset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             dataset.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
+          .filter(
+            (dataset) =>
+              (filterCategory === "all" ||
+                dataset.category === filterCategory) &&
+              (searchQuery === "" ||
+                dataset.name
+                  .toLowerCase()
+                  .includes(searchQuery.toLowerCase()) ||
+                dataset.tags.some((tag) =>
+                  tag.toLowerCase().includes(searchQuery.toLowerCase()),
+                )),
           )
           .map((dataset) => (
-            <Card key={dataset.id} className="hover:shadow-lg transition-shadow">
+            <Card
+              key={dataset.id}
+              className="hover:shadow-lg transition-shadow"
+            >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between w-full">
                   <div className="flex items-center gap-3">
-                    <Icon icon={getCategoryIcon(dataset.category)} className="w-6 h-6 text-primary" />
+                    <Icon
+                      className="w-6 h-6 text-primary"
+                      icon={getCategoryIcon(dataset.category)}
+                    />
                     <div>
                       <h4 className="font-semibold">{dataset.name}</h4>
                       <p className="text-sm text-default-500">{dataset.size}</p>
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Chip 
-                      size="sm" 
+                    <Chip
                       color={getDifficultyColor(dataset.difficulty)}
+                      size="sm"
                       variant="flat"
                     >
                       {dataset.difficulty}
@@ -507,8 +527,10 @@ const DashboardPage: React.FC = () => {
                 </div>
               </CardHeader>
               <CardBody className="pt-0">
-                <p className="text-sm text-default-600 mb-3">{dataset.description}</p>
-                
+                <p className="text-sm text-default-600 mb-3">
+                  {dataset.description}
+                </p>
+
                 <div className="space-y-2 text-xs text-default-500">
                   <div className="flex justify-between">
                     <span>Samples:</span>
@@ -540,20 +562,20 @@ const DashboardPage: React.FC = () => {
 
                 <div className="flex gap-2 mt-4">
                   <Button
-                    size="sm"
-                    color="primary"
-                    variant="flat"
-                    startContent={<Download className="w-4 h-4" />}
                     className="flex-1"
-                    onPress={() => window.open(dataset.downloadUrl, '_blank')}
+                    color="primary"
+                    size="sm"
+                    startContent={<Download className="w-4 h-4" />}
+                    variant="flat"
+                    onPress={() => window.open(dataset.downloadUrl, "_blank")}
                   >
                     Download
                   </Button>
                   <Button
                     size="sm"
-                    variant="flat"
                     startContent={<ExternalLink className="w-4 h-4" />}
-                    onPress={() => window.open(dataset.downloadUrl, '_blank')}
+                    variant="flat"
+                    onPress={() => window.open(dataset.downloadUrl, "_blank")}
                   >
                     Info
                   </Button>
@@ -566,20 +588,24 @@ const DashboardPage: React.FC = () => {
   );
 
   return (
-    <DefaultLayout>
+    <DefaultLayout title="Dashboard" description="Manage your neural networks and explore new possibilities">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-default-500 mt-1">
-              Welcome back! Manage your neural networks and explore new possibilities.
-            </p>
+          <div className="flex items-center gap-4">
+            <NeoDLogo showText={false} size="lg" />
+            <div>
+              <h1 className="text-3xl font-bold">NeoD Dashboard</h1>
+              <p className="text-default-500 mt-1">
+                Welcome back! Manage your neural networks and explore new
+                possibilities.
+              </p>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button
-              variant="flat"
               startContent={<Settings className="w-4 h-4" />}
+              variant="flat"
               onPress={() => setIsSettingsOpen(true)}
             >
               Settings
@@ -595,15 +621,15 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <Tabs 
-          selectedKey={selectedTab} 
-          onSelectionChange={(key) => setSelectedTab(key as string)}
+        <Tabs
           classNames={{
             tabList: "w-full",
           }}
+          selectedKey={selectedTab}
+          onSelectionChange={(key) => setSelectedTab(key as string)}
         >
-          <Tab 
-            key="overview" 
+          <Tab
+            key="overview"
             title={
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4" />
@@ -613,9 +639,9 @@ const DashboardPage: React.FC = () => {
           >
             {renderOverview()}
           </Tab>
-          
-          <Tab 
-            key="datasets" 
+
+          <Tab
+            key="datasets"
             title={
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4" />

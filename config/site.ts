@@ -2,14 +2,15 @@ export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
   name: "NeoD",
-  description: "Make beautiful websites regardless of your design experience.",
+  description:
+    "Visual Neural Network Designer - Create, train, and deploy AI models with an intuitive drag-and-drop interface.",
   navItems: [
     {
       label: "Home",
       href: "/",
     },
     {
-      label: "Dashboard", 
+      label: "Dashboard",
       href: "/dashboard",
     },
     {
@@ -18,7 +19,7 @@ export const siteConfig = {
     },
     {
       label: "Projects",
-      href: "/projects", 
+      href: "/projects",
     },
     {
       label: "Docs",

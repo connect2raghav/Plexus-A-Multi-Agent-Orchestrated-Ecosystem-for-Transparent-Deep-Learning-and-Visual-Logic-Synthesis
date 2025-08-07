@@ -15,7 +15,7 @@ import {
   Divider,
 } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { BookOpen, Zap, Image, MessageSquare, Brain, Database } from "lucide-react";
+import { BookOpen, Zap, Brain } from "lucide-react";
 
 interface ModelTemplate {
   id: string;
@@ -93,9 +93,24 @@ const modelTemplates: ModelTemplate[] = [
       },
     ],
     edges: [
-      { id: "e1", source: "input-template-1", target: "dense-template-1", type: "smooth" },
-      { id: "e2", source: "dense-template-1", target: "dropout-template-1", type: "smooth" },
-      { id: "e3", source: "dropout-template-1", target: "output-template-1", type: "smooth" },
+      {
+        id: "e1",
+        source: "input-template-1",
+        target: "dense-template-1",
+        type: "smooth",
+      },
+      {
+        id: "e2",
+        source: "dense-template-1",
+        target: "dropout-template-1",
+        type: "smooth",
+      },
+      {
+        id: "e3",
+        source: "dropout-template-1",
+        target: "output-template-1",
+        type: "smooth",
+      },
     ],
   },
   {
@@ -220,8 +235,18 @@ const modelTemplates: ModelTemplate[] = [
       { id: "e4", source: "conv2d-2", target: "maxpool-2", type: "smooth" },
       { id: "e5", source: "maxpool-2", target: "flatten-1", type: "smooth" },
       { id: "e6", source: "flatten-1", target: "dense-cnn-1", type: "smooth" },
-      { id: "e7", source: "dense-cnn-1", target: "dropout-cnn-1", type: "smooth" },
-      { id: "e8", source: "dropout-cnn-1", target: "output-cnn-1", type: "smooth" },
+      {
+        id: "e7",
+        source: "dense-cnn-1",
+        target: "dropout-cnn-1",
+        type: "smooth",
+      },
+      {
+        id: "e8",
+        source: "dropout-cnn-1",
+        target: "output-cnn-1",
+        type: "smooth",
+      },
     ],
   },
   {
@@ -325,12 +350,22 @@ const modelTemplates: ModelTemplate[] = [
       },
     ],
     edges: [
-      { id: "e1", source: "input-lstm-1", target: "embedding-1", type: "smooth" },
+      {
+        id: "e1",
+        source: "input-lstm-1",
+        target: "embedding-1",
+        type: "smooth",
+      },
       { id: "e2", source: "embedding-1", target: "lstm-1", type: "smooth" },
       { id: "e3", source: "lstm-1", target: "dropout-lstm-1", type: "smooth" },
       { id: "e4", source: "dropout-lstm-1", target: "lstm-2", type: "smooth" },
       { id: "e5", source: "lstm-2", target: "dense-lstm-1", type: "smooth" },
-      { id: "e6", source: "dense-lstm-1", target: "output-lstm-1", type: "smooth" },
+      {
+        id: "e6",
+        source: "dense-lstm-1",
+        target: "output-lstm-1",
+        type: "smooth",
+      },
     ],
   },
   {
@@ -463,27 +498,34 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
     { key: "gan", label: "Generative", icon: "lucide:shuffle" },
   ];
 
-  const filteredTemplates = selectedCategory === "all" 
-    ? modelTemplates 
-    : modelTemplates.filter(template => template.category === selectedCategory);
+  const filteredTemplates =
+    selectedCategory === "all"
+      ? modelTemplates
+      : modelTemplates.filter(
+          (template) => template.category === selectedCategory,
+        );
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "beginner": return "success";
-      case "intermediate": return "warning";
-      case "advanced": return "danger";
-      default: return "default";
+      case "beginner":
+        return "success";
+      case "intermediate":
+        return "warning";
+      case "advanced":
+        return "danger";
+      default:
+        return "default";
     }
   };
 
   const handleLoadTemplate = (template: ModelTemplate) => {
     // Update node IDs to avoid conflicts
-    const updatedNodes = template.nodes.map(node => ({
+    const updatedNodes = template.nodes.map((node) => ({
       ...node,
       id: `${node.id}-${Date.now()}`,
     }));
 
-    const updatedEdges = template.edges.map(edge => ({
+    const updatedEdges = template.edges.map((edge) => ({
       ...edge,
       id: `${edge.id}-${Date.now()}`,
       source: `${edge.source}-${Date.now()}`,
@@ -508,11 +550,11 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
         Load Template
       </Button>
 
-      <Modal 
-        isOpen={isOpen} 
-        onOpenChange={onOpenChange}
-        size="5xl"
+      <Modal
+        isOpen={isOpen}
         scrollBehavior="inside"
+        size="5xl"
+        onOpenChange={onOpenChange}
       >
         <ModalContent>
           {(onClose) => (
@@ -523,7 +565,8 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
                   Model Templates
                 </div>
                 <p className="text-sm text-default-500 font-normal">
-                  Choose from pre-built neural network architectures to get started quickly
+                  Choose from pre-built neural network architectures to get
+                  started quickly
                 </p>
               </ModalHeader>
               <ModalBody>
@@ -532,10 +575,18 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
                   {categories.map((category) => (
                     <Button
                       key={category.key}
+                      color={
+                        selectedCategory === category.key
+                          ? "primary"
+                          : "default"
+                      }
                       size="sm"
-                      variant={selectedCategory === category.key ? "solid" : "flat"}
-                      color={selectedCategory === category.key ? "primary" : "default"}
-                      startContent={<Icon icon={category.icon} className="w-4 h-4" />}
+                      startContent={
+                        <Icon className="w-4 h-4" icon={category.icon} />
+                      }
+                      variant={
+                        selectedCategory === category.key ? "solid" : "flat"
+                      }
                       onPress={() => setSelectedCategory(category.key)}
                     >
                       {category.label}
@@ -546,19 +597,29 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
                 {/* Templates Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {filteredTemplates.map((template) => (
-                    <Card key={template.id} className="hover:shadow-lg transition-shadow">
+                    <Card
+                      key={template.id}
+                      className="hover:shadow-lg transition-shadow"
+                    >
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between w-full">
                           <div className="flex items-center gap-3">
-                            <Icon icon={template.icon} className="w-6 h-6 text-primary" />
+                            <Icon
+                              className="w-6 h-6 text-primary"
+                              icon={template.icon}
+                            />
                             <div>
-                              <h3 className="text-lg font-semibold">{template.name}</h3>
-                              <p className="text-sm text-default-500">{template.description}</p>
+                              <h3 className="text-lg font-semibold">
+                                {template.name}
+                              </h3>
+                              <p className="text-sm text-default-500">
+                                {template.description}
+                              </p>
                             </div>
                           </div>
                           <Chip
-                            size="sm"
                             color={getDifficultyColor(template.difficulty)}
+                            size="sm"
                             variant="flat"
                           >
                             {template.difficulty}
@@ -568,21 +629,33 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
                       <CardBody className="pt-0">
                         <div className="space-y-3">
                           <div>
-                            <p className="text-sm font-medium text-default-700 mb-1">Use Case:</p>
-                            <p className="text-sm text-default-500">{template.useCase}</p>
+                            <p className="text-sm font-medium text-default-700 mb-1">
+                              Use Case:
+                            </p>
+                            <p className="text-sm text-default-500">
+                              {template.useCase}
+                            </p>
                           </div>
-                          
+
                           <div>
-                            <p className="text-sm font-medium text-default-700 mb-2">Architecture:</p>
+                            <p className="text-sm font-medium text-default-700 mb-2">
+                              Architecture:
+                            </p>
                             <div className="text-xs text-default-500">
-                              {template.nodes.length} layers • {template.edges.length} connections
+                              {template.nodes.length} layers •{" "}
+                              {template.edges.length} connections
                             </div>
                           </div>
 
                           <div>
                             <div className="flex flex-wrap gap-1">
                               {template.tags.map((tag) => (
-                                <Chip key={tag} size="sm" variant="flat" className="text-xs">
+                                <Chip
+                                  key={tag}
+                                  className="text-xs"
+                                  size="sm"
+                                  variant="flat"
+                                >
                                   {tag}
                                 </Chip>
                               ))}
@@ -592,11 +665,11 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
                           <Divider />
 
                           <Button
-                            color="primary"
-                            variant="flat"
-                            size="sm"
                             className="w-full"
+                            color="primary"
+                            size="sm"
                             startContent={<Zap className="w-4 h-4" />}
+                            variant="flat"
                             onPress={() => handleLoadTemplate(template)}
                           >
                             Load Template
@@ -610,7 +683,9 @@ const ModelTemplates: React.FC<ModelTemplatesProps> = ({ onLoadTemplate }) => {
                 {filteredTemplates.length === 0 && (
                   <div className="text-center py-8">
                     <Brain className="w-12 h-12 text-default-300 mx-auto mb-4" />
-                    <p className="text-default-500">No templates found for this category.</p>
+                    <p className="text-default-500">
+                      No templates found for this category.
+                    </p>
                   </div>
                 )}
               </ModalBody>

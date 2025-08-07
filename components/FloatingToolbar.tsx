@@ -1,21 +1,13 @@
 import React, { useState } from "react";
 import { Card, CardBody, Button, Tooltip } from "@heroui/react";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Network, 
-  Code, 
-  Settings,
-  Menu,
-  X,
-  Save 
-} from "lucide-react";
+import { Network, Code, Settings, X, Save } from "lucide-react";
 import { Node, Edge } from "reactflow";
 
 import ModelTemplates from "./ModelTemplates";
 import ModelValidator from "./ModelValidator";
 import PerformanceAnalysis from "./PerformanceAnalysis";
 import ProjectManager from "./ProjectManager";
+
 import { SavedProject } from "@/utils/projectStorage";
 
 interface FloatingToolbarProps {
@@ -86,7 +78,10 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
         </Tooltip>
 
         {/* Collapsible Menu Toggle */}
-        <Tooltip content={isExpanded ? "Hide Tools" : "More Tools"} placement="left">
+        <Tooltip
+          content={isExpanded ? "Hide Tools" : "More Tools"}
+          placement="left"
+        >
           <Button
             isIconOnly
             className="shadow-lg"
@@ -94,7 +89,11 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             variant={isExpanded ? "solid" : "flat"}
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            {isExpanded ? <X className="w-4 h-4" /> : <Settings className="w-4 h-4" />}
+            {isExpanded ? (
+              <X className="w-4 h-4" />
+            ) : (
+              <Settings className="w-4 h-4" />
+            )}
           </Button>
         </Tooltip>
       </div>
@@ -106,8 +105,12 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-default-200 pb-2">
-                <h3 className="text-sm font-semibold text-default-700">Neural Network Tools</h3>
-                <div className="text-xs text-default-500">{nodes.length} nodes</div>
+                <h3 className="text-sm font-semibold text-default-700">
+                  Neural Network Tools
+                </h3>
+                <div className="text-xs text-default-500">
+                  {nodes.length} nodes
+                </div>
               </div>
 
               {/* Project Management Section */}
@@ -117,8 +120,8 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                 </div>
                 <div className="flex gap-2">
                   <ProjectManager
-                    currentNodes={nodes}
                     currentEdges={edges}
+                    currentNodes={nodes}
                     onLoadProject={onLoadProject}
                   />
                 </div>
@@ -131,17 +134,14 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <ModelTemplates onLoadTemplate={onLoadTemplate} />
-                  <ModelValidator 
-                    nodes={nodes} 
-                    edges={edges} 
+                  <ModelValidator
+                    edges={edges}
+                    nodes={nodes}
                     onIssueSelect={onIssueSelect}
                   />
-                  <PerformanceAnalysis 
-                    nodes={nodes} 
-                    edges={edges}
-                  />
+                  <PerformanceAnalysis edges={edges} nodes={nodes} />
                   {/* Placeholder for even grid */}
-                  <div></div>
+                  <div />
                 </div>
               </div>
             </div>

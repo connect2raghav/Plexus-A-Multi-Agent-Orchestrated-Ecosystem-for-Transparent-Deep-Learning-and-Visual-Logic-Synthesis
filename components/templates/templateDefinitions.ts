@@ -81,11 +81,21 @@ export const templateDefinitions: Record<string, TemplateDefinition> = {
     edges: [
       { id: "e1", source: "input-ff-1", target: "dense-ff-1", type: "smooth" },
       { id: "e2", source: "dense-ff-1", target: "dense-ff-2", type: "smooth" },
-      { id: "e3", source: "dense-ff-2", target: "dropout-ff-1", type: "smooth" },
-      { id: "e4", source: "dropout-ff-1", target: "output-ff-1", type: "smooth" },
+      {
+        id: "e3",
+        source: "dense-ff-2",
+        target: "dropout-ff-1",
+        type: "smooth",
+      },
+      {
+        id: "e4",
+        source: "dropout-ff-1",
+        target: "output-ff-1",
+        type: "smooth",
+      },
     ],
   },
-  
+
   cnn: {
     id: "cnn",
     name: "Convolutional Neural Network",
@@ -203,15 +213,26 @@ export const templateDefinitions: Record<string, TemplateDefinition> = {
       { id: "e4", source: "conv2d-2", target: "maxpool-2", type: "smooth" },
       { id: "e5", source: "maxpool-2", target: "flatten-1", type: "smooth" },
       { id: "e6", source: "flatten-1", target: "dense-cnn-1", type: "smooth" },
-      { id: "e7", source: "dense-cnn-1", target: "dropout-cnn-1", type: "smooth" },
-      { id: "e8", source: "dropout-cnn-1", target: "output-cnn-1", type: "smooth" },
+      {
+        id: "e7",
+        source: "dense-cnn-1",
+        target: "dropout-cnn-1",
+        type: "smooth",
+      },
+      {
+        id: "e8",
+        source: "dropout-cnn-1",
+        target: "output-cnn-1",
+        type: "smooth",
+      },
     ],
   },
 
   rnn: {
     id: "rnn",
     name: "RNN/LSTM Network",
-    description: "Recurrent neural network for sequence data and text processing",
+    description:
+      "Recurrent neural network for sequence data and text processing",
     nodes: [
       {
         id: "input-rnn-1",
@@ -304,19 +325,30 @@ export const templateDefinitions: Record<string, TemplateDefinition> = {
       },
     ],
     edges: [
-      { id: "e1", source: "input-rnn-1", target: "embedding-1", type: "smooth" },
+      {
+        id: "e1",
+        source: "input-rnn-1",
+        target: "embedding-1",
+        type: "smooth",
+      },
       { id: "e2", source: "embedding-1", target: "lstm-1", type: "smooth" },
       { id: "e3", source: "lstm-1", target: "dropout-rnn-1", type: "smooth" },
       { id: "e4", source: "dropout-rnn-1", target: "lstm-2", type: "smooth" },
       { id: "e5", source: "lstm-2", target: "dense-rnn-1", type: "smooth" },
-      { id: "e6", source: "dense-rnn-1", target: "output-rnn-1", type: "smooth" },
+      {
+        id: "e6",
+        source: "dense-rnn-1",
+        target: "output-rnn-1",
+        type: "smooth",
+      },
     ],
   },
 
   autoencoder: {
     id: "autoencoder",
     name: "Autoencoder",
-    description: "Encoder-decoder architecture for dimensionality reduction and feature learning",
+    description:
+      "Encoder-decoder architecture for dimensionality reduction and feature learning",
     nodes: [
       {
         id: "input-ae-1",
@@ -423,7 +455,8 @@ export const templateDefinitions: Record<string, TemplateDefinition> = {
   transformer: {
     id: "transformer",
     name: "Transformer",
-    description: "Attention-based model for modern NLP and sequence-to-sequence tasks",
+    description:
+      "Attention-based model for modern NLP and sequence-to-sequence tasks",
     nodes: [
       {
         id: "input-trans-1",
@@ -523,17 +556,34 @@ export const templateDefinitions: Record<string, TemplateDefinition> = {
       },
     ],
     edges: [
-      { id: "e1", source: "input-trans-1", target: "embedding-trans-1", type: "smooth" },
-      { id: "e2", source: "embedding-trans-1", target: "attention-1", type: "smooth" },
+      {
+        id: "e1",
+        source: "input-trans-1",
+        target: "embedding-trans-1",
+        type: "smooth",
+      },
+      {
+        id: "e2",
+        source: "embedding-trans-1",
+        target: "attention-1",
+        type: "smooth",
+      },
       { id: "e3", source: "attention-1", target: "norm-1", type: "smooth" },
       { id: "e4", source: "norm-1", target: "ffn-1", type: "smooth" },
       { id: "e5", source: "ffn-1", target: "norm-2", type: "smooth" },
       { id: "e6", source: "norm-2", target: "pooling-trans-1", type: "smooth" },
-      { id: "e7", source: "pooling-trans-1", target: "output-trans-1", type: "smooth" },
+      {
+        id: "e7",
+        source: "pooling-trans-1",
+        target: "output-trans-1",
+        type: "smooth",
+      },
     ],
   },
 };
 
-export function getTemplateByType(templateType: string): TemplateDefinition | null {
+export function getTemplateByType(
+  templateType: string,
+): TemplateDefinition | null {
   return templateDefinitions[templateType] || null;
 }

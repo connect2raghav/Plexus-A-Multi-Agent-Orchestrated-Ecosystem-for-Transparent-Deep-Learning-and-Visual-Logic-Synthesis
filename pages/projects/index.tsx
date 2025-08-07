@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/router";
 import {
   Card,
@@ -9,27 +9,17 @@ import {
   Input,
   Select,
   SelectItem,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   useDisclosure,
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  Avatar,
-  Badge,
   Progress,
-  Divider,
 } from "@heroui/react";
 import {
   Plus,
   Search,
-  Filter,
   MoreVertical,
-  Play,
   Edit,
   Copy,
   Trash2,
@@ -37,25 +27,19 @@ import {
   Upload,
   Share2,
   Star,
-  Calendar,
   Clock,
   Target,
-  TrendingUp,
-  Brain,
   Folder,
   Grid3X3,
   List,
   SortAsc,
   SortDesc,
-  Eye,
-  Code,
-  FileText,
-  Archive,
   Users,
   Globe,
 } from "lucide-react";
 
 import DefaultLayout from "@/layouts/default";
+import { NeoDLogo } from "@/components/NeoDLogo";
 
 interface Project {
   id: string;
@@ -106,7 +90,8 @@ const ProjectsPage: React.FC = () => {
     {
       id: "1",
       name: "Image Classifier CNN",
-      description: "Convolutional Neural Network for classifying images into 10 categories using CIFAR-10 dataset",
+      description:
+        "Convolutional Neural Network for classifying images into 10 categories using CIFAR-10 dataset",
       createdAt: new Date("2025-08-01"),
       lastModified: new Date("2025-08-06"),
       nodes: 8,
@@ -127,7 +112,8 @@ const ProjectsPage: React.FC = () => {
     {
       id: "2",
       name: "Sentiment Analysis LSTM",
-      description: "LSTM network for analyzing sentiment in movie reviews using IMDB dataset",
+      description:
+        "LSTM network for analyzing sentiment in movie reviews using IMDB dataset",
       createdAt: new Date("2025-07-28"),
       lastModified: new Date("2025-08-05"),
       nodes: 12,
@@ -148,7 +134,8 @@ const ProjectsPage: React.FC = () => {
     {
       id: "3",
       name: "Stock Price Predictor",
-      description: "Time series prediction model for stock prices using historical data and technical indicators",
+      description:
+        "Time series prediction model for stock prices using historical data and technical indicators",
       createdAt: new Date("2025-07-25"),
       lastModified: new Date("2025-08-04"),
       nodes: 6,
@@ -165,7 +152,8 @@ const ProjectsPage: React.FC = () => {
     {
       id: "4",
       name: "Face Recognition System",
-      description: "Deep learning model for face recognition and verification using VGGFace dataset",
+      description:
+        "Deep learning model for face recognition and verification using VGGFace dataset",
       createdAt: new Date("2025-07-20"),
       lastModified: new Date("2025-08-03"),
       nodes: 15,
@@ -187,7 +175,8 @@ const ProjectsPage: React.FC = () => {
     {
       id: "5",
       name: "Music Genre Classifier",
-      description: "Audio classification model for identifying music genres from audio features",
+      description:
+        "Audio classification model for identifying music genres from audio features",
       createdAt: new Date("2025-07-15"),
       lastModified: new Date("2025-08-01"),
       nodes: 10,
@@ -204,7 +193,8 @@ const ProjectsPage: React.FC = () => {
     {
       id: "6",
       name: "Customer Churn Prediction",
-      description: "Binary classification model to predict customer churn using demographic and behavioral data",
+      description:
+        "Binary classification model to predict customer churn using demographic and behavioral data",
       createdAt: new Date("2025-07-10"),
       lastModified: new Date("2025-07-30"),
       nodes: 7,
@@ -226,49 +216,65 @@ const ProjectsPage: React.FC = () => {
 
   const stats: ProjectStats = {
     total: projects.length,
-    draft: projects.filter(p => p.status === "draft").length,
-    training: projects.filter(p => p.status === "training").length,
-    completed: projects.filter(p => p.status === "completed").length,
-    deployed: projects.filter(p => p.status === "deployed").length,
-    starred: projects.filter(p => p.isStarred).length,
+    draft: projects.filter((p) => p.status === "draft").length,
+    training: projects.filter((p) => p.status === "training").length,
+    completed: projects.filter((p) => p.status === "completed").length,
+    deployed: projects.filter((p) => p.status === "deployed").length,
+    starred: projects.filter((p) => p.isStarred).length,
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed": return "success";
-      case "training": return "warning";
-      case "deployed": return "primary";
-      case "error": return "danger";
-      default: return "default";
+      case "completed":
+        return "success";
+      case "training":
+        return "warning";
+      case "deployed":
+        return "primary";
+      case "error":
+        return "danger";
+      default:
+        return "default";
     }
   };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case "vision": return "👁️";
-      case "nlp": return "💬";
-      case "audio": return "🎵";
-      case "tabular": return "📊";
-      case "time-series": return "📈";
-      default: return "🧠";
+      case "vision":
+        return "👁️";
+      case "nlp":
+        return "💬";
+      case "audio":
+        return "🎵";
+      case "tabular":
+        return "📊";
+      case "time-series":
+        return "📈";
+      default:
+        return "🧠";
     }
   };
 
   const filteredAndSortedProjects = projects
-    .filter(project => {
-      const matchesSearch = searchQuery === "" || 
+    .filter((project) => {
+      const matchesSearch =
+        searchQuery === "" ||
         project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-      
-      const matchesStatus = filterStatus === "all" || project.status === filterStatus;
-      const matchesFramework = filterFramework === "all" || project.framework === filterFramework;
-      
+        project.tags.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
+
+      const matchesStatus =
+        filterStatus === "all" || project.status === filterStatus;
+      const matchesFramework =
+        filterFramework === "all" || project.framework === filterFramework;
+
       return matchesSearch && matchesStatus && matchesFramework;
     })
     .sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortBy) {
         case "name":
           comparison = a.name.localeCompare(b.name);
@@ -288,22 +294,25 @@ const ProjectsPage: React.FC = () => {
         default:
           comparison = 0;
       }
-      
+
       return sortOrder === "asc" ? comparison : -comparison;
     });
 
   const handleStarProject = (projectId: string) => {
-    setProjects(prev => prev.map(p => 
-      p.id === projectId ? { ...p, isStarred: !p.isStarred } : p
-    ));
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId ? { ...p, isStarred: !p.isStarred } : p,
+      ),
+    );
   };
 
   const handleDeleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
   };
 
   const handleDuplicateProject = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+    const project = projects.find((p) => p.id === projectId);
+
     if (project) {
       const newProject: Project = {
         ...project,
@@ -319,26 +328,33 @@ const ProjectsPage: React.FC = () => {
         lastTrainingTime: undefined,
         deploymentUrl: undefined,
       };
-      setProjects(prev => [newProject, ...prev]);
+
+      setProjects((prev) => [newProject, ...prev]);
     }
   };
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {filteredAndSortedProjects.map((project) => (
-        <Card 
-          key={project.id} 
-          className="hover:shadow-lg transition-shadow cursor-pointer group"
+        <Card
+          key={project.id}
           isPressable
+          className="hover:shadow-lg transition-shadow cursor-pointer group"
           onPress={() => router.push(`/neuralnetwork?project=${project.id}`)}
         >
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between w-full">
               <div className="flex items-center gap-2">
-                <div className="text-2xl">{getCategoryIcon(project.category)}</div>
+                <div className="text-2xl">
+                  {getCategoryIcon(project.category)}
+                </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-sm line-clamp-1">{project.name}</h4>
-                  <p className="text-xs text-default-500">{project.framework}</p>
+                  <h4 className="font-semibold text-sm line-clamp-1">
+                    {project.name}
+                  </h4>
+                  <p className="text-xs text-default-500">
+                    {project.framework}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -348,36 +364,44 @@ const ProjectsPage: React.FC = () => {
                   variant="light"
                   onPress={() => handleStarProject(project.id)}
                 >
-                  <Star 
-                    className={`w-4 h-4 ${project.isStarred ? 'fill-warning text-warning' : 'text-default-400'}`} 
+                  <Star
+                    className={`w-4 h-4 ${project.isStarred ? "fill-warning text-warning" : "text-default-400"}`}
                   />
                 </Button>
                 <Dropdown>
                   <DropdownTrigger>
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="light"
-                    >
+                    <Button isIconOnly size="sm" variant="light">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu>
-                    <DropdownItem key="edit" startContent={<Edit className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="edit"
+                      startContent={<Edit className="w-4 h-4" />}
+                    >
                       Edit
                     </DropdownItem>
-                    <DropdownItem key="duplicate" startContent={<Copy className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="duplicate"
+                      startContent={<Copy className="w-4 h-4" />}
+                    >
                       Duplicate
                     </DropdownItem>
-                    <DropdownItem key="share" startContent={<Share2 className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="share"
+                      startContent={<Share2 className="w-4 h-4" />}
+                    >
                       Share
                     </DropdownItem>
-                    <DropdownItem key="download" startContent={<Download className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="download"
+                      startContent={<Download className="w-4 h-4" />}
+                    >
                       Export
                     </DropdownItem>
-                    <DropdownItem 
-                      key="delete" 
-                      className="text-danger" 
+                    <DropdownItem
+                      key="delete"
+                      className="text-danger"
                       color="danger"
                       startContent={<Trash2 className="w-4 h-4" />}
                     >
@@ -388,15 +412,17 @@ const ProjectsPage: React.FC = () => {
               </div>
             </div>
           </CardHeader>
-          
+
           <CardBody className="pt-0">
             <div className="space-y-3">
-              <p className="text-xs text-default-600 line-clamp-2">{project.description}</p>
-              
+              <p className="text-xs text-default-600 line-clamp-2">
+                {project.description}
+              </p>
+
               <div className="flex items-center justify-between text-xs">
-                <Chip 
-                  size="sm" 
+                <Chip
                   color={getStatusColor(project.status)}
+                  size="sm"
                   variant="flat"
                 >
                   {project.status}
@@ -410,11 +436,11 @@ const ProjectsPage: React.FC = () => {
                     <span>Accuracy</span>
                     <span className="text-success">{project.accuracy}%</span>
                   </div>
-                  <Progress 
-                    value={project.accuracy} 
-                    color="success" 
-                    size="sm"
+                  <Progress
                     className="w-full"
+                    color="success"
+                    size="sm"
+                    value={project.accuracy}
                   />
                 </div>
               )}
@@ -433,12 +459,17 @@ const ProjectsPage: React.FC = () => {
               {project.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {project.tags.slice(0, 2).map((tag) => (
-                    <Chip key={tag} size="sm" variant="flat" className="text-xs">
+                    <Chip
+                      key={tag}
+                      className="text-xs"
+                      size="sm"
+                      variant="flat"
+                    >
                       {tag}
                     </Chip>
                   ))}
                   {project.tags.length > 2 && (
-                    <Chip size="sm" variant="flat" className="text-xs">
+                    <Chip className="text-xs" size="sm" variant="flat">
                       +{project.tags.length - 2}
                     </Chip>
                   )}
@@ -449,7 +480,8 @@ const ProjectsPage: React.FC = () => {
                 <div className="flex items-center gap-1">
                   <Users className="w-3 h-3 text-default-400" />
                   <span className="text-xs text-default-500">
-                    {project.collaborators.length} collaborator{project.collaborators.length > 1 ? 's' : ''}
+                    {project.collaborators.length} collaborator
+                    {project.collaborators.length > 1 ? "s" : ""}
                   </span>
                 </div>
               )}
@@ -463,16 +495,18 @@ const ProjectsPage: React.FC = () => {
   const renderListView = () => (
     <div className="space-y-2">
       {filteredAndSortedProjects.map((project) => (
-        <Card 
+        <Card
           key={project.id}
-          className="hover:shadow-md transition-shadow cursor-pointer"
           isPressable
+          className="hover:shadow-md transition-shadow cursor-pointer"
           onPress={() => router.push(`/neuralnetwork?project=${project.id}`)}
         >
           <CardBody className="p-4">
             <div className="flex items-center gap-4">
-              <div className="text-2xl">{getCategoryIcon(project.category)}</div>
-              
+              <div className="text-2xl">
+                {getCategoryIcon(project.category)}
+              </div>
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <h4 className="font-semibold truncate">{project.name}</h4>
@@ -483,7 +517,9 @@ const ProjectsPage: React.FC = () => {
                     <Globe className="w-4 h-4 text-primary flex-shrink-0" />
                   )}
                 </div>
-                <p className="text-sm text-default-600 line-clamp-1">{project.description}</p>
+                <p className="text-sm text-default-600 line-clamp-1">
+                  {project.description}
+                </p>
               </div>
 
               <div className="flex items-center gap-6 text-sm text-default-500">
@@ -491,7 +527,7 @@ const ProjectsPage: React.FC = () => {
                   <div className="font-medium">{project.nodes}</div>
                   <div className="text-xs">Nodes</div>
                 </div>
-                
+
                 <div className="text-center">
                   <div className="font-medium">{project.size}</div>
                   <div className="text-xs">Size</div>
@@ -499,21 +535,25 @@ const ProjectsPage: React.FC = () => {
 
                 {project.accuracy && (
                   <div className="text-center">
-                    <div className="font-medium text-success">{project.accuracy}%</div>
+                    <div className="font-medium text-success">
+                      {project.accuracy}%
+                    </div>
                     <div className="text-xs">Accuracy</div>
                   </div>
                 )}
 
                 <div className="text-center">
-                  <div className="font-medium">{project.lastModified.toLocaleDateString()}</div>
+                  <div className="font-medium">
+                    {project.lastModified.toLocaleDateString()}
+                  </div>
                   <div className="text-xs">Modified</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <Chip 
-                  size="sm" 
+                <Chip
                   color={getStatusColor(project.status)}
+                  size="sm"
                   variant="flat"
                 >
                   {project.status}
@@ -525,30 +565,38 @@ const ProjectsPage: React.FC = () => {
 
                 <Dropdown>
                   <DropdownTrigger>
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="light"
-                    >
+                    <Button isIconOnly size="sm" variant="light">
                       <MoreVertical className="w-4 h-4" />
                     </Button>
                   </DropdownTrigger>
                   <DropdownMenu>
-                    <DropdownItem key="edit" startContent={<Edit className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="edit"
+                      startContent={<Edit className="w-4 h-4" />}
+                    >
                       Edit
                     </DropdownItem>
-                    <DropdownItem key="duplicate" startContent={<Copy className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="duplicate"
+                      startContent={<Copy className="w-4 h-4" />}
+                    >
                       Duplicate
                     </DropdownItem>
-                    <DropdownItem key="share" startContent={<Share2 className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="share"
+                      startContent={<Share2 className="w-4 h-4" />}
+                    >
                       Share
                     </DropdownItem>
-                    <DropdownItem key="download" startContent={<Download className="w-4 h-4" />}>
+                    <DropdownItem
+                      key="download"
+                      startContent={<Download className="w-4 h-4" />}
+                    >
                       Export
                     </DropdownItem>
-                    <DropdownItem 
-                      key="delete" 
-                      className="text-danger" 
+                    <DropdownItem
+                      key="delete"
+                      className="text-danger"
                       color="danger"
                       startContent={<Trash2 className="w-4 h-4" />}
                     >
@@ -565,18 +613,23 @@ const ProjectsPage: React.FC = () => {
   );
 
   return (
-    <DefaultLayout>
+    <DefaultLayout title="Projects" description="Manage your neural network projects">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Projects</h1>
-            <p className="text-default-500">Manage your neural network projects</p>
+          <div className="flex items-center gap-3">
+            <NeoDLogo showText={false} size="md" />
+            <div>
+              <h1 className="text-2xl font-bold">NeoD Projects</h1>
+              <p className="text-default-500">
+                Manage your neural network projects
+              </p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button
-              variant="flat"
               startContent={<Upload className="w-4 h-4" />}
+              variant="flat"
             >
               Import
             </Button>
@@ -594,37 +647,49 @@ const ProjectsPage: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
           <Card>
             <CardBody className="p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{stats.total}</div>
+              <div className="text-2xl font-bold text-primary">
+                {stats.total}
+              </div>
               <div className="text-sm text-default-500">Total</div>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="p-3 text-center">
-              <div className="text-2xl font-bold text-default-500">{stats.draft}</div>
+              <div className="text-2xl font-bold text-default-500">
+                {stats.draft}
+              </div>
               <div className="text-sm text-default-500">Draft</div>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="p-3 text-center">
-              <div className="text-2xl font-bold text-warning">{stats.training}</div>
+              <div className="text-2xl font-bold text-warning">
+                {stats.training}
+              </div>
               <div className="text-sm text-default-500">Training</div>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="p-3 text-center">
-              <div className="text-2xl font-bold text-success">{stats.completed}</div>
+              <div className="text-2xl font-bold text-success">
+                {stats.completed}
+              </div>
               <div className="text-sm text-default-500">Completed</div>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{stats.deployed}</div>
+              <div className="text-2xl font-bold text-primary">
+                {stats.deployed}
+              </div>
               <div className="text-sm text-default-500">Deployed</div>
             </CardBody>
           </Card>
           <Card>
             <CardBody className="p-3 text-center">
-              <div className="text-2xl font-bold text-warning">{stats.starred}</div>
+              <div className="text-2xl font-bold text-warning">
+                {stats.starred}
+              </div>
               <div className="text-sm text-default-500">Starred</div>
             </CardBody>
           </Card>
@@ -633,19 +698,21 @@ const ProjectsPage: React.FC = () => {
         {/* Filters and Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <Input
+            className="flex-1"
             placeholder="Search projects..."
             startContent={<Search className="w-4 h-4" />}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1"
           />
-          
+
           <div className="flex gap-2">
             <Select
-              placeholder="Status"
               className="w-32"
+              placeholder="Status"
               selectedKeys={[filterStatus]}
-              onSelectionChange={(keys) => setFilterStatus(Array.from(keys)[0] as string)}
+              onSelectionChange={(keys) =>
+                setFilterStatus(Array.from(keys)[0] as string)
+              }
             >
               <SelectItem key="all">All Status</SelectItem>
               <SelectItem key="draft">Draft</SelectItem>
@@ -656,10 +723,12 @@ const ProjectsPage: React.FC = () => {
             </Select>
 
             <Select
-              placeholder="Framework"
               className="w-32"
+              placeholder="Framework"
               selectedKeys={[filterFramework]}
-              onSelectionChange={(keys) => setFilterFramework(Array.from(keys)[0] as string)}
+              onSelectionChange={(keys) =>
+                setFilterFramework(Array.from(keys)[0] as string)
+              }
             >
               <SelectItem key="all">All Frameworks</SelectItem>
               <SelectItem key="tensorflow">TensorFlow</SelectItem>
@@ -667,10 +736,12 @@ const ProjectsPage: React.FC = () => {
             </Select>
 
             <Select
-              placeholder="Sort by"
               className="w-36"
+              placeholder="Sort by"
               selectedKeys={[sortBy]}
-              onSelectionChange={(keys) => setSortBy(Array.from(keys)[0] as string)}
+              onSelectionChange={(keys) =>
+                setSortBy(Array.from(keys)[0] as string)
+              }
             >
               <SelectItem key="lastModified">Last Modified</SelectItem>
               <SelectItem key="name">Name</SelectItem>
@@ -682,27 +753,33 @@ const ProjectsPage: React.FC = () => {
             <Button
               isIconOnly
               variant="flat"
-              onPress={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+              onPress={() =>
+                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+              }
             >
-              {sortOrder === "asc" ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+              {sortOrder === "asc" ? (
+                <SortAsc className="w-4 h-4" />
+              ) : (
+                <SortDesc className="w-4 h-4" />
+              )}
             </Button>
 
             <div className="flex rounded-lg border border-default-200">
               <Button
                 isIconOnly
-                variant={viewMode === "grid" ? "solid" : "light"}
-                size="sm"
-                onPress={() => setViewMode("grid")}
                 className="rounded-r-none border-r border-default-200"
+                size="sm"
+                variant={viewMode === "grid" ? "solid" : "light"}
+                onPress={() => setViewMode("grid")}
               >
                 <Grid3X3 className="w-4 h-4" />
               </Button>
               <Button
                 isIconOnly
-                variant={viewMode === "list" ? "solid" : "light"}
-                size="sm"
-                onPress={() => setViewMode("list")}
                 className="rounded-l-none"
+                size="sm"
+                variant={viewMode === "list" ? "solid" : "light"}
+                onPress={() => setViewMode("list")}
               >
                 <List className="w-4 h-4" />
               </Button>
@@ -717,27 +794,31 @@ const ProjectsPage: React.FC = () => {
               <Folder className="w-16 h-16 text-default-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No projects found</h3>
               <p className="text-default-500 mb-6">
-                {searchQuery || filterStatus !== "all" || filterFramework !== "all" 
+                {searchQuery ||
+                filterStatus !== "all" ||
+                filterFramework !== "all"
                   ? "Try adjusting your filters or search terms"
-                  : "Create your first neural network project to get started"
-                }
+                  : "Create your first neural network project to get started"}
               </p>
-              {(!searchQuery && filterStatus === "all" && filterFramework === "all") && (
-                <Button
-                  color="primary"
-                  startContent={<Plus className="w-4 h-4" />}
-                  onPress={() => router.push("/neuralnetwork")}
-                >
-                  Create New Project
-                </Button>
-              )}
+              {!searchQuery &&
+                filterStatus === "all" &&
+                filterFramework === "all" && (
+                  <Button
+                    color="primary"
+                    startContent={<Plus className="w-4 h-4" />}
+                    onPress={() => router.push("/neuralnetwork")}
+                  >
+                    Create New Project
+                  </Button>
+                )}
             </CardBody>
           </Card>
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-default-500">
-                Showing {filteredAndSortedProjects.length} of {projects.length} projects
+                Showing {filteredAndSortedProjects.length} of {projects.length}{" "}
+                projects
               </p>
             </div>
             {viewMode === "grid" ? renderGridView() : renderListView()}

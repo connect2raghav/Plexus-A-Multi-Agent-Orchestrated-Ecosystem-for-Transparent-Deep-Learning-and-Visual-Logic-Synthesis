@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { Card, CardBody, Button, Input, Chip, Divider, Tooltip } from "@heroui/react";
+import { Card, CardBody, Button, Input, Chip, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { Search, Star, StarOff, History, Filter, X, ChevronDown, ChevronUp, Home } from "lucide-react";
+import { Search, Filter, X, ChevronDown, ChevronUp, Home } from "lucide-react";
 import { useRouter } from "next/router";
 
 const nodeTypesByCategory = [
@@ -423,20 +423,25 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
 
   // Flatten all nodes for easier searching
   const allNodes = useMemo(() => {
-    return nodeTypesByCategory.flatMap(category => 
-      category.nodes.map(node => ({ ...node, category: category.category }))
+    return nodeTypesByCategory.flatMap((category) =>
+      category.nodes.map((node) => ({ ...node, category: category.category })),
     );
   }, []);
 
   // Get unique categories
   const categories = useMemo(() => {
-    const cats = ["all", ...nodeTypesByCategory.map(cat => cat.category.toLowerCase())];
+    const cats = [
+      "all",
+      ...nodeTypesByCategory.map((cat) => cat.category.toLowerCase()),
+    ];
+
     return cats;
   }, []);
 
   // Show limited categories by default, all when expanded
   const displayedCategories = useMemo(() => {
     if (showAllCategories) return categories;
+
     return categories.slice(0, 6); // Show first 6 categories
   }, [categories, showAllCategories]);
 
@@ -447,18 +452,22 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(node => 
-        node.label.toLowerCase().includes(query) ||
-        node.details.toLowerCase().includes(query) ||
-        node.type.toLowerCase().includes(query) ||
-        node.keywords.some(keyword => keyword.toLowerCase().includes(query))
+
+      filtered = filtered.filter(
+        (node) =>
+          node.label.toLowerCase().includes(query) ||
+          node.details.toLowerCase().includes(query) ||
+          node.type.toLowerCase().includes(query) ||
+          node.keywords.some((keyword) =>
+            keyword.toLowerCase().includes(query),
+          ),
       );
     }
 
     // Filter by category
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(node => 
-        node.category.toLowerCase() === selectedCategory
+      filtered = filtered.filter(
+        (node) => node.category.toLowerCase() === selectedCategory,
       );
     }
 
@@ -467,9 +476,10 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
       // Favorites first
       const aIsFav = favorites.has(a.type);
       const bIsFav = favorites.has(b.type);
+
       if (aIsFav && !bIsFav) return -1;
       if (!aIsFav && bIsFav) return 1;
-      
+
       // Then by popularity
       return b.popularity - a.popularity;
     });
@@ -478,8 +488,8 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
   // Group filtered nodes by category for display
   const groupedFilteredNodes = useMemo(() => {
     const groups: { [key: string]: typeof allNodes } = {};
-    
-    filteredNodes.forEach(node => {
+
+    filteredNodes.forEach((node) => {
       if (!groups[node.category]) {
         groups[node.category] = [];
       }
@@ -489,16 +499,17 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
     return groups;
   }, [filteredNodes]);
 
-  const onDragStart = (
-    event: React.DragEvent,
-    node: typeof allNodes[0],
-  ) => {
+  const onDragStart = (event: React.DragEvent, node: (typeof allNodes)[0]) => {
     event.dataTransfer.setData("application/reactflow", JSON.stringify(node));
     event.dataTransfer.effectAllowed = "move";
-    
+
     // Add to recently used
-    setRecentlyUsed(prev => {
-      const updated = [node.type, ...prev.filter(t => t !== node.type)].slice(0, 5);
+    setRecentlyUsed((prev) => {
+      const updated = [node.type, ...prev.filter((t) => t !== node.type)].slice(
+        0,
+        5,
+      );
+
       return updated;
     });
 
@@ -506,13 +517,15 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
   };
 
   const toggleFavorite = (nodeType: string) => {
-    setFavorites(prev => {
+    setFavorites((prev) => {
       const updated = new Set(prev);
+
       if (updated.has(nodeType)) {
         updated.delete(nodeType);
       } else {
         updated.add(nodeType);
       }
+
       return updated;
     });
   };
@@ -532,10 +545,10 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
             <div className="flex items-center gap-2">
               <Button
                 isIconOnly
+                className="text-default-500 hover:text-primary"
                 size="sm"
                 variant="light"
                 onPress={() => router.push("/dashboard")}
-                className="text-default-500 hover:text-primary"
               >
                 <Home className="w-4 h-4" />
               </Button>
@@ -562,12 +575,13 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
           {/* Search */}
           <div className="relative">
             <Input
-              placeholder="Search nodes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              startContent={<Search className="w-4 h-4 text-default-400" />}
+              classNames={{
+                input: "text-sm",
+              }}
               endContent={
-                (searchQuery || selectedCategory !== "all" || showOnlyFavorites) && (
+                (searchQuery ||
+                  selectedCategory !== "all" ||
+                  showOnlyFavorites) && (
                   <Button
                     isIconOnly
                     size="sm"
@@ -578,9 +592,10 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                   </Button>
                 )
               }
-              classNames={{
-                input: "text-sm",
-              }}
+              placeholder="Search nodes..."
+              startContent={<Search className="w-4 h-4 text-default-400" />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
@@ -590,26 +605,36 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
               {displayedCategories.map((category) => (
                 <Chip
                   key={category}
+                  className="cursor-pointer capitalize"
+                  color={selectedCategory === category ? "primary" : "default"}
                   size="sm"
                   variant={selectedCategory === category ? "solid" : "flat"}
-                  color={selectedCategory === category ? "primary" : "default"}
-                  className="cursor-pointer capitalize"
                   onClick={() => setSelectedCategory(category)}
                 >
-                  {category === "all" ? "All" : category.replace(/([A-Z])/g, ' $1').trim()}
+                  {category === "all"
+                    ? "All"
+                    : category.replace(/([A-Z])/g, " $1").trim()}
                 </Chip>
               ))}
             </div>
-            
+
             {categories.length > 6 && (
               <Button
-                size="sm"
-                variant="light"
                 className="h-6 text-xs"
-                startContent={showAllCategories ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                size="sm"
+                startContent={
+                  showAllCategories ? (
+                    <ChevronUp className="w-3 h-3" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3" />
+                  )
+                }
+                variant="light"
                 onPress={() => setShowAllCategories(!showAllCategories)}
               >
-                {showAllCategories ? "Show Less" : `Show ${categories.length - 6} More`}
+                {showAllCategories
+                  ? "Show Less"
+                  : `Show ${categories.length - 6} More`}
               </Button>
             )}
           </div>
@@ -661,9 +686,14 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                         onDragStart={(event) => onDragStart(event, node)}
                       >
                         <div className="flex items-center gap-2 w-full">
-                          <Icon className="w-4 h-4 flex-shrink-0" icon={node.icon} />
+                          <Icon
+                            className="w-4 h-4 flex-shrink-0"
+                            icon={node.icon}
+                          />
                           <div className="flex-1 text-left">
-                            <div className="text-sm font-medium">{node.label}</div>
+                            <div className="text-sm font-medium">
+                              {node.label}
+                            </div>
                             <div className="text-xs text-default-500 truncate">
                               {node.details}
                             </div>
@@ -691,12 +721,14 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
             {filteredNodes.length === 0 && (
               <div className="text-center py-8">
                 <Filter className="w-8 h-8 text-default-300 mx-auto mb-2" />
-                <p className="text-sm text-default-500">No nodes match your criteria.</p>
+                <p className="text-sm text-default-500">
+                  No nodes match your criteria.
+                </p>
                 <Button
+                  className="mt-2"
                   size="sm"
                   variant="flat"
                   onPress={clearSearch}
-                  className="mt-2"
                 >
                   Clear filters
                 </Button>

@@ -12,16 +12,12 @@ import {
   Switch,
   Select,
   SelectItem,
-  Input,
   Slider,
-  Divider,
   Tabs,
   Tab,
 } from "@heroui/react";
 import {
   Settings,
-  Palette,
-  Code,
   Brain,
   Save,
   RotateCcw,
@@ -29,8 +25,6 @@ import {
   Moon,
   Sun,
   Zap,
-  Database,
-  Shield,
   Bell,
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -110,9 +104,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   // Load settings from localStorage on mount
   useEffect(() => {
     const savedSettings = localStorage.getItem("neod-settings");
+
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings);
+
         setSettings({ ...defaultSettings, ...parsed });
       } catch (error) {
         console.error("Failed to parse saved settings:", error);
@@ -133,8 +129,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   };
 
   // Update nested settings
-  const updateSetting = (category: keyof AppSettings, key: string, value: any) => {
-    setSettings(prev => ({
+  const updateSetting = (
+    category: keyof AppSettings,
+    key: string,
+    value: any,
+  ) => {
+    setSettings((prev) => ({
       ...prev,
       [category]: {
         ...prev[category],
@@ -150,14 +150,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      size="4xl"
-      scrollBehavior="inside"
       classNames={{
         base: "max-h-[90vh]",
         body: "py-4 px-6",
       }}
+      isOpen={isOpen}
+      scrollBehavior="inside"
+      size="4xl"
+      onClose={onClose}
     >
       <ModalContent>
         <ModalHeader className="flex gap-2 items-center">
@@ -167,16 +167,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         <ModalBody>
           <Tabs
             aria-label="Settings categories"
-            selectedKey={activeTab}
-            onSelectionChange={(key) => setActiveTab(key as string)}
-            variant="underlined"
             classNames={{
-              tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider",
+              tabList:
+                "gap-6 w-full relative rounded-none p-0 border-b border-divider",
               cursor: "w-full bg-primary",
               tab: "max-w-fit px-4 h-12",
               tabContent: "group-data-[selected=true]:text-primary font-medium",
               panel: "pt-6",
             }}
+            selectedKey={activeTab}
+            variant="underlined"
+            onSelectionChange={(key) => setActiveTab(key as string)}
           >
             {/* General Settings */}
             <Tab
@@ -197,21 +198,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Theme</h4>
-                        <p className="text-sm text-default-500">Choose your preferred color scheme</p>
+                        <p className="text-sm text-default-500">
+                          Choose your preferred color scheme
+                        </p>
                       </div>
                       <Select
-                        size="sm"
-                        selectedKeys={[settings.general.theme]}
-                        onSelectionChange={(keys) => handleThemeChange(Array.from(keys)[0] as string)}
                         className="w-40"
+                        selectedKeys={[settings.general.theme]}
+                        size="sm"
+                        onSelectionChange={(keys) =>
+                          handleThemeChange(Array.from(keys)[0] as string)
+                        }
                       >
-                        <SelectItem key="light" startContent={<Sun className="w-4 h-4" />}>
+                        <SelectItem
+                          key="light"
+                          startContent={<Sun className="w-4 h-4" />}
+                        >
                           Light
                         </SelectItem>
-                        <SelectItem key="dark" startContent={<Moon className="w-4 h-4" />}>
+                        <SelectItem
+                          key="dark"
+                          startContent={<Moon className="w-4 h-4" />}
+                        >
                           Dark
                         </SelectItem>
-                        <SelectItem key="system" startContent={<Monitor className="w-4 h-4" />}>
+                        <SelectItem
+                          key="system"
+                          startContent={<Monitor className="w-4 h-4" />}
+                        >
                           System
                         </SelectItem>
                       </Select>
@@ -228,26 +242,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       <div>
                         <h4 className="font-medium flex items-center gap-2">
                           Auto Save
-                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">Coming Soon</span>
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                            Coming Soon
+                          </span>
                         </h4>
-                        <p className="text-sm text-default-500">Automatically save projects while editing</p>
+                        <p className="text-sm text-default-500">
+                          Automatically save projects while editing
+                        </p>
                       </div>
-                      <Switch
-                        isSelected={false}
-                        isDisabled={true}
-                      />
+                      <Switch isDisabled={true} isSelected={false} />
                     </div>
 
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Default Framework</h4>
-                        <p className="text-sm text-default-500">Preferred framework for code generation</p>
+                        <p className="text-sm text-default-500">
+                          Preferred framework for code generation
+                        </p>
                       </div>
                       <Select
-                        size="sm"
-                        selectedKeys={[settings.general.defaultFramework]}
-                        onSelectionChange={(keys) => updateSetting("general", "defaultFramework", Array.from(keys)[0])}
                         className="w-40"
+                        selectedKeys={[settings.general.defaultFramework]}
+                        size="sm"
+                        onSelectionChange={(keys) =>
+                          updateSetting(
+                            "general",
+                            "defaultFramework",
+                            Array.from(keys)[0],
+                          )
+                        }
                       >
                         <SelectItem key="tensorflow">TensorFlow</SelectItem>
                         <SelectItem key="pytorch">PyTorch</SelectItem>
@@ -257,22 +280,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Show Welcome Screen</h4>
-                        <p className="text-sm text-default-500">Display welcome screen on app startup</p>
+                        <p className="text-sm text-default-500">
+                          Display welcome screen on app startup
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.general.showWelcomeScreen}
-                        onValueChange={(value) => updateSetting("general", "showWelcomeScreen", value)}
+                        onValueChange={(value) =>
+                          updateSetting("general", "showWelcomeScreen", value)
+                        }
                       />
                     </div>
 
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Confirm Before Delete</h4>
-                        <p className="text-sm text-default-500">Ask for confirmation before deleting projects</p>
+                        <p className="text-sm text-default-500">
+                          Ask for confirmation before deleting projects
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.general.confirmBeforeDelete}
-                        onValueChange={(value) => updateSetting("general", "confirmBeforeDelete", value)}
+                        onValueChange={(value) =>
+                          updateSetting("general", "confirmBeforeDelete", value)
+                        }
                       />
                     </div>
                   </CardBody>
@@ -299,11 +330,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Auto Layout</h4>
-                        <p className="text-sm text-default-500">Automatically arrange nodes when loading templates</p>
+                        <p className="text-sm text-default-500">
+                          Automatically arrange nodes when loading templates
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.editor.autoLayout}
-                        onValueChange={(value) => updateSetting("editor", "autoLayout", value)}
+                        onValueChange={(value) =>
+                          updateSetting("editor", "autoLayout", value)
+                        }
                       />
                     </div>
 
@@ -311,14 +346,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       <div>
                         <h4 className="font-medium flex items-center gap-2">
                           Snap to Grid
-                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">Coming Soon</span>
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                            Coming Soon
+                          </span>
                         </h4>
-                        <p className="text-sm text-default-500">Align nodes to grid when moving</p>
+                        <p className="text-sm text-default-500">
+                          Align nodes to grid when moving
+                        </p>
                       </div>
-                      <Switch
-                        isSelected={false}
-                        isDisabled={true}
-                      />
+                      <Switch isDisabled={true} isSelected={false} />
                     </div>
                   </CardBody>
                 </Card>
@@ -331,33 +367,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Animate Connections</h4>
-                        <p className="text-sm text-default-500">Show animated data flow between nodes</p>
+                        <p className="text-sm text-default-500">
+                          Show animated data flow between nodes
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.editor.animateConnections}
-                        onValueChange={(value) => updateSetting("editor", "animateConnections", value)}
+                        onValueChange={(value) =>
+                          updateSetting("editor", "animateConnections", value)
+                        }
                       />
                     </div>
 
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Show Node Labels</h4>
-                        <p className="text-sm text-default-500">Display labels on all nodes</p>
+                        <p className="text-sm text-default-500">
+                          Display labels on all nodes
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.editor.showNodeLabels}
-                        onValueChange={(value) => updateSetting("editor", "showNodeLabels", value)}
+                        onValueChange={(value) =>
+                          updateSetting("editor", "showNodeLabels", value)
+                        }
                       />
                     </div>
 
                     <div className="flex justify-between items-center">
                       <div>
-                        <h4 className="font-medium">Highlight Validation Issues</h4>
-                        <p className="text-sm text-default-500">Visually highlight nodes with validation errors</p>
+                        <h4 className="font-medium">
+                          Highlight Validation Issues
+                        </h4>
+                        <p className="text-sm text-default-500">
+                          Visually highlight nodes with validation errors
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.editor.highlightValidation}
-                        onValueChange={(value) => updateSetting("editor", "highlightValidation", value)}
+                        onValueChange={(value) =>
+                          updateSetting("editor", "highlightValidation", value)
+                        }
                       />
                     </div>
                   </CardBody>
@@ -385,24 +435,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       <div>
                         <h4 className="font-medium flex items-center gap-2">
                           Hardware Acceleration
-                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">Coming Soon</span>
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                            Coming Soon
+                          </span>
                         </h4>
-                        <p className="text-sm text-default-500">Use GPU acceleration when available</p>
+                        <p className="text-sm text-default-500">
+                          Use GPU acceleration when available
+                        </p>
                       </div>
-                      <Switch
-                        isSelected={false}
-                        isDisabled={true}
-                      />
+                      <Switch isDisabled={true} isSelected={false} />
                     </div>
 
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Cache Templates</h4>
-                        <p className="text-sm text-default-500">Cache neural network templates for faster loading</p>
+                        <p className="text-sm text-default-500">
+                          Cache neural network templates for faster loading
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.performance.cacheTemplates}
-                        onValueChange={(value) => updateSetting("performance", "cacheTemplates", value)}
+                        onValueChange={(value) =>
+                          updateSetting("performance", "cacheTemplates", value)
+                        }
                       />
                     </div>
 
@@ -410,18 +465,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium flex items-center gap-2">
                           Max Undo History
-                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">Coming Soon</span>
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                            Coming Soon
+                          </span>
                         </span>
-                        <span className="text-sm text-default-500">50 steps</span>
+                        <span className="text-sm text-default-500">
+                          50 steps
+                        </span>
                       </div>
                       <Slider
+                        className="max-w-md"
+                        isDisabled={true}
+                        maxValue={200}
+                        minValue={10}
                         size="sm"
                         step={10}
-                        minValue={10}
-                        maxValue={200}
                         value={50}
-                        isDisabled={true}
-                        className="max-w-md"
                       />
                     </div>
                   </CardBody>
@@ -436,14 +495,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                       <div>
                         <h4 className="font-medium flex items-center gap-2">
                           Debug Mode
-                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">Coming Soon</span>
+                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                            Coming Soon
+                          </span>
                         </h4>
-                        <p className="text-sm text-default-500">Enable detailed logging and debug information</p>
+                        <p className="text-sm text-default-500">
+                          Enable detailed logging and debug information
+                        </p>
                       </div>
-                      <Switch
-                        isSelected={false}
-                        isDisabled={true}
-                      />
+                      <Switch isDisabled={true} isSelected={false} />
                     </div>
                   </CardBody>
                 </Card>
@@ -463,17 +523,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <h3 className="text-lg font-semibold">Notification Preferences</h3>
+                    <h3 className="text-lg font-semibold">
+                      Notification Preferences
+                    </h3>
                   </CardHeader>
                   <CardBody className="space-y-4">
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">Enable Notifications</h4>
-                        <p className="text-sm text-default-500">Show system notifications</p>
+                        <p className="text-sm text-default-500">
+                          Show system notifications
+                        </p>
                       </div>
                       <Switch
                         isSelected={settings.notifications.enableNotifications}
-                        onValueChange={(value) => updateSetting("notifications", "enableNotifications", value)}
+                        onValueChange={(value) =>
+                          updateSetting(
+                            "notifications",
+                            "enableNotifications",
+                            value,
+                          )
+                        }
                       />
                     </div>
 
@@ -482,22 +552,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-medium">Save Notifications</h4>
-                            <p className="text-sm text-default-500">Show notifications when projects are saved</p>
+                            <p className="text-sm text-default-500">
+                              Show notifications when projects are saved
+                            </p>
                           </div>
                           <Switch
-                            isSelected={settings.notifications.showSaveNotifications}
-                            onValueChange={(value) => updateSetting("notifications", "showSaveNotifications", value)}
+                            isSelected={
+                              settings.notifications.showSaveNotifications
+                            }
+                            onValueChange={(value) =>
+                              updateSetting(
+                                "notifications",
+                                "showSaveNotifications",
+                                value,
+                              )
+                            }
                           />
                         </div>
 
                         <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-medium">Validation Alerts</h4>
-                            <p className="text-sm text-default-500">Show notifications for validation issues</p>
+                            <p className="text-sm text-default-500">
+                              Show notifications for validation issues
+                            </p>
                           </div>
                           <Switch
-                            isSelected={settings.notifications.showValidationAlerts}
-                            onValueChange={(value) => updateSetting("notifications", "showValidationAlerts", value)}
+                            isSelected={
+                              settings.notifications.showValidationAlerts
+                            }
+                            onValueChange={(value) =>
+                              updateSetting(
+                                "notifications",
+                                "showValidationAlerts",
+                                value,
+                              )
+                            }
                           />
                         </div>
 
@@ -505,18 +595,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                           <div className="flex justify-between items-center mb-2">
                             <span className="font-medium flex items-center gap-2">
                               Notification Duration
-                              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">Coming Soon</span>
+                              <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                                Coming Soon
+                              </span>
                             </span>
                             <span className="text-sm text-default-500">4s</span>
                           </div>
                           <Slider
+                            className="max-w-md"
+                            isDisabled={true}
+                            maxValue={10000}
+                            minValue={2000}
                             size="sm"
                             step={1000}
-                            minValue={2000}
-                            maxValue={10000}
                             value={4000}
-                            isDisabled={true}
-                            className="max-w-md"
                           />
                         </div>
                       </>
@@ -530,8 +622,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         <ModalFooter>
           <div className="flex justify-between w-full">
             <Button
-              variant="light"
               startContent={<RotateCcw className="w-4 h-4" />}
+              variant="light"
               onPress={resetSettings}
             >
               Reset to Defaults

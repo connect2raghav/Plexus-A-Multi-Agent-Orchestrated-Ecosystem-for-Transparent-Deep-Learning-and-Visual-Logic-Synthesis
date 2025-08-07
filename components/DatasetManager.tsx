@@ -14,8 +14,6 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
-  Progress,
-  Divider,
   Tabs,
   Tab,
 } from "@heroui/react";
@@ -29,18 +27,14 @@ import {
   Music,
   BarChart3,
   TrendingUp,
-  ExternalLink,
   Star,
   Heart,
   Eye,
-  Filter,
-  SortAsc,
   Plus,
   Globe,
   Lock,
   Calendar,
   Users,
-  Tag,
 } from "lucide-react";
 
 interface Dataset {
@@ -73,9 +67,9 @@ interface DatasetManagerProps {
   compact?: boolean;
 }
 
-const DatasetManager: React.FC<DatasetManagerProps> = ({ 
-  onDatasetSelect, 
-  compact = false 
+const DatasetManager: React.FC<DatasetManagerProps> = ({
+  onDatasetSelect,
+  compact = false,
 }) => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedTab, setSelectedTab] = useState("browse");
@@ -90,7 +84,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     {
       id: "mnist",
       name: "MNIST Handwritten Digits",
-      description: "Classic dataset of 70,000 handwritten digit images (0-9) for image classification",
+      description:
+        "Classic dataset of 70,000 handwritten digit images (0-9) for image classification",
       category: "vision",
       type: "public",
       size: "11.5 MB",
@@ -111,7 +106,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     {
       id: "cifar10",
       name: "CIFAR-10 Object Recognition",
-      description: "60,000 color images in 10 classes: airplanes, cars, birds, cats, deer, dogs, frogs, horses, ships, trucks",
+      description:
+        "60,000 color images in 10 classes: airplanes, cars, birds, cats, deer, dogs, frogs, horses, ships, trucks",
       category: "vision",
       type: "public",
       size: "163 MB",
@@ -132,7 +128,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     {
       id: "imdb",
       name: "IMDB Movie Reviews",
-      description: "50,000 highly polarized movie reviews for binary sentiment classification",
+      description:
+        "50,000 highly polarized movie reviews for binary sentiment classification",
       category: "nlp",
       type: "public",
       size: "80 MB",
@@ -152,7 +149,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     {
       id: "housing",
       name: "California Housing Prices",
-      description: "Housing prices in California districts with geographic and demographic features",
+      description:
+        "Housing prices in California districts with geographic and demographic features",
       category: "tabular",
       type: "public",
       size: "1.2 MB",
@@ -161,7 +159,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
       format: "CSV",
       license: "Open Data",
       tags: ["regression", "real estate", "geographic", "demographics"],
-      downloadUrl: "https://scikit-learn.org/stable/datasets/real_world.html#california-housing-dataset",
+      downloadUrl:
+        "https://scikit-learn.org/stable/datasets/real_world.html#california-housing-dataset",
       uploadedAt: new Date("2023-02-15"),
       downloads: 45000,
       likes: 380,
@@ -173,7 +172,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     {
       id: "stock-data",
       name: "S&P 500 Stock Data",
-      description: "Historical stock prices and trading volumes for S&P 500 companies",
+      description:
+        "Historical stock prices and trading volumes for S&P 500 companies",
       category: "time-series",
       type: "shared",
       size: "25 MB",
@@ -216,81 +216,112 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     },
   ]);
 
-  const filteredDatasets = datasets.filter(dataset => {
-    const matchesSearch = searchQuery === "" || 
-      dataset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dataset.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dataset.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesCategory = categoryFilter === "all" || dataset.category === categoryFilter;
-    const matchesType = typeFilter === "all" || dataset.type === typeFilter;
-    const matchesDifficulty = difficultyFilter === "all" || dataset.difficulty === difficultyFilter;
-    
-    return matchesSearch && matchesCategory && matchesType && matchesDifficulty;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "name":
-        return a.name.localeCompare(b.name);
-      case "size":
-        return parseFloat(a.size) - parseFloat(b.size);
-      case "samples":
-        return b.samples - a.samples;
-      case "downloads":
-        return b.downloads - a.downloads;
-      case "recent":
-        return b.uploadedAt.getTime() - a.uploadedAt.getTime();
-      case "popularity":
-      default:
-        return b.likes - a.likes;
-    }
-  });
+  const filteredDatasets = datasets
+    .filter((dataset) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        dataset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dataset.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dataset.tags.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
+
+      const matchesCategory =
+        categoryFilter === "all" || dataset.category === categoryFilter;
+      const matchesType = typeFilter === "all" || dataset.type === typeFilter;
+      const matchesDifficulty =
+        difficultyFilter === "all" || dataset.difficulty === difficultyFilter;
+
+      return (
+        matchesSearch && matchesCategory && matchesType && matchesDifficulty
+      );
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "size":
+          return parseFloat(a.size) - parseFloat(b.size);
+        case "samples":
+          return b.samples - a.samples;
+        case "downloads":
+          return b.downloads - a.downloads;
+        case "recent":
+          return b.uploadedAt.getTime() - a.uploadedAt.getTime();
+        case "popularity":
+        default:
+          return b.likes - a.likes;
+      }
+    });
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case "vision": return <Image className="w-4 h-4" />;
-      case "nlp": return <FileText className="w-4 h-4" />;
-      case "audio": return <Music className="w-4 h-4" />;
-      case "tabular": return <BarChart3 className="w-4 h-4" />;
-      case "time-series": return <TrendingUp className="w-4 h-4" />;
-      default: return <Database className="w-4 h-4" />;
+      case "vision":
+        return <Image className="w-4 h-4" />;
+      case "nlp":
+        return <FileText className="w-4 h-4" />;
+      case "audio":
+        return <Music className="w-4 h-4" />;
+      case "tabular":
+        return <BarChart3 className="w-4 h-4" />;
+      case "time-series":
+        return <TrendingUp className="w-4 h-4" />;
+      default:
+        return <Database className="w-4 h-4" />;
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "public": return "success";
-      case "private": return "warning";
-      case "shared": return "primary";
-      default: return "default";
+      case "public":
+        return "success";
+      case "private":
+        return "warning";
+      case "shared":
+        return "primary";
+      default:
+        return "default";
     }
   };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "beginner": return "success";
-      case "intermediate": return "warning";
-      case "advanced": return "danger";
-      default: return "default";
+      case "beginner":
+        return "success";
+      case "intermediate":
+        return "warning";
+      case "advanced":
+        return "danger";
+      default:
+        return "default";
     }
   };
 
   const handleLike = (datasetId: string) => {
-    setDatasets(prev => prev.map(d => 
-      d.id === datasetId 
-        ? { ...d, isLiked: !d.isLiked, likes: d.isLiked ? d.likes - 1 : d.likes + 1 }
-        : d
-    ));
+    setDatasets((prev) =>
+      prev.map((d) =>
+        d.id === datasetId
+          ? {
+              ...d,
+              isLiked: !d.isLiked,
+              likes: d.isLiked ? d.likes - 1 : d.likes + 1,
+            }
+          : d,
+      ),
+    );
   };
 
   const handleBookmark = (datasetId: string) => {
-    setDatasets(prev => prev.map(d => 
-      d.id === datasetId ? { ...d, isBookmarked: !d.isBookmarked } : d
-    ));
+    setDatasets((prev) =>
+      prev.map((d) =>
+        d.id === datasetId ? { ...d, isBookmarked: !d.isBookmarked } : d,
+      ),
+    );
   };
 
   const renderDatasetCard = (dataset: Dataset) => (
-    <Card 
-      key={dataset.id} 
+    <Card
+      key={dataset.id}
       className="hover:shadow-lg transition-shadow"
       isPressable={!!onDatasetSelect}
       onPress={() => onDatasetSelect?.(dataset)}
@@ -302,17 +333,23 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
             <div>
               <h4 className="font-semibold text-sm">{dataset.name}</h4>
               <div className="flex items-center gap-2 mt-1">
-                <Chip 
-                  size="sm" 
+                <Chip
                   color={getTypeColor(dataset.type)}
+                  size="sm"
+                  startContent={
+                    dataset.type === "public" ? (
+                      <Globe className="w-3 h-3" />
+                    ) : (
+                      <Lock className="w-3 h-3" />
+                    )
+                  }
                   variant="flat"
-                  startContent={dataset.type === "public" ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
                 >
                   {dataset.type}
                 </Chip>
-                <Chip 
-                  size="sm" 
+                <Chip
                   color={getDifficultyColor(dataset.difficulty)}
+                  size="sm"
                   variant="flat"
                 >
                   {dataset.difficulty}
@@ -327,7 +364,9 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
               variant="light"
               onPress={() => handleLike(dataset.id)}
             >
-              <Heart className={`w-4 h-4 ${dataset.isLiked ? 'fill-red-500 text-red-500' : 'text-default-400'}`} />
+              <Heart
+                className={`w-4 h-4 ${dataset.isLiked ? "fill-red-500 text-red-500" : "text-default-400"}`}
+              />
             </Button>
             <Button
               isIconOnly
@@ -335,15 +374,19 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
               variant="light"
               onPress={() => handleBookmark(dataset.id)}
             >
-              <Star className={`w-4 h-4 ${dataset.isBookmarked ? 'fill-yellow-500 text-yellow-500' : 'text-default-400'}`} />
+              <Star
+                className={`w-4 h-4 ${dataset.isBookmarked ? "fill-yellow-500 text-yellow-500" : "text-default-400"}`}
+              />
             </Button>
           </div>
         </div>
       </CardHeader>
-      
+
       <CardBody className="pt-0">
-        <p className="text-sm text-default-600 mb-3 line-clamp-2">{dataset.description}</p>
-        
+        <p className="text-sm text-default-600 mb-3 line-clamp-2">
+          {dataset.description}
+        </p>
+
         <div className="space-y-2 text-xs text-default-500 mb-3">
           <div className="flex justify-between">
             <span>Samples:</span>
@@ -367,12 +410,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
 
         <div className="flex flex-wrap gap-1 mb-3">
           {dataset.tags.slice(0, 3).map((tag) => (
-            <Chip key={tag} size="sm" variant="flat" className="text-xs">
+            <Chip key={tag} className="text-xs" size="sm" variant="flat">
               {tag}
             </Chip>
           ))}
           {dataset.tags.length > 3 && (
-            <Chip size="sm" variant="flat" className="text-xs">
+            <Chip className="text-xs" size="sm" variant="flat">
               +{dataset.tags.length - 3}
             </Chip>
           )}
@@ -404,24 +447,24 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
         <div className="flex gap-2">
           {dataset.previewAvailable && (
             <Button
-              size="sm"
-              variant="flat"
-              startContent={<Eye className="w-4 h-4" />}
               className="flex-1"
+              size="sm"
+              startContent={<Eye className="w-4 h-4" />}
+              variant="flat"
             >
               Preview
             </Button>
           )}
           <Button
-            size="sm"
-            color="primary"
-            variant={dataset.type === "private" ? "flat" : "solid"}
-            startContent={<Download className="w-4 h-4" />}
             className="flex-1"
+            color="primary"
             isDisabled={dataset.type === "private" && !dataset.downloadUrl}
+            size="sm"
+            startContent={<Download className="w-4 h-4" />}
+            variant={dataset.type === "private" ? "flat" : "solid"}
             onPress={() => {
               if (dataset.downloadUrl) {
-                window.open(dataset.downloadUrl, '_blank');
+                window.open(dataset.downloadUrl, "_blank");
               }
             }}
           >
@@ -436,18 +479,20 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row gap-4">
         <Input
+          className="flex-1"
           placeholder="Search datasets..."
           startContent={<Search className="w-4 h-4" />}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
         />
         <div className="flex gap-2">
           <Select
-            placeholder="Category"
             className="w-32"
+            placeholder="Category"
             selectedKeys={[categoryFilter]}
-            onSelectionChange={(keys) => setCategoryFilter(Array.from(keys)[0] as string)}
+            onSelectionChange={(keys) =>
+              setCategoryFilter(Array.from(keys)[0] as string)
+            }
           >
             <SelectItem key="all">All</SelectItem>
             <SelectItem key="vision">Vision</SelectItem>
@@ -457,10 +502,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
             <SelectItem key="time-series">Time Series</SelectItem>
           </Select>
           <Select
-            placeholder="Type"
             className="w-28"
+            placeholder="Type"
             selectedKeys={[typeFilter]}
-            onSelectionChange={(keys) => setTypeFilter(Array.from(keys)[0] as string)}
+            onSelectionChange={(keys) =>
+              setTypeFilter(Array.from(keys)[0] as string)
+            }
           >
             <SelectItem key="all">All</SelectItem>
             <SelectItem key="public">Public</SelectItem>
@@ -468,10 +515,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
             <SelectItem key="shared">Shared</SelectItem>
           </Select>
           <Select
-            placeholder="Sort"
             className="w-32"
+            placeholder="Sort"
             selectedKeys={[sortBy]}
-            onSelectionChange={(keys) => setSortBy(Array.from(keys)[0] as string)}
+            onSelectionChange={(keys) =>
+              setSortBy(Array.from(keys)[0] as string)
+            }
           >
             <SelectItem key="popularity">Popularity</SelectItem>
             <SelectItem key="recent">Recent</SelectItem>
@@ -483,7 +532,9 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
         </div>
       </div>
 
-      <div className={`grid gap-4 ${compact ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+      <div
+        className={`grid gap-4 ${compact ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"}`}
+      >
         {filteredDatasets.map(renderDatasetCard)}
       </div>
 
@@ -491,7 +542,9 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
         <div className="text-center py-12">
           <Database className="w-16 h-16 text-default-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No datasets found</h3>
-          <p className="text-default-500">Try adjusting your search or filters</p>
+          <p className="text-default-500">
+            Try adjusting your search or filters
+          </p>
         </div>
       )}
     </div>
@@ -501,9 +554,11 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">Upload Dataset</h3>
-        <p className="text-default-500">Share your dataset with the community</p>
+        <p className="text-default-500">
+          Share your dataset with the community
+        </p>
       </div>
-      
+
       <Card className="border-2 border-dashed border-default-200 hover:border-primary-200 transition-colors">
         <CardBody className="p-8 text-center">
           <Upload className="w-12 h-12 text-default-400 mx-auto mb-4" />
@@ -539,12 +594,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
             </Select>
           </div>
         </div>
-        
+
         <div>
           <h4 className="font-semibold mb-3">Metadata</h4>
           <div className="space-y-3">
-            <Input label="Number of Samples" type="number" placeholder="0" />
-            <Input label="Number of Features" type="number" placeholder="0" />
+            <Input label="Number of Samples" placeholder="0" type="number" />
+            <Input label="Number of Features" placeholder="0" type="number" />
             <Input label="Tags" placeholder="comma, separated, tags" />
             <Select label="Difficulty Level" placeholder="Select difficulty">
               <SelectItem key="beginner">Beginner</SelectItem>
@@ -556,12 +611,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="flat">
-          Save as Draft
-        </Button>
-        <Button color="primary">
-          Upload Dataset
-        </Button>
+        <Button variant="flat">Save as Draft</Button>
+        <Button color="primary">Upload Dataset</Button>
       </div>
     </div>
   );
@@ -575,18 +626,21 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
             View All
           </Button>
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {datasets.slice(0, 4).map(renderDatasetCard)}
         </div>
 
-        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="5xl">
+        <Modal isOpen={isOpen} size="5xl" onOpenChange={onOpenChange}>
           <ModalContent>
             {(onClose) => (
               <>
                 <ModalHeader>Dataset Manager</ModalHeader>
                 <ModalBody>
-                  <Tabs selectedKey={selectedTab} onSelectionChange={(key) => setSelectedTab(key as string)}>
+                  <Tabs
+                    selectedKey={selectedTab}
+                    onSelectionChange={(key) => setSelectedTab(key as string)}
+                  >
                     <Tab key="browse" title="Browse Datasets">
                       {renderBrowseTab()}
                     </Tab>
@@ -613,9 +667,11 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Dataset Manager</h2>
-          <p className="text-default-500">Browse, manage, and upload datasets for your projects</p>
+          <p className="text-default-500">
+            Browse, manage, and upload datasets for your projects
+          </p>
         </div>
-        <Button 
+        <Button
           color="primary"
           startContent={<Plus className="w-4 h-4" />}
           onPress={() => setSelectedTab("upload")}
@@ -624,9 +680,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
         </Button>
       </div>
 
-      <Tabs selectedKey={selectedTab} onSelectionChange={(key) => setSelectedTab(key as string)}>
-        <Tab 
-          key="browse" 
+      <Tabs
+        selectedKey={selectedTab}
+        onSelectionChange={(key) => setSelectedTab(key as string)}
+      >
+        <Tab
+          key="browse"
           title={
             <div className="flex items-center gap-2">
               <Database className="w-4 h-4" />
@@ -636,9 +695,9 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({
         >
           {renderBrowseTab()}
         </Tab>
-        
-        <Tab 
-          key="upload" 
+
+        <Tab
+          key="upload"
           title={
             <div className="flex items-center gap-2">
               <Upload className="w-4 h-4" />

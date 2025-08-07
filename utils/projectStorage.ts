@@ -19,7 +19,9 @@ export interface SavedProject {
 class ProjectStorage {
   private static readonly STORAGE_KEY = "neod_saved_projects";
 
-  static saveProject(project: Omit<SavedProject, "id" | "createdAt" | "lastModified">): SavedProject {
+  static saveProject(
+    project: Omit<SavedProject, "id" | "createdAt" | "lastModified">,
+  ): SavedProject {
     const projects = this.getAllProjects();
     const newProject: SavedProject = {
       ...project,
@@ -30,13 +32,17 @@ class ProjectStorage {
 
     projects.push(newProject);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(projects));
+
     return newProject;
   }
 
-  static updateProject(id: string, updates: Partial<SavedProject>): SavedProject | null {
+  static updateProject(
+    id: string,
+    updates: Partial<SavedProject>,
+  ): SavedProject | null {
     const projects = this.getAllProjects();
-    const projectIndex = projects.findIndex(p => p.id === id);
-    
+    const projectIndex = projects.findIndex((p) => p.id === id);
+
     if (projectIndex === -1) return null;
 
     projects[projectIndex] = {
@@ -46,15 +52,18 @@ class ProjectStorage {
     };
 
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(projects));
+
     return projects[projectIndex];
   }
 
   static getAllProjects(): SavedProject[] {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
+
       if (!stored) return [];
-      
+
       const projects = JSON.parse(stored);
+
       return projects.map((p: any) => ({
         ...p,
         createdAt: new Date(p.createdAt),
@@ -62,22 +71,25 @@ class ProjectStorage {
       }));
     } catch (error) {
       console.error("Error loading projects:", error);
+
       return [];
     }
   }
 
   static getProject(id: string): SavedProject | null {
     const projects = this.getAllProjects();
-    return projects.find(p => p.id === id) || null;
+
+    return projects.find((p) => p.id === id) || null;
   }
 
   static deleteProject(id: string): boolean {
     const projects = this.getAllProjects();
-    const filteredProjects = projects.filter(p => p.id !== id);
-    
+    const filteredProjects = projects.filter((p) => p.id !== id);
+
     if (filteredProjects.length === projects.length) return false;
-    
+
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredProjects));
+
     return true;
   }
 
@@ -88,13 +100,13 @@ class ProjectStorage {
   }
 
   static getProjectsByCategory(category: string): SavedProject[] {
-    return this.getAllProjects().filter(p => p.category === category);
+    return this.getAllProjects().filter((p) => p.category === category);
   }
 
   static categorizeProject(nodes: Node[]): string {
     // Simple heuristic to categorize projects based on node types
-    const nodeTypes = nodes.map(n => n.type);
-    
+    const nodeTypes = nodes.map((n) => n.type);
+
     if (nodeTypes.includes("conv2d") || nodeTypes.includes("maxpool")) {
       return "vision";
     } else if (nodeTypes.includes("lstm") || nodeTypes.includes("embedding")) {

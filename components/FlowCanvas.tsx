@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from "react";
-import { Code, Copy, Download, Network, X, BookOpen, CheckCircle, BarChart3, Save, FolderOpen } from "lucide-react";
+import { Copy, Download, X } from "lucide-react";
 import ReactFlow, {
   Background,
   Controls,
@@ -20,15 +20,12 @@ import { nodeTypes } from "./nodes/CustomNodes";
 import { NetworkCodeGenerator } from "./CodeGenerator";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import { getTemplateByType } from "./templates/templateDefinitions";
-import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
-import ModelTemplates from "./ModelTemplates";
-import ModelValidator from "./ModelValidator";
-import PerformanceAnalysis from "./PerformanceAnalysis";
-import ProjectManager from "./ProjectManager";
 import HelpSystem from "./HelpSystem";
 import FloatingToolbar from "./FloatingToolbar";
 import SaveProjectModal from "./SaveProjectModal";
 import { useToast } from "./ToastProvider";
+
+import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
 import "reactflow/dist/style.css";
 import "@/styles/nodes.css";
 
@@ -38,7 +35,11 @@ interface FlowCanvasProps {
   projectId?: string | null;
 }
 
-const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, projectId }) => {
+const FlowCanvas: React.FC<FlowCanvasProps> = ({
+  onNodeSelect,
+  templateType,
+  projectId,
+}) => {
   const { showSuccess, showError } = useToast();
   // Default simple text processing network
   const getDefaultNodes = (): Node[] => [
@@ -173,11 +174,12 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
 
   const [nodes, setNodes, onNodesChange] = useNodesState(getDefaultNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(getDefaultEdges());
-  
+
   // Update nodes and edges when template type changes
   useEffect(() => {
     if (templateType) {
       const template = getTemplateByType(templateType);
+
       if (template) {
         setNodes(template.nodes);
         setEdges(template.edges);
@@ -189,6 +191,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
   useEffect(() => {
     if (projectId) {
       const project = ProjectStorage.getProject(projectId);
+
       if (project) {
         setNodes(project.nodes);
         setEdges(project.edges);
@@ -210,7 +213,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [currentProject, setCurrentProject] = useState<SavedProject | null>(null);
+  const [currentProject, setCurrentProject] = useState<SavedProject | null>(
+    null,
+  );
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -469,31 +474,37 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
   );
 
   // Handle loading a template
-  const handleLoadTemplate = useCallback((template: any) => {
-    setNodes(template.nodes);
-    setEdges(template.edges);
-    
-    // Auto-layout the loaded template
-    setTimeout(() => {
-      onLayout();
-    }, 100);
-  }, [setNodes, setEdges]);
+  const handleLoadTemplate = useCallback(
+    (template: any) => {
+      setNodes(template.nodes);
+      setEdges(template.edges);
 
-  // Handle loading a project  
-  const handleLoadProject = useCallback((project: any) => {
-    setNodes(project.nodes);
-    setEdges(project.edges);
-    
-    // Auto-layout the loaded project
-    setTimeout(() => {
-      onLayout();
-    }, 100);
-  }, [setNodes, setEdges]);
+      // Auto-layout the loaded template
+      setTimeout(() => {
+        onLayout();
+      }, 100);
+    },
+    [setNodes, setEdges],
+  );
+
+  // Handle loading a project
+  const handleLoadProject = useCallback(
+    (project: any) => {
+      setNodes(project.nodes);
+      setEdges(project.edges);
+
+      // Auto-layout the loaded project
+      setTimeout(() => {
+        onLayout();
+      }, 100);
+    },
+    [setNodes, setEdges],
+  );
 
   // Handle highlighting a node (from validator)
   const handleIssueSelect = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
-    
+
     // Clear highlight after 3 seconds
     setTimeout(() => {
       setSelectedNodeId(null);
@@ -509,15 +520,18 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
         edges,
         nodeCount: nodes.length,
       });
-      
+
       if (updatedProject) {
         setCurrentProject(updatedProject);
         showSuccess(
           "Project Updated!",
-          `"${updatedProject.name}" has been saved with your latest changes.`
+          `"${updatedProject.name}" has been saved with your latest changes.`,
         );
       } else {
-        showError("Update Failed", "Failed to update the project. Please try again.");
+        showError(
+          "Update Failed",
+          "Failed to update the project. Please try again.",
+        );
       }
     } else {
       // If it's a new project, show the save modal
@@ -526,14 +540,17 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
   }, [currentProjectId, currentProject, nodes, edges, showSuccess, showError]);
 
   // Handle save success for new projects
-  const handleSaveSuccess = useCallback((project: SavedProject) => {
-    setCurrentProjectId(project.id);
-    setCurrentProject(project);
-    showSuccess(
-      "Project Saved!",
-      `"${project.name}" has been saved successfully.`
-    );
-  }, [showSuccess]);
+  const handleSaveSuccess = useCallback(
+    (project: SavedProject) => {
+      setCurrentProjectId(project.id);
+      setCurrentProject(project);
+      showSuccess(
+        "Project Saved!",
+        `"${project.name}" has been saved successfully.`,
+      );
+    },
+    [showSuccess],
+  );
 
   const handleGenerate = async () => {
     try {
@@ -624,15 +641,17 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
         edges={edges}
         fitViewOptions={{ padding: 0.2 }}
         nodeTypes={nodeTypes}
-        nodes={nodes.map(node => ({
+        nodes={nodes.map((node) => ({
           ...node,
           style: {
             ...node.style,
-            ...(selectedNodeId === node.id ? {
-              boxShadow: '0 0 0 3px #3b82f6',
-              border: '2px solid #3b82f6',
-            } : {})
-          }
+            ...(selectedNodeId === node.id
+              ? {
+                  boxShadow: "0 0 0 3px #3b82f6",
+                  border: "2px solid #3b82f6",
+                }
+              : {}),
+          },
         }))}
         selectNodesOnDrag={false}
         onConnect={onConnect}
@@ -649,16 +668,16 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
       {/* Collapsible Toolbar - Top Right */}
       <div className="absolute top-4 right-4 z-10">
         <FloatingToolbar
-          nodes={nodes}
+          currentProject={currentProject}
           edges={edges}
-          onLoadTemplate={handleLoadTemplate}
-          onLoadProject={handleLoadProject}
+          nodes={nodes}
+          showCodePanel={showPanel}
           onIssueSelect={handleIssueSelect}
           onLayout={onLayout}
-          onToggleCodePanel={() => setShowPanel((prev) => !prev)}
+          onLoadProject={handleLoadProject}
+          onLoadTemplate={handleLoadTemplate}
           onSaveProject={handleSaveProject}
-          showCodePanel={showPanel}
-          currentProject={currentProject}
+          onToggleCodePanel={() => setShowPanel((prev) => !prev)}
         />
       </div>
 
@@ -844,12 +863,12 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({ onNodeSelect, templateType, pro
 
       {/* Save Project Modal */}
       <SaveProjectModal
-        nodes={nodes}
         edges={edges}
         isOpen={showSaveModal}
+        nodes={nodes}
+        templateType={templateType || undefined}
         onClose={() => setShowSaveModal(false)}
         onSave={handleSaveSuccess}
-        templateType={templateType || undefined}
       />
     </div>
   );

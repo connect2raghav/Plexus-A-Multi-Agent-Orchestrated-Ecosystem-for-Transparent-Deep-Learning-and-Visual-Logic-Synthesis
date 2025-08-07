@@ -70,9 +70,10 @@ const Toast: React.FC<ToastProps> = ({
       className={`
         ${getCardColor()}
         shadow-lg border transition-all duration-200 min-w-[300px] max-w-[400px]
-        ${isVisible 
-          ? "transform translate-x-0 opacity-100" 
-          : "transform translate-x-full opacity-0"
+        ${
+          isVisible
+            ? "transform translate-x-0 opacity-100"
+            : "transform translate-x-full opacity-0"
         }
       `}
     >
@@ -81,13 +82,11 @@ const Toast: React.FC<ToastProps> = ({
           {getIcon()}
           <div className="flex-1">
             <h4 className="font-semibold text-sm mb-1">{title}</h4>
-            {message && (
-              <p className="text-xs text-default-600">{message}</p>
-            )}
+            {message && <p className="text-xs text-default-600">{message}</p>}
           </div>
           <button
-            onClick={handleClose}
             className="text-default-400 hover:text-default-600 transition-colors"
+            onClick={handleClose}
           >
             <X className="w-4 h-4" />
           </button>

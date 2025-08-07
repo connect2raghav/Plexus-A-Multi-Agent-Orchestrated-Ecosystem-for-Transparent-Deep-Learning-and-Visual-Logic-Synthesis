@@ -1365,7 +1365,7 @@ export const nodeTypes = {
   bidirectional: memo((props: NodeProps) => <BaseNode {...props} />),
   time_distributed: memo((props: NodeProps) => <BaseNode {...props} />),
   custom: memo((props: NodeProps) => <BaseNode {...props} />),
-  
+
   // Additional node types for templates
   attention: memo((props: NodeProps) => <BaseNode {...props} />),
   normalization: memo((props: NodeProps) => <BaseNode {...props} />),

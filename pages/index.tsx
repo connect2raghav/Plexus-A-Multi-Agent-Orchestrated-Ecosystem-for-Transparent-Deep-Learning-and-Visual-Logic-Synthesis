@@ -1,163 +1,251 @@
-import { Link } from "@heroui/link";
-import { Snippet } from "@heroui/snippet";
-import { Code } from "@heroui/code";
-import { button as buttonStyles } from "@heroui/theme";
+import { Button } from "@heroui/button";
 import { Card, CardHeader, CardBody } from "@heroui/card";
-import { Avatar } from "@heroui/avatar";
-import { Input } from "@heroui/input";
-import { useEffect } from "react";
+import { Chip } from "@heroui/chip";
 import { useRouter } from "next/router";
+import { 
+  Brain, 
+  Zap, 
+  Code, 
+  Download, 
+  Users, 
+  Star,
+  ArrowRight,
+  Play,
+  MousePointer,
+  Layers,
+  BarChart3,
+  Sparkles
+} from "lucide-react";
 
-import { siteConfig } from "@/config/site";
-import { title, subtitle } from "@/components/primitives";
-import { GithubIcon } from "@/components/icons";
+import { NeoDLogo } from "@/components/NeoDLogo";
 import DefaultLayout from "@/layouts/default";
 
 export default function IndexPage() {
-  const isAuthenticated = () => {
-    // Replace with your actual auth check logic
-    if (typeof window === "undefined") return false;
-
-    return !!localStorage.getItem("authToken");
-  };
-
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/dashboard");
-    }
-  }, []);
-
   return (
-    <DefaultLayout>
-      <section className="flex flex-col items-center justify-center gap-8 py-12 md:py-20">
-        {/* Hero Section */}
-        <div className="inline-block max-w-2xl text-center">
-          <span className={title()}>Build neural networks&nbsp;</span>
-          <span className={title({ color: "violet" })}>visually&nbsp;</span>
-          <span className={title()}>with&nbsp;</span>
-          <span className={title({ color: "foreground" })}>neod</span>
-          <div className={subtitle({ class: "mt-4" })}>
-            Drag and drop layers, connect nodes, and create powerful neural
-            networks in your browser. No code required.
+    <DefaultLayout title="Home" description="Create powerful neural networks with visual drag-and-drop interface">
+      {/* Hero Section */}
+      <section className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-950/30 dark:to-secondary-950/30 px-6 py-20">
+        <div className="text-center max-w-5xl mx-auto">
+          {/* Logo and Badge */}
+          <div className="flex justify-center mb-6">
+            <NeoDLogo size="xl" />
+          </div>
+          
+          <Chip 
+            size="sm" 
+            variant="flat" 
+            color="primary" 
+            className="mb-6"
+            startContent={<Sparkles className="w-3 h-3" />}
+          >
+            Visual Neural Network Designer
+          </Chip>
+
+          {/* Main Headline */}
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6">
+            Build AI Models
+            <br />
+            <span className="bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+              Visually
+            </span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-xl md:text-2xl text-default-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+            Create, train, and deploy neural networks with an intuitive drag-and-drop interface. 
+            No coding required – from prototype to production in minutes.
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+            <Button
+              size="lg"
+              color="primary"
+              className="text-lg px-8 py-6 h-auto font-semibold"
+              startContent={<Play className="w-5 h-5" />}
+              onPress={() => router.push("/neuralnetwork")}
+            >
+              Start Building
+            </Button>
+            
+            <Button
+              size="lg"
+              variant="bordered"
+              className="text-lg px-8 py-6 h-auto"
+              startContent={<BarChart3 className="w-5 h-5" />}
+              onPress={() => router.push("/dashboard")}
+            >
+              View Dashboard
+            </Button>
+            
+            <Button
+              size="lg"
+              variant="ghost"
+              className="text-lg px-8 py-6 h-auto"
+              startContent={<Users className="w-5 h-5" />}
+              onPress={() => router.push("/login")}
+            >
+              Login
+            </Button>
+          </div>
+
+          {/* Social Proof */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-default-500">
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-current text-warning" />
+              <span>Trusted by 10,000+ developers</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Zap className="w-4 h-4" />
+              <span>Deploy in minutes</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Code className="w-4 h-4" />
+              <span>Export to TensorFlow & PyTorch</span>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Call to Action */}
-        <div className="flex gap-4">
-          <Link
-            className={buttonStyles({
-              color: "primary",
-              radius: "full",
-              variant: "shadow",
-            })}
-            href="/dashboard"
-          >
-            Go to Dashboard
-          </Link>
-          <Link
-            className={buttonStyles({
-              variant: "bordered", 
-              radius: "full",
-            })}
-            href="/neuralnetwork"
-          >
-            Neural Network Builder
-          </Link>
-          <Link
-            isExternal
-            className={buttonStyles({ variant: "bordered", radius: "full" })}
-            href={siteConfig.links.github}
-          >
-            <GithubIcon size={20} />
-            GitHub
-          </Link>
+      {/* Features Section */}
+      <section className="py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Why Choose NeoD?
+            </h2>
+            <p className="text-lg text-default-600 max-w-2xl mx-auto">
+              Powerful features designed to make AI development accessible to everyone
+            </p>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <Card className="p-6">
+              <CardHeader className="flex-col items-start p-0 mb-4">
+                <div className="p-3 rounded-xl bg-primary-100 dark:bg-primary-900/30 mb-3">
+                  <MousePointer className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold">Drag & Drop Interface</h3>
+              </CardHeader>
+              <CardBody className="p-0">
+                <p className="text-default-600">
+                  Build complex neural networks by simply dragging and connecting layers. 
+                  No coding experience required.
+                </p>
+              </CardBody>
+            </Card>
+
+            <Card className="p-6">
+              <CardHeader className="flex-col items-start p-0 mb-4">
+                <div className="p-3 rounded-xl bg-secondary-100 dark:bg-secondary-900/30 mb-3">
+                  <Layers className="w-6 h-6 text-secondary" />
+                </div>
+                <h3 className="text-xl font-semibold">Pre-built Templates</h3>
+              </CardHeader>
+              <CardBody className="p-0">
+                <p className="text-default-600">
+                  Start with proven architectures like CNN, RNN, Transformers, and more. 
+                  Customize to fit your needs.
+                </p>
+              </CardBody>
+            </Card>
+
+            <Card className="p-6">
+              <CardHeader className="flex-col items-start p-0 mb-4">
+                <div className="p-3 rounded-xl bg-success-100 dark:bg-success-900/30 mb-3">
+                  <Code className="w-6 h-6 text-success" />
+                </div>
+                <h3 className="text-xl font-semibold">Multi-Framework Export</h3>
+              </CardHeader>
+              <CardBody className="p-0">
+                <p className="text-default-600">
+                  Generate clean, production-ready code for TensorFlow, PyTorch, or 
+                  export as Jupyter notebooks.
+                </p>
+              </CardBody>
+            </Card>
+
+            <Card className="p-6">
+              <CardHeader className="flex-col items-start p-0 mb-4">
+                <div className="p-3 rounded-xl bg-warning-100 dark:bg-warning-900/30 mb-3">
+                  <BarChart3 className="w-6 h-6 text-warning" />
+                </div>
+                <h3 className="text-xl font-semibold">Real-time Validation</h3>
+              </CardHeader>
+              <CardBody className="p-0">
+                <p className="text-default-600">
+                  Get instant feedback on your network architecture with built-in 
+                  validation and optimization suggestions.
+                </p>
+              </CardBody>
+            </Card>
+
+            <Card className="p-6">
+              <CardHeader className="flex-col items-start p-0 mb-4">
+                <div className="p-3 rounded-xl bg-danger-100 dark:bg-danger-900/30 mb-3">
+                  <Download className="w-6 h-6 text-danger" />
+                </div>
+                <h3 className="text-xl font-semibold">One-Click Deploy</h3>
+              </CardHeader>
+              <CardBody className="p-0">
+                <p className="text-default-600">
+                  Deploy your models directly to cloud platforms or download 
+                  complete training scripts ready for production.
+                </p>
+              </CardBody>
+            </Card>
+
+            <Card className="p-6">
+              <CardHeader className="flex-col items-start p-0 mb-4">
+                <div className="p-3 rounded-xl bg-primary-100 dark:bg-primary-900/30 mb-3">
+                  <Brain className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold">Smart Suggestions</h3>
+              </CardHeader>
+              <CardBody className="p-0">
+                <p className="text-default-600">
+                  AI-powered recommendations help optimize your network architecture 
+                  for better performance and efficiency.
+                </p>
+              </CardBody>
+            </Card>
+          </div>
         </div>
+      </section>
 
-        {/* Features Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl mt-8">
-          <Card>
-            <CardHeader>
-              <Avatar
-                className="bg-violet-100"
-                color="primary"
-                name="Drag"
-                size="md"
-              />
-              <span className="ml-3 font-semibold">Drag & Drop Builder</span>
-            </CardHeader>
-            <CardBody>
-              <p>
-                Intuitively design neural networks by dragging and connecting
-                layers—no coding needed.
-              </p>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Avatar
-                className="bg-green-100"
-                color="success"
-                name="Visualize"
-                size="md"
-              />
-              <span className="ml-3 font-semibold">Live Visualization</span>
-            </CardHeader>
-            <CardBody>
-              <p>
-                Instantly see your network architecture and connections as you
-                build.
-              </p>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Avatar
-                className="bg-yellow-100"
-                color="warning"
-                name="Export"
-                size="md"
-              />
-              <span className="ml-3 font-semibold">Export & Integrate</span>
-            </CardHeader>
-            <CardBody>
-              <p>
-                Export your models to popular frameworks or share with your team
-                in one click.
-              </p>
-            </CardBody>
-          </Card>
-        </div>
-
-        {/* Newsletter Signup */}
-        <div className="w-full max-w-md mt-10">
-          <Card>
-            <CardHeader>
-              <span className="font-semibold text-lg">Stay updated</span>
-            </CardHeader>
-            <CardBody>
-              <form className="flex gap-2">
-                <Input required placeholder="Your email" type="email" />
-                <button
-                  className={buttonStyles({ color: "primary", radius: "full" })}
-                  type="submit"
-                >
-                  Subscribe
-                </button>
-              </form>
-            </CardBody>
-          </Card>
-        </div>
-
-        {/* Code Snippet */}
-        <div className="mt-8">
-          <Snippet hideCopyButton hideSymbol variant="bordered">
-            <span>
-              Start building by editing{" "}
-              <Code color="primary">pages/index.tsx</Code>
-            </span>
-          </Snippet>
+      {/* CTA Section */}
+      <section className="py-20 px-6 bg-gradient-to-r from-primary-600 to-secondary-600">
+        <div className="max-w-4xl mx-auto text-center text-white">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            Ready to Build Your First Neural Network?
+          </h2>
+          <p className="text-xl mb-8 opacity-90">
+            Join thousands of developers and researchers who trust NeoD for their AI projects.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              color="default"
+              className="text-lg px-8 py-6 h-auto font-semibold"
+              startContent={<Play className="w-5 h-5" />}
+              onPress={() => router.push("/neuralnetwork")}
+            >
+              Start Building Now
+            </Button>
+            <Button
+              size="lg"
+              variant="bordered"
+              className="text-lg px-8 py-6 h-auto border-white text-white hover:bg-white hover:text-primary"
+              startContent={<ArrowRight className="w-5 h-5" />}
+              onPress={() => router.push("/about")}
+            >
+              Learn More
+            </Button>
+          </div>
         </div>
       </section>
     </DefaultLayout>
