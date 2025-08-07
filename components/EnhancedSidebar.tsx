@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { Card, CardBody, Button, Input, Chip, Divider, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { Search, Star, StarOff, History, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Star, StarOff, History, Filter, X, ChevronDown, ChevronUp, Home } from "lucide-react";
+import { useRouter } from "next/router";
 
 const nodeTypesByCategory = [
   {
@@ -412,6 +413,7 @@ interface EnhancedSidebarProps {
 }
 
 const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -522,12 +524,23 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
   };
 
   return (
-    <Card className="w-80 m-4 h-fit max-h-[calc(100vh-2rem)] overflow-hidden">
+    <Card className="w-80 m-4 h-screen max-h-[calc(100vh-2rem)] overflow-hidden">
       <CardBody className="p-4">
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Node Library</h2>
+            <div className="flex items-center gap-2">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onPress={() => router.push("/dashboard")}
+                className="text-default-500 hover:text-primary"
+              >
+                <Home className="w-4 h-4" />
+              </Button>
+              <h2 className="text-lg font-semibold">Node Library</h2>
+            </div>
             <div className="flex items-center gap-1">
               <Tooltip content="Show only favorites">
                 {/* <Button
@@ -632,7 +645,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
           )} */}
 
           {/* Nodes List */}
-          <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+          <div className="space-y-4 overflow-y-auto max-h-fit">
             {Object.entries(groupedFilteredNodes).map(([category, nodes]) => (
               <div key={category} className="space-y-2">
                 <div className="text-xs font-bold text-default-500 uppercase tracking-wide">
