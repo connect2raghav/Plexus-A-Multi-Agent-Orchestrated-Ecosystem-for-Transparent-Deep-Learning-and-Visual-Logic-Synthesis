@@ -58,6 +58,7 @@ import {
 
 import DefaultLayout from "@/layouts/default";
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
+import SettingsModal from "@/components/SettingsModal";
 
 interface ProjectStats {
   totalProjects: number;
@@ -103,6 +104,7 @@ const DashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Load saved projects on component mount
   useEffect(() => {
@@ -578,6 +580,7 @@ const DashboardPage: React.FC = () => {
             <Button
               variant="flat"
               startContent={<Settings className="w-4 h-4" />}
+              onPress={() => setIsSettingsOpen(true)}
             >
               Settings
             </Button>
@@ -624,6 +627,12 @@ const DashboardPage: React.FC = () => {
           </Tab>
         </Tabs>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </DefaultLayout>
   );
 };

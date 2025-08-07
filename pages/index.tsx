@@ -25,7 +25,7 @@ export default function IndexPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
-      router.replace("/login");
+      router.replace("/dashboard");
     }
   }, []);
 
