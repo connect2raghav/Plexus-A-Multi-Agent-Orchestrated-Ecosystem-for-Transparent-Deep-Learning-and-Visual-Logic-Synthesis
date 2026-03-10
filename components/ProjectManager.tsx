@@ -96,7 +96,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
   // Load projects from localStorage on component mount
   React.useEffect(() => {
-    const savedProjects = localStorage.getItem("neod-projects");
+    const savedProjects = localStorage.getItem("plexus-projects");
 
     if (savedProjects) {
       try {
@@ -119,7 +119,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   const saveProjectsToStorage = useCallback(
     (projectsToSave: SavedProject[]) => {
       try {
-        localStorage.setItem("neod-projects", JSON.stringify(projectsToSave));
+        localStorage.setItem("plexus-projects", JSON.stringify(projectsToSave));
       } catch (error) {
         console.error("Failed to save projects:", error);
       }
@@ -247,7 +247,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     const input = document.createElement("input");
 
     input.type = "file";
-    input.accept = ".json,.neod.json";
+    input.accept = ".json,.plexus.json";
 
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];

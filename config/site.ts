@@ -1,7 +1,7 @@
 export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
-  name: "NeoD",
+  name: "Plexus",
   description:
     "Visual Neural Network Designer - Create, train, and deploy AI models with an intuitive drag-and-drop interface.",
   navItems: [

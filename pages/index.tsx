@@ -119,7 +119,7 @@ export default function IndexPage() {
           {/* Section Header */}
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Why Choose NeoD?
+              Why Choose Plexus?
             </h2>
             <p className="text-lg text-default-600 max-w-2xl mx-auto">
               Powerful features designed to make AI development accessible to
@@ -231,7 +231,7 @@ export default function IndexPage() {
             Ready to Build Your First Neural Network?
           </h2>
           <p className="text-xl mb-8 opacity-90">
-            Join thousands of developers and researchers who trust NeoD for
+            Join thousands of developers and researchers who trust Plexus for
             their AI projects.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -24,7 +24,7 @@ export const Head = ({ title, description }: HeadProps) => {
         content="neural network, AI, machine learning, visual designer, drag and drop, tensorflow, pytorch"
         name="keywords"
       />
-      <meta content="NeoD Team" name="author" />
+      <meta content="Plexus Team" name="author" />
       <meta
         key="viewport"
         content="viewport-fit=cover, width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
@@ -38,12 +38,12 @@ export const Head = ({ title, description }: HeadProps) => {
 
       {/* Open Graph */}
       <meta content="website" property="og:type" />
-      <meta content="NeoD" property="og:site_name" />
+      <meta content="Plexus" property="og:site_name" />
       <meta content="/favicon.png" property="og:image" />
 
       {/* Twitter Card */}
       <meta content="summary" name="twitter:card" />
-      <meta content="@neod_ai" name="twitter:site" />
+      <meta content="@plexus_ai" name="twitter:site" />
       <meta content="/favicon.png" name="twitter:image" />
     </NextHead>
   );

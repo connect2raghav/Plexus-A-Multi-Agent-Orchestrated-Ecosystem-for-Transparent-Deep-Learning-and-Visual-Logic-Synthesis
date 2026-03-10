@@ -1,8 +1,9 @@
 import React, { memo, useState } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Icon } from "@iconify/react";
-import { Input, Select, SelectItem, Switch } from "@heroui/react";
+import { Input, Select, SelectItem, Switch, Progress, Chip } from "@heroui/react";
 import clsx from "clsx";
+import { usePlexusStore } from "@/store/plexusStore";
 
 import { nodeStyles } from "./nodeStyles";
 
@@ -1336,6 +1337,241 @@ const MetricsNode = ({ data, type, selected, isConnectable }: NodeProps) => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// DatasetNode
+// ---------------------------------------------------------------------------
+const DatasetNode = ({ data, selected, isConnectable }: NodeProps) => {
+  const datasetProgress = usePlexusStore((s) => s.datasetProgress);
+  const progress = data.datasetId ? datasetProgress[data.datasetId] : null;
+  const isProfiling = progress && !progress.done && !progress.error;
+  const isError = progress?.error;
+
+  return (
+    <div
+      className={clsx(
+        "min-w-[200px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-md p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-cyan-400 dark:border-cyan-600",
+        isError && "border-danger"
+      )}
+    >
+      {/* Only output handle — dataset is the source */}
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Right}
+        type="source"
+      />
+
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-lg">🗄️</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm truncate">
+            {data.datasetName || data.label || "Dataset"}
+          </div>
+          <div className="text-xs text-default-500">
+            {data.datasetType || "csv"}
+          </div>
+        </div>
+        {isProfiling && (
+          <Chip color="warning" size="sm" variant="flat">profiling</Chip>
+        )}
+        {isError && (
+          <Chip color="danger" size="sm" variant="flat">error</Chip>
+        )}
+        {!isProfiling && !isError && data.datasetId && (
+          <Chip color="success" size="sm" variant="flat">ready</Chip>
+        )}
+      </div>
+
+      {/* Profiling progress bar */}
+      {isProfiling && (
+        <div className="space-y-1 mb-2">
+          <Progress
+            aria-label="Profiling"
+            color="warning"
+            size="sm"
+            value={progress.progress}
+          />
+          <p className="text-xs text-default-500">{progress.message}</p>
+        </div>
+      )}
+
+      {/* Metadata */}
+      {!isProfiling && !isError && (
+        <div className="text-xs text-default-500 space-y-0.5">
+          {data.rowCount > 0 && (
+            <div>{data.rowCount.toLocaleString()} rows · {(data.columns || []).length} cols</div>
+          )}
+          {data.columns && data.columns.length > 0 && (
+            <div className="truncate text-default-400">
+              {data.columns.slice(0, 4).join(", ")}
+              {data.columns.length > 4 && ` +${data.columns.length - 4} more`}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error message */}
+      {isError && (
+        <p className="text-xs text-danger mt-1">{isError}</p>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// PreprocessingNode  (normalize, dropNulls, oneHotEncode, embedEncode, scale)
+// ---------------------------------------------------------------------------
+const PREPROCESS_META: Record<string, { label: string; icon: string; color: string }> = {
+  normalize:    { label: "Normalize",     icon: "mdi:chart-bell-curve",    color: "border-blue-400"   },
+  dropNulls:    { label: "Drop Nulls",    icon: "mdi:table-remove",        color: "border-red-400"    },
+  oneHotEncode: { label: "One-Hot Encode",icon: "mdi:code-array",          color: "border-violet-400" },
+  embedEncode:  { label: "Embed Encode",  icon: "mdi:vector-combine",      color: "border-purple-400" },
+  scale:        { label: "Scale",         icon: "mdi:scale-balance",       color: "border-green-400"  },
+};
+
+const PreprocessingNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const meta = PREPROCESS_META[type] ?? { label: type, icon: "mdi:filter", color: "border-default-400" };
+
+  return (
+    <div
+      className={clsx(
+        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : meta.color
+      )}
+    >
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <div className="flex items-center gap-2">
+        <Icon icon={meta.icon} className="w-5 h-5 text-default-600" />
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm">{data.label || meta.label}</div>
+          {data.columns && data.columns.length > 0 && (
+            <div className="text-xs text-default-500 truncate">
+              {(data.columns as string[]).slice(0, 3).join(", ")}
+            </div>
+          )}
+        </div>
+      </div>
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Right} type="source" />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// VisualisationNode  (lossCurve, gradientFlow, confMatrix, predTable, activationHeatmap)
+// ---------------------------------------------------------------------------
+const VIZ_META: Record<string, { label: string; icon: string }> = {
+  lossCurve:          { label: "Loss Curve",          icon: "mdi:chart-line" },
+  gradientFlow:       { label: "Gradient Flow",       icon: "mdi:water-wave" },
+  confMatrix:         { label: "Confusion Matrix",    icon: "mdi:grid" },
+  predTable:          { label: "Predictions Table",   icon: "mdi:table-eye" },
+  activationHeatmap:  { label: "Activation Heatmap",  icon: "mdi:fire" },
+};
+
+const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+  const meta = VIZ_META[type] ?? { label: type, icon: "mdi:chart-bar" };
+  const training = usePlexusStore((s) => s.training);
+  const hasData = training.metrics.loss.length > 0;
+
+  return (
+    <div
+      className={clsx(
+        "min-w-[180px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-amber-400 dark:border-amber-600"
+      )}
+    >
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <div className="flex items-center gap-2">
+        <Icon icon={meta.icon} className="w-5 h-5 text-amber-500" />
+        <div className="flex-1">
+          <div className="font-medium text-sm">{data.label || meta.label}</div>
+          {hasData && type === "lossCurve" && (
+            <div className="text-xs text-default-500 mt-0.5">
+              loss: {training.metrics.loss[training.metrics.loss.length - 1]?.toFixed(4)}
+            </div>
+          )}
+          {!hasData && (
+            <div className="text-xs text-default-400">waiting for training…</div>
+          )}
+        </div>
+      </div>
+      {/* No output handle — visualization is a sink node */}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// TestModelNode
+// ---------------------------------------------------------------------------
+const TestModelNode = ({ data, selected, isConnectable }: NodeProps) => {
+  return (
+    <div
+      className={clsx(
+        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-green-400 dark:border-green-600"
+      )}
+    >
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <div className="flex items-center gap-2">
+        <Icon icon="mdi:test-tube" className="w-5 h-5 text-green-500" />
+        <div className="flex-1">
+          <div className="font-medium text-sm">{data.label || "Test Model"}</div>
+          <div className="text-xs text-default-500">Evaluate on test set</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// ExportCodeNode
+// ---------------------------------------------------------------------------
+const ExportCodeNode = ({ data, selected, isConnectable }: NodeProps) => {
+  return (
+    <div
+      className={clsx(
+        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-indigo-400 dark:border-indigo-600"
+      )}
+    >
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <div className="flex items-center gap-2">
+        <Icon icon="mdi:code-braces" className="w-5 h-5 text-indigo-500" />
+        <div className="flex-1">
+          <div className="font-medium text-sm">{data.label || "Export Code"}</div>
+          <div className="text-xs text-default-500">
+            {data.framework || "tensorflow"} · {data.format || "python"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// ApiDeployNode
+// ---------------------------------------------------------------------------
+const ApiDeployNode = ({ data, selected, isConnectable }: NodeProps) => {
+  return (
+    <div
+      className={clsx(
+        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-pink-400 dark:border-pink-600"
+      )}
+    >
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <div className="flex items-center gap-2">
+        <Icon icon="mdi:api" className="w-5 h-5 text-pink-500" />
+        <div className="flex-1">
+          <div className="font-medium text-sm">{data.label || "API Deploy"}</div>
+          <div className="text-xs text-default-500">FastAPI · Docker</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Update the nodeTypes object to use renamed layers and new text nodes
 export const nodeTypes = {
   inputLayer: memo((props: NodeProps) => <InputLayer {...props} />),
@@ -1408,4 +1644,26 @@ export const nodeTypes = {
   // Add other node types as needed
   softmax: memo((props: NodeProps) => <BaseNode {...props} />),
   recurrent: memo((props: NodeProps) => <BaseNode {...props} />),
+
+  // ---- Data Sources ----
+  dataset: memo((props: NodeProps) => <DatasetNode {...props} />),
+
+  // ---- Preprocessing ----
+  normalize:    memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  dropNulls:    memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  oneHotEncode: memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  embedEncode:  memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  scale:        memo((props: NodeProps) => <PreprocessingNode {...props} />),
+
+  // ---- Visualisation ----
+  lossCurve:         memo((props: NodeProps) => <VisualizationNode {...props} />),
+  gradientFlow:      memo((props: NodeProps) => <VisualizationNode {...props} />),
+  confMatrix:        memo((props: NodeProps) => <VisualizationNode {...props} />),
+  predTable:         memo((props: NodeProps) => <VisualizationNode {...props} />),
+  activationHeatmap: memo((props: NodeProps) => <VisualizationNode {...props} />),
+
+  // ---- Output / Test ----
+  testModel:  memo((props: NodeProps) => <TestModelNode {...props} />),
+  exportCode: memo((props: NodeProps) => <ExportCodeNode {...props} />),
+  apiDeploy:  memo((props: NodeProps) => <ApiDeployNode {...props} />),
 };

@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from "react";
-import { Copy, Download, X } from "lucide-react";
+import { Copy, Download, Play, X } from "lucide-react";
 import ReactFlow, {
   Background,
   Controls,
@@ -26,18 +26,28 @@ import SaveProjectModal from "./SaveProjectModal";
 import { useToast } from "./ToastProvider";
 
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
+import { startTraining } from "@/lib/api";
+import { usePlexusStore } from "@/store/plexusStore";
+import { useTrainingSocket } from "@/hooks/useTrainingSocket";
+import { useGraphValidation } from "@/hooks/useGraphValidation";
 import "reactflow/dist/style.css";
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
   templateType?: string | null;
   projectId?: string | null;
+  /** Optional callback – called after every nodes state update */
+  onNodesChange?: (nodes: Node[]) => void;
+  /** Optional callback – called after every edges state update */
+  onEdgesChange?: (edges: Edge[]) => void;
 }
 
 const FlowCanvas: React.FC<FlowCanvasProps> = ({
   onNodeSelect,
   templateType,
   projectId,
+  onNodesChange: onNodesChangeProp,
+  onEdgesChange: onEdgesChangeProp,
 }) => {
   const { showSuccess, showError } = useToast();
   // Default simple text processing network
@@ -174,6 +184,10 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [nodes, setNodes, onNodesChange] = useNodesState(getDefaultNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(getDefaultEdges());
 
+  // Propagate node/edge changes to parent page (for training, etc.)
+  useEffect(() => { onNodesChangeProp?.(nodes); }, [nodes, onNodesChangeProp]);
+  useEffect(() => { onEdgesChangeProp?.(edges); }, [edges, onEdgesChangeProp]);
+
   // Update nodes and edges when template type changes
   useEffect(() => {
     if (templateType) {
@@ -215,6 +229,91 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [currentProject, setCurrentProject] = useState<SavedProject | null>(
     null,
   );
+
+  // ---- Plexus training integration ----
+  const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
+  const backendOnline = usePlexusStore((s) => s.backendOnline);
+  const trainingStatus = usePlexusStore((s) => s.training.status);
+  const trainingJobId = usePlexusStore((s) => s.training.jobId);
+  const startJob = usePlexusStore((s) => s.startJob);
+  const setTrainingPanelOpen = usePlexusStore((s) => s.setTrainingPanelOpen);
+  const addLog = usePlexusStore((s) => s.addLog);
+  const [isStartingTraining, setIsStartingTraining] = useState(false);
+
+  // Connect WebSocket for active job
+  useTrainingSocket(trainingJobId);
+
+  // Client-side graph validation (static rules, no LLM)
+  const validation = useGraphValidation(nodes, edges);
+
+  const handleStartTraining = async () => {
+    if (!selectedDatasetId) {
+      showError("No dataset selected. Upload and select a dataset first.");
+      return;
+    }
+    if (!backendOnline) {
+      showError("Backend is offline. Start the FastAPI server first.");
+      return;
+    }
+    setIsStartingTraining(true);
+    try {
+      const job = await startTraining({
+        nodes: nodes as unknown[],
+        edges: edges as unknown[],
+        datasetId: selectedDatasetId,
+        framework,
+        epochs: 20,
+        batchSize: 32,
+        learningRate: 0.001,
+      });
+      startJob(job.job_id, 20);
+      setTrainingPanelOpen(true);
+      addLog("info", `Training job ${job.job_id} started.`, "FlowCanvas");
+      showSuccess(`Training started! Job: ${job.job_id}`);
+
+      // Auto-inject visualisation tiles if not already present
+      const hasLossCurve = nodes.some((n) => n.type === "lossCurve");
+      const hasGradientFlow = nodes.some((n) => n.type === "gradientFlow");
+      if (!hasLossCurve || !hasGradientFlow) {
+        // Place tiles below the last node, or at a fixed offset if canvas is empty
+        const maxY = nodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
+        const maxX = nodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
+        const baseX = maxX + 40;
+        const baseY = maxY + 120;
+        const newVizNodes: Node[] = [];
+        if (!hasLossCurve) {
+          newVizNodes.push({
+            id: `viz-loss-${Date.now()}`,
+            type: "lossCurve",
+            position: { x: baseX, y: baseY },
+            data: { label: "Loss Curve" },
+          });
+        }
+        if (!hasGradientFlow) {
+          newVizNodes.push({
+            id: `viz-grad-${Date.now() + 1}`,
+            type: "gradientFlow",
+            position: { x: baseX, y: baseY + 120 },
+            data: { label: "Gradient Flow" },
+          });
+        }
+        if (newVizNodes.length > 0) {
+          setNodes((nds) => [...nds, ...newVizNodes]);
+          addLog(
+            "info",
+            `Auto-added ${newVizNodes.map((n) => n.data.label).join(", ")} visualisation node(s).`,
+            "FlowCanvas"
+          );
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showError(`Failed to start training: ${msg}`);
+      addLog("error", `Training start failed: ${msg}`, "FlowCanvas");
+    } finally {
+      setIsStartingTraining(false);
+    }
+  };
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -464,6 +563,30 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
                 },
               }
             : {}),
+          // Dataset node default data
+          ...(nodeData.type === "dataset"
+            ? {
+                datasetId: nodeData.datasetId || null,
+                datasetName: nodeData.datasetName || nodeData.label || "Dataset",
+                datasetType: nodeData.datasetType || "csv",
+                columns: nodeData.columns || [],
+                rowCount: nodeData.rowCount || 0,
+              }
+            : {}),
+          // Preprocessing nodes default data
+          ...([
+            "normalize",
+            "dropNulls",
+            "oneHotEncode",
+            "embedEncode",
+            "scale",
+          ].includes(nodeData.type)
+            ? { columns: nodeData.columns || [] }
+            : {}),
+          // Export code node default data
+          ...(nodeData.type === "exportCode"
+            ? { framework: "tensorflow", format: "python" }
+            : {}),
         },
       };
 
@@ -649,7 +772,24 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
                   boxShadow: "0 0 0 3px #3b82f6",
                   border: "2px solid #3b82f6",
                 }
+              : validation.errorNodeIds.has(node.id)
+              ? {
+                  boxShadow: "0 0 0 2px #ef4444",
+                  border: "2px solid #ef4444",
+                  borderRadius: "0.75rem",
+                }
+              : validation.warningNodeIds.has(node.id)
+              ? {
+                  boxShadow: "0 0 0 2px #f59e0b",
+                  border: "2px solid #f59e0b",
+                  borderRadius: "0.75rem",
+                }
               : {}),
+          },
+          // Inject validation messages so node components can render tooltips
+          data: {
+            ...node.data,
+            _validationMessages: validation.nodeMessages[node.id] ?? [],
           },
         }))}
         selectNodesOnDrag={false}
@@ -832,6 +972,32 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
           {!generatedCode && (
             <CardFooter className="px-6 pb-6 pt-0">
               <div className="flex gap-2 w-full">
+                <Button
+                  className="flex-1"
+                  color="success"
+                  isDisabled={!backendOnline || !selectedDatasetId}
+                  isLoading={isStartingTraining || trainingStatus === "running"}
+                  startContent={
+                    !isStartingTraining && trainingStatus !== "running" && (
+                      <Play className="w-4 h-4" />
+                    )
+                  }
+                  title={
+                    !selectedDatasetId
+                      ? "Select a dataset first"
+                      : !backendOnline
+                        ? "Backend offline"
+                        : "Train model"
+                  }
+                  variant="solid"
+                  onPress={handleStartTraining}
+                >
+                  {trainingStatus === "running"
+                    ? "Training..."
+                    : isStartingTraining
+                      ? "Starting..."
+                      : "Train"}
+                </Button>
                 <Button
                   className="flex-1"
                   color="primary"

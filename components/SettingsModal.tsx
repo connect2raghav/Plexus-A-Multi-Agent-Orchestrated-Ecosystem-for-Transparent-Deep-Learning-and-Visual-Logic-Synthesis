@@ -103,7 +103,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   // Load settings from localStorage on mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem("neod-settings");
+    const savedSettings = localStorage.getItem("plexus-settings");
 
     if (savedSettings) {
       try {
@@ -118,14 +118,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
   // Save settings to localStorage
   const saveSettings = () => {
-    localStorage.setItem("neod-settings", JSON.stringify(settings));
+    localStorage.setItem("plexus-settings", JSON.stringify(settings));
     onClose();
   };
 
   // Reset to defaults
   const resetSettings = () => {
     setSettings(defaultSettings);
-    localStorage.removeItem("neod-settings");
+    localStorage.removeItem("plexus-settings");
   };
 
   // Update nested settings

@@ -598,7 +598,7 @@ const DashboardPage: React.FC = () => {
           <div className="flex items-center gap-4">
             <NeoDLogo showText={false} size="lg" />
             <div>
-              <h1 className="text-3xl font-bold">NeoD Dashboard</h1>
+              <h1 className="text-3xl font-bold">Plexus Dashboard</h1>
               <p className="text-default-500 mt-1">
                 Welcome back! Manage your neural networks and explore new
                 possibilities.

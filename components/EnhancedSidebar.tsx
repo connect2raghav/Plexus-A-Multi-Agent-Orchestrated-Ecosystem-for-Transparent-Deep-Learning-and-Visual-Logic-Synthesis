@@ -1,8 +1,85 @@
 import React, { useState, useMemo } from "react";
-import { Card, CardBody, Button, Input, Chip, Tooltip } from "@heroui/react";
+import { Badge, Card, CardBody, Button, Input, Chip, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { Search, Filter, X, ChevronDown, ChevronUp, Home } from "lucide-react";
+import {
+  AlertCircle,
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Database,
+  Filter,
+  Layers,
+  Home,
+  Plus,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/router";
+
+import DatasetManager from "@/components/DatasetManager";
+import { usePlexusStore } from "@/store/plexusStore";
+
+// ---- Inline dataset panel shown in the sidebar Data tab ----
+function DatasetSidebarPanel() {
+  const [modalOpen, setModalOpen] = useState(false);
+  const datasets = usePlexusStore((s) => s.datasets);
+  const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
+  const selectDataset = usePlexusStore((s) => s.selectDataset);
+
+  return (
+    <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-14rem)]">
+      <Button
+        className="w-full"
+        color="primary"
+        size="sm"
+        startContent={<Plus className="w-3.5 h-3.5" />}
+        variant="flat"
+        onPress={() => setModalOpen(true)}
+      >
+        Manage Datasets
+      </Button>
+
+      {datasets.length === 0 ? (
+        <div className="text-center py-8">
+          <Database className="w-8 h-8 text-default-300 mx-auto mb-2" />
+          <p className="text-xs text-default-500">No datasets uploaded yet.</p>
+          <p className="text-xs text-default-400 mt-1">
+            Click &ldquo;Manage Datasets&rdquo; to upload a CSV or image folder.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {datasets.map((d) => (
+            <button
+              key={d.id}
+              className={`w-full text-left p-2 rounded-lg border text-xs transition-all ${
+                d.id === selectedDatasetId
+                  ? "border-primary bg-primary-50 dark:bg-primary-900/20"
+                  : "border-default-200 hover:border-default-400 hover:bg-default-50"
+              }`}
+              onClick={() => selectDataset(d.id === selectedDatasetId ? null : d.id)}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium truncate max-w-[12rem]">{d.name}</span>
+                {d.id === selectedDatasetId && (
+                  <Check className="w-3 h-3 text-primary shrink-0" />
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-default-500 mt-0.5">
+                <span>{d.type}</span>
+                {d.row_count > 0 && <span>{d.row_count.toLocaleString()} rows</span>}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <DatasetManager isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+    </div>
+  );
+}
 
 const nodeTypesByCategory = [
   {
@@ -406,6 +483,138 @@ const nodeTypesByCategory = [
       },
     ],
   },
+  {
+    category: "Data Sources",
+    nodes: [
+      {
+        type: "dataset",
+        label: "Dataset",
+        icon: "lucide:database",
+        details: "Attach an uploaded dataset to the graph",
+        keywords: ["dataset", "data", "csv", "file", "input", "source"],
+        popularity: 95,
+      },
+    ],
+  },
+  {
+    category: "Preprocessing",
+    nodes: [
+      {
+        type: "normalize",
+        label: "Normalize",
+        icon: "lucide:sliders-horizontal",
+        details: "Scale values to 0–1 range",
+        keywords: ["normalize", "scale", "min-max", "0-1", "preprocessing"],
+        popularity: 90,
+      },
+      {
+        type: "dropNulls",
+        label: "Drop Nulls",
+        icon: "lucide:eraser",
+        details: "Remove rows with missing values",
+        keywords: ["drop", "null", "missing", "nan", "clean"],
+        popularity: 85,
+      },
+      {
+        type: "oneHotEncode",
+        label: "One-Hot Encode",
+        icon: "lucide:binary",
+        details: "Encode categorical columns as binary vectors",
+        keywords: ["one-hot", "encode", "categorical", "dummy"],
+        popularity: 85,
+      },
+      {
+        type: "embedEncode",
+        label: "Embed Encode",
+        icon: "lucide:vector",
+        details: "Map high-cardinality column to embedding vector",
+        keywords: ["embed", "embedding", "encode", "high-cardinality"],
+        popularity: 70,
+      },
+      {
+        type: "scale",
+        label: "Standard Scale",
+        icon: "lucide:ruler",
+        details: "Standardise columns (mean=0, std=1)",
+        keywords: ["scale", "standardise", "zscore", "mean", "std"],
+        popularity: 80,
+      },
+    ],
+  },
+  {
+    category: "Visualisation",
+    nodes: [
+      {
+        type: "lossCurve",
+        label: "Loss Curve",
+        icon: "lucide:line-chart",
+        details: "Live train/val loss chart",
+        keywords: ["loss", "curve", "chart", "training", "visualise"],
+        popularity: 90,
+      },
+      {
+        type: "gradientFlow",
+        label: "Gradient Flow",
+        icon: "lucide:waves",
+        details: "Gradient norm per layer",
+        keywords: ["gradient", "flow", "norm", "vanishing", "exploding"],
+        popularity: 75,
+      },
+      {
+        type: "confMatrix",
+        label: "Confusion Matrix",
+        icon: "lucide:grid-3x3",
+        details: "Prediction confusion matrix",
+        keywords: ["confusion", "matrix", "classification", "accuracy"],
+        popularity: 80,
+      },
+      {
+        type: "predTable",
+        label: "Predictions Table",
+        icon: "lucide:table",
+        details: "Sample predictions vs ground truth",
+        keywords: ["predictions", "table", "output", "results"],
+        popularity: 65,
+      },
+      {
+        type: "activationHeatmap",
+        label: "Activation Heatmap",
+        icon: "lucide:flame",
+        details: "Layer activation heatmap",
+        keywords: ["activation", "heatmap", "feature", "intermediate"],
+        popularity: 65,
+      },
+    ],
+  },
+  {
+    category: "Output / Test",
+    nodes: [
+      {
+        type: "testModel",
+        label: "Test Model",
+        icon: "lucide:flask-conical",
+        details: "Evaluate model on test data",
+        keywords: ["test", "evaluate", "metrics", "benchmark"],
+        popularity: 80,
+      },
+      {
+        type: "exportCode",
+        label: "Export Code",
+        icon: "lucide:code-2",
+        details: "Generate Python training script",
+        keywords: ["export", "code", "python", "script", "generate"],
+        popularity: 85,
+      },
+      {
+        type: "apiDeploy",
+        label: "API Deploy",
+        icon: "lucide:cloud-upload",
+        details: "Generate FastAPI serving endpoint + Dockerfile",
+        keywords: ["api", "deploy", "docker", "serve", "inference"],
+        popularity: 70,
+      },
+    ],
+  },
 ];
 
 interface EnhancedSidebarProps {
@@ -420,6 +629,13 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"layers" | "data" | "agents">("layers");
+
+  // Plexus store
+  const agentNotifications = usePlexusStore((s) => s.agentNotifications);
+  const dismissNotification = usePlexusStore((s) => s.dismissNotification);
+  const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
+  const activeNotifications = agentNotifications.filter((n) => !n.dismissed);
 
   // Flatten all nodes for easier searching
   const allNodes = useMemo(() => {
@@ -552,7 +768,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
               >
                 <Home className="w-4 h-4" />
               </Button>
-              <h2 className="text-lg font-semibold">Node Library</h2>
+              <h2 className="text-lg font-semibold">Plexus</h2>
             </div>
             <div className="flex items-center gap-1">
               <Tooltip content="Show only favorites">
@@ -566,12 +782,51 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                   <Star className="w-4 h-4" />
                 </Button> */}
               </Tooltip>
-              <Chip size="sm" variant="flat">
-                {filteredNodes.length}
-              </Chip>
+              {sidebarTab === "layers" && (
+                <Chip size="sm" variant="flat">
+                  {filteredNodes.length}
+                </Chip>
+              )}
             </div>
           </div>
 
+          {/* Sidebar Tabs */}
+          <div className="flex gap-1 p-1 rounded-lg bg-default-100">
+            {(
+              [
+                { key: "layers", label: "Layers", icon: <Layers className="w-3.5 h-3.5" /> },
+                { key: "data", label: "Data", icon: <Database className="w-3.5 h-3.5" /> },
+                {
+                  key: "agents",
+                  label: "Agents",
+                  icon: <Brain className="w-3.5 h-3.5" />,
+                  badge: activeNotifications.length,
+                },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  sidebarTab === tab.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-default-500 hover:text-foreground"
+                }`}
+                onClick={() => setSidebarTab(tab.key)}
+              >
+                {tab.icon}
+                {tab.label}
+                {"badge" in tab && tab.badge > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-secondary text-secondary-foreground text-[10px] flex items-center justify-center">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* ===== LAYERS TAB ===== */}
+          {sidebarTab === "layers" && (
+            <>
           {/* Search */}
           <div className="relative">
             <Input
@@ -735,6 +990,70 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
               </div>
             )}
           </div>
+            </>
+          )}
+
+          {/* ===== DATA TAB ===== */}
+          {sidebarTab === "data" && (
+            <DatasetSidebarPanel />
+          )}
+
+          {/* ===== AGENTS TAB ===== */}
+          {sidebarTab === "agents" && (
+            <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-14rem)]">
+              {activeNotifications.length === 0 ? (
+                <div className="text-center py-10">
+                  <Sparkles className="w-8 h-8 text-default-300 mx-auto mb-2" />
+                  <p className="text-sm text-default-500">
+                    No agent suggestions yet.
+                  </p>
+                  <p className="text-xs text-default-400 mt-1">
+                    Upload a dataset and run an agent to see suggestions here.
+                  </p>
+                </div>
+              ) : (
+                activeNotifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className={`p-3 rounded-lg border text-xs space-y-1.5 ${
+                      n.type === "error"
+                        ? "border-danger-200 bg-danger-50"
+                        : n.type === "warning"
+                          ? "border-warning-200 bg-warning-50"
+                          : "border-secondary-200 bg-secondary-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        {n.type === "error" ? (
+                          <AlertCircle className="w-3.5 h-3.5 text-danger" />
+                        ) : n.type === "warning" ? (
+                          <AlertCircle className="w-3.5 h-3.5 text-warning" />
+                        ) : (
+                          <Sparkles className="w-3.5 h-3.5 text-secondary" />
+                        )}
+                        <span className="font-semibold text-default-700">
+                          {n.agentName}
+                        </span>
+                      </div>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={() => dismissNotification(n.id)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <p className="text-default-600 leading-relaxed">{n.message}</p>
+                    <p className="text-default-400">
+                      {new Date(n.timestamp).toLocaleTimeString()}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </CardBody>
     </Card>

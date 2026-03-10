@@ -1,6 +1,6 @@
 import React from "react";
 import { ReactFlowProvider } from "reactflow";
-import { Node } from "reactflow";
+import { Edge, Node } from "reactflow";
 
 import "reactflow/dist/style.css";
 import FlowCanvas from "./FlowCanvas";
@@ -9,9 +9,12 @@ interface FlowCanvasWrapperProps {
   onNodeSelect: (node: Node | null) => void;
   templateType?: string | null;
   projectId?: string | null;
+  /** Notify parent whenever the nodes array changes */
+  onNodesChange?: (nodes: Node[]) => void;
+  /** Notify parent whenever the edges array changes */
+  onEdgesChange?: (edges: Edge[]) => void;
 }
 
-// Create a wrapper component that includes the Provider
 const FlowCanvasWrapper: React.FC<FlowCanvasWrapperProps> = (props) => {
   return (
     <ReactFlowProvider>
@@ -20,5 +23,4 @@ const FlowCanvasWrapper: React.FC<FlowCanvasWrapperProps> = (props) => {
   );
 };
 
-// Export the wrapper instead of the base component
 export default FlowCanvasWrapper;

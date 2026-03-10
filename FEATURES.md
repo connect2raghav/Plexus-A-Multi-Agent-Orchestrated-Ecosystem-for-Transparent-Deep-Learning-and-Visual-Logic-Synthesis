@@ -1,8 +1,8 @@
-# 🧠 NEOD - Neural Network Builder Features Overview
+# 🧠 Plexus - Neural Network Builder Features Overview
 
 ## New Features Added
 
-I've enhanced the NEOD neural network builder with several powerful features that significantly improve the user experience and functionality. Here's a comprehensive overview of all the new capabilities:
+I've enhanced the Plexus neural network builder with several powerful features that significantly improve the user experience and functionality. Here's a comprehensive overview of all the new capabilities:
 
 ## 🎯 1. Model Templates & Presets
 
@@ -130,7 +130,7 @@ I've enhanced the NEOD neural network builder with several powerful features tha
 ## 🚀 How These Features Work Together
 
 ### Example Workflow:
-1. **Start**: Open NEOD and click "Load Template" to begin with a proven architecture
+1. **Start**: Open Plexus and click "Load Template" to begin with a proven architecture
 2. **Customize**: Use the enhanced sidebar to search and add specific layers you need
 3. **Validate**: Run the Model Validator to check for issues and get recommendations
 4. **Optimize**: Use Performance Analysis to understand computational requirements
@@ -199,7 +199,7 @@ While the current implementation provides substantial value, here are potential 
 
 ## 📈 Impact on the Application
 
-These features transform NEOD from a simple visual editor into a comprehensive neural network development environment that:
+These features transform Plexus from a simple visual editor into a comprehensive neural network development environment that:
 
 - **Reduces Learning Curve**: Templates and help system make it accessible to beginners
 - **Improves Quality**: Validation ensures best practices are followed
@@ -207,4 +207,4 @@ These features transform NEOD from a simple visual editor into a comprehensive n
 - **Enables Sharing**: Export/import allows collaboration and education
 - **Provides Insights**: Performance analysis helps optimize models for deployment
 
-The enhanced NEOD now provides a professional-grade experience that rivals commercial neural network design tools while maintaining the simplicity and visual clarity that makes it educational and approachable.
+The enhanced Plexus now provides a professional-grade experience that rivals commercial neural network design tools while maintaining the simplicity and visual clarity that makes it educational and approachable.

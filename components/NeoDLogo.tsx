@@ -27,10 +27,10 @@ export const NeoDLogo: React.FC<LogoProps> = ({
 }) => {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <img alt="NeoD Logo" className={sizeMap[size]} src="/favicon.png" />
+      <img alt="Plexus Logo" className={sizeMap[size]} src="/favicon.png" />
       {showText && (
         <span className={`font-bold text-inherit ${textSizeMap[size]}`}>
-          NeoD
+          Plexus
         </span>
       )}
     </div>

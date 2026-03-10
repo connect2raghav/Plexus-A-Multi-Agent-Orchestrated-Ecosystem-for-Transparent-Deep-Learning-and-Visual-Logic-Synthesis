@@ -26,6 +26,13 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+
+# Python orchestration layer
+orchestration/venv/
+orchestration/__pycache__/
+orchestration/**/__pycache__/
+orchestration/**/*.pyc
 
 # vercel
 .vercel
