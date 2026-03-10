@@ -10,6 +10,7 @@ export default function Document() {
     <Html lang="en" suppressHydrationWarning>
       <Head />
       <body
+        suppressHydrationWarning
         className={clsx(
           "min-h-screen bg-background font-sans antialiased",
           fontSans.variable,

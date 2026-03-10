@@ -158,7 +158,7 @@ export default function NeuralNetworkPage() {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Left sidebar */}
-      <EnhancedSidebar />
+      {isMounted && <EnhancedSidebar />}
 
       {/* Main canvas area */}
       <div className="flex flex-col flex-1 min-w-0">
@@ -281,19 +281,21 @@ export default function NeuralNetworkPage() {
       </div>
 
       {/* Right: Training panel (slide-over) */}
-      <TrainingPanel />
+      {isMounted && <TrainingPanel />}
 
       {/* Bottom: Console panel (slide-up) */}
-      <ConsolePanel />
+      {isMounted && <ConsolePanel />}
 
       {/* Floating agent notifications */}
-      <AgentBadge />
+      {isMounted && <AgentBadge />}
 
       {/* Dataset manager modal */}
-      <DatasetManager
-        isOpen={datasetModalOpen}
-        onClose={() => setDatasetModalOpen(false)}
-      />
+      {isMounted && (
+        <DatasetManager
+          isOpen={datasetModalOpen}
+          onClose={() => setDatasetModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

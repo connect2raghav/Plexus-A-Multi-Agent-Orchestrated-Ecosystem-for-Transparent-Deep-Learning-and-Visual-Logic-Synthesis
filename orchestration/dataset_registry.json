@@ -1,0 +1,16 @@
+{
+  "6406b724": {
+    "id": "6406b724",
+    "name": "Unclean Dataset.csv",
+    "type": "csv",
+    "size_bytes": 15976,
+    "path": "C:\\Academics VIT\\SEM 4\\EDI\\Plexus\\orchestration\\uploads\\6406b724\\Unclean Dataset.csv",
+    "uploaded_at": "2026-03-10T17:37:29.527506",
+    "status": "error",
+    "preview": [],
+    "columns": [],
+    "row_count": 0,
+    "stats": {},
+    "preprocessing_suggestions": []
+  }
+}
