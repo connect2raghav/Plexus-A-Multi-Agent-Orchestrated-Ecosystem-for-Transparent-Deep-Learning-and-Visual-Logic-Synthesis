@@ -53,3 +53,4 @@ After modifying the `.npmrc` file, you need to run `pnpm install` again to ensur
 ## License
 
 Licensed under the [MIT license](https://github.com/heroui-inc/next-pages-template/blob/main/LICENSE).
+# Plexus-A-Multi-Agent-Orchestrated-Ecosystem-for-Transparent-Deep-Learning-and-Visual-Logic-Synthesis
