@@ -1,47 +1,35 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
+frontend/node_modules/
+backend/venv/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+# Build artifacts
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
 
-# testing
-/coverage
+# Environment files
+backend/.env
+frontend/.env.local
 
-# next.js
-/.next/
-/out/
+# Python
+__pycache__/
+*.pyc
+*.pyo
 
-# production
-/build
+# Runtime data
+backend/uploads/
+backend/dataset_registry.json
+backend/jobs_registry.json
 
-# misc
+# OS files
 .DS_Store
-*.pem
+Thumbs.db
+Desktop.ini
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# local env files
-.env*.local
-.env
-
-# Python orchestration layer
-orchestration/venv/
-orchestration/__pycache__/
-orchestration/**/__pycache__/
-orchestration/**/*.pyc
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-pnpm-lock.yaml
-yarn.lock
-package-lock.json
-bun.lockb
+# Misc
+*.log

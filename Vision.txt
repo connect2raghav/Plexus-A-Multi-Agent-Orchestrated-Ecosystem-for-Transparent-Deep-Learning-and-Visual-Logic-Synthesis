@@ -1,0 +1,128 @@
+# Detailed Report for Vibe Coding Agent: Plexus Platform
+
+## 1. Executive Summary
+
+**Plexus** is a visual, drag‑and‑drop deep learning IDE where users build, train, and deploy neural networks without writing code. The platform runs **completely locally** (no cloud). Users drag datasets from a sidebar onto an empty canvas, receive AI‑generated preprocessing suggestions, assemble layers by connecting nodes, train models with real‑time visualisation **directly on the canvas** (collapsible tiles), and export results. The system uses **static rules** for common errors and **AI agents** (Data, Architect, Debugger) for complex suggestions. Every interactive element on the canvas is **editable** (sliders, toggles, input fields) and training can be paused/resumed with updated parameters. A modern UI with toast notifications for all actions and errors is required.
+
+---
+
+## 2. Complete Vision & How Things Should Work
+
+### 2.1 Core User Journey
+
+1. **Start** – Empty canvas. Sidebar contains: Dataset Upload, Dataset Library, Layers, Visualisation Nodes, Output Nodes.
+2. **Upload Dataset** – User uploads CSV (or image zip) via sidebar. Profiling runs (background). Dataset appears in **Dataset Library** (draggable). **No node is auto‑placed on canvas**.
+3. **Drag Dataset to Canvas** – User drags a dataset from library onto canvas → creates a **Dataset Node** (shows name, rows, columns). **Immediately** the AI Data Agent starts generating a cleaning script in the background (non‑blocking). A spinner appears on the node.
+4. **AI Preprocess** – Once ready, the Dataset Node shows a button **“AI Preprocess”**. Clicking it applies the cleaning and creates a **Cleaned Dataset Node** connected to the original. The original remains untouched.
+5. **Build Model** – User drags layers (Dense, Dropout, Conv2D, Flatten, etc.) onto canvas and connects them to the Cleaned Dataset Node. **Static validation** (no AI) checks shape compatibility and highlights errors in red.
+6. **Configure Training** – User adds a **Training Config Node** (draggable from sidebar) and sets hyperparameters (epochs, batch size) via **editable sliders/inputs** directly on the node. Changes are live – training will respect updated values.
+7. **Train** – Click “Train” button in toolbar. System validates graph, starts training worker, opens WebSocket. **Automatically** a **Training Monitor Node** appears on canvas showing live loss/accuracy charts (collapsible, movable).
+8. **Real‑time Visualisation** – Charts update via WebSocket. **X‑Ray effect**: wires between layers pulse with gradient strength. Debugger Agent watches metrics; if overfitting or dead neurons detected, a non‑modal **suggestion pop‑up** appears. User can **Apply** suggestion (adds Dropout, changes LR, etc.) and training continues (after optional pause).
+9. **Pause/Resume** – User can pause training, edit any node parameters (e.g., increase epochs, change activation), then resume – system restarts training with new config (or continues from checkpoint).
+10. **Results** – After training, an **Evaluation Results Node** automatically appears on canvas (confusion matrix, final metrics). User can add additional visualisation nodes (e.g., “Prediction Samples”) manually from sidebar.
+11. **Deploy** – Drag **API Node** from sidebar, connect to trained model. Clicking it generates downloadable Docker + FastAPI app.
+
+### 2.2 Key Behaviours & Rules
+
+- **No initial input boxes** – Canvas starts empty. Everything is drag‑and‑drop.
+- **Every tile (node) is editable** – Each node has a settings panel (gear icon) or inline controls: sliders for epoch count, learning rate; dropdowns for activation functions; number inputs for layer units. Changes take effect when training is restarted (or after pause/resume).
+- **Training respects dynamic changes** – If user changes epochs from 10 to 20 while training is paused, clicking “Resume” uses the new value. If model architecture is changed (layer added/removed), training must restart from scratch (with warning).
+- **Notifications** – Top‑left corner shows snackbar/toast for every action: “Dataset uploaded”, “Cleaning script ready”, “Training started”, “Suggestion: Add Dropout”, “Error: Conv2D needs 4D input”. Errors also appear as red tooltips on canvas nodes.
+- **Dataset Library & Cleaning** – After upload, the dataset appears in the **same library** as models and layers. The user must drag it to canvas. The “AI Preprocess” button is **only visible after the dataset node is on canvas** and the cleaning script is generated.
+- **Separate results panel** – Optional side panel can show summary metrics, but the **primary** visualisation is on canvas nodes (Training Monitor, Evaluation Results). These nodes are collapsible and movable.
+
+---
+
+## 3. New Requirements (Not yet in previous agent instructions)
+
+### 3.1 Editable Nodes with Live Config Changes
+
+- Every trainable parameter (epochs, batch size, learning rate, layer units, dropout rate) must have an interactive control **on the node** (or via a property sidebar that updates the node in real time).
+- When user changes a parameter **while training is not running**, the new value is stored. If training is later started, the new value is used.
+- If training is **paused** and a parameter changes, the training loop should detect the change and either:
+  - Apply it immediately (if it doesn’t require model re‑initialisation, e.g., epochs), or
+  - Show a warning and require restart (e.g., changing number of layers).
+- Provide **Pause**, **Resume**, **Stop** buttons on the Training Monitor node.
+
+### 3.2 Modern UI/UX & Notifications
+
+- Use a **glassmorphism/neomorphic** style with smooth animations.
+- **Toast notifications** (top‑left, auto‑dismiss after 4 seconds) for:
+  - Success: “Dataset ‘iris.csv’ profiled”, “Cleaning script generated”, “Training started”, “Model exported”.
+  - Warning: “Cleaning script failed – using fallback”, “Validation loss increased”.
+  - Error: “Connection shape invalid”, “GPU out of memory”.
+- All errors that appear on canvas must also appear in the notification history (accessible via a small bell icon).
+
+### 3.3 Dataset Visibility & Cleaning Options
+
+- After upload, the dataset must appear in the **same sidebar tab** as layers and models. Not a separate section.
+- The dataset node on canvas **must have** a visible “AI Preprocess” button (or context menu option) after the cleaning script is ready. If the script fails, show a “Manual Clean” button that opens a simple form (drop columns, impute, scale).
+- Cleaned dataset node should have a distinct colour/badge to indicate it is derived.
+
+### 3.4 Training & Model Actually Happens
+
+- The backend **must actually train** a neural network (PyTorch) using the graph topology provided. No mock training.
+- Generate Python code from the graph and execute it in a subprocess (or Celery worker). Stream real metrics.
+
+### 3.5 Additional Missing Features
+
+- **Model Templates** – Pre‑built architectures (ResNet‑18, LSTM) that expand into nodes when dragged.
+- **Checkpointing** – Save model weights every N epochs; allow resume from checkpoint.
+- **Hyperparameter Search** – Basic grid search slider for epochs and learning rate (optional).
+
+---
+
+## 4. Architectural Requirements (Repeated for Clarity)
+
+- **Local only** – No cloud. Files stored in `./uploads`. Use local Celery+Redis, SQLite for metadata.
+- **FastAPI backend** with WebSocket for real‑time metrics.
+- **React + React Flow frontend** (Next.js optional but not required).
+- **Static rules engine** for shape validation and common errors (implemented in Python, exposed via API, also run on frontend for immediate feedback).
+- **LLM integration** (OpenAI or local via Ollama) for Data Agent (preprocessing) and Debugger (complex suggestions). Use environment variables for API keys.
+
+---
+
+## 5. New Instructions
+
+- the backend chain of agents should work properly and every action should be visible in the backed cli as well
+- as soon as the data set is loded into the work space--> the dataset reading, suitable models suggestions, cleaning script for the dataset, and other important  things should be ready in the backend model 
+- for this use database if you want sqlite if you wany use the existing cleaning script for the same dataset the api load will be reduced 
+- the connectors and nodes where the connectors will attach should be slightly bigger it is hard to connect the node
+-  
+
+---
+
+## 6. Success Criteria
+
+- User can upload a CSV, drag dataset to canvas, click “AI Preprocess” option available on the dataset tile only, get a cleaned dataset node.
+- Build a 3‑layer dense network by dragging layers, connect them.
+- Click Train → Training Monitor node appears with live loss curve.
+- While training, an agent pop‑up suggests “Add Dropout” → user clicks Apply → Dropout node appears, training restarts with new architecture.
+- User pauses training, changes epochs from 10 to 20 via slider on Training Config node, resumes → training runs for 20 epochs.
+- After training, Evaluation Results node shows final accuracy.
+- User drags API node → downloads a ZIP with working FastAPI app.
+
+---
+
+## 7. Final Note to Vibe Coding Agent
+
+Implement **exactly** as described. Prioritise: (1) empty canvas + drag‑and‑drop, (2) dataset upload + AI preprocess, (3) trainable model with live charts on canvas, (4) editable parameters with pause/resume, (5) notifications. Use static rules for validation; AI only for cleaning scripts and complex debug suggestions. Keep everything local. Good luck.
+
+---
+
+## 8. Implementation Status (Updated)
+
+**✅ Implemented:**
+- Drag and drop canvas (FlowCanvas) and base node structures.
+- Backend API endpoints for datasets, agent processes, and training.
+- Basic background profiling and auto-trigger of Data Agent for CSS datasets via SQLite/file registry (`_dataset_registry`).
+- Auto-injection of visualisation nodes upon training start.
+- WebSocket streaming and basic training simulation / fallback logic.
+
+**❌ Remaining / Needs Updating:**
+- **Connector Nodes**: Make handles slightly bigger and easier to grab as per latest feedback.
+- **Unified Node Configuration**: Add inline interactive controls (sliders/inputs) directly inside `Training Config` and Layer Nodes instead of standard `data.onChange` only.
+- **Dataset Node & Preprocessing**: Implement drag-and-drop Dataset nodes to canvas, with an explicit `AI Preprocess` button available *only* when the script is generated.
+- **Visualisation Nodes**: Ensure `lossCurve`, `gradientFlow`, and `evaluationResults` nodes are correctly defined in `CustomNodes.tsx` and render charts inside the canvas.
+- **CLI Visibility**: Ensure the backend chain of agents logs its actions properly to the CLI.
+- **Pause/Resume Mechanics**: Fully integrate the Pause/Resume functions directly on the Training Monitor logic.
