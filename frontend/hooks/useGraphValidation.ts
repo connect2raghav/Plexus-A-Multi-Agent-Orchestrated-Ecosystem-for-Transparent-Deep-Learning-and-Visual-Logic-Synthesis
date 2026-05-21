@@ -23,8 +23,6 @@ import type { Node, Edge } from "reactflow";
 
 import { useMemo } from "react";
 
-import { usePlexusStore } from "@/store/plexusStore";
-
 // ---- Types ----
 export interface ValidationIssue {
   nodeId: string;
@@ -73,8 +71,6 @@ export function useGraphValidation(
   nodes: Node[],
   edges: Edge[],
 ): GraphValidationResult {
-  const datasetProgress = usePlexusStore((s) => s.datasetProgress);
-
   return useMemo(() => {
     const issues: ValidationIssue[] = [];
 
@@ -198,29 +194,7 @@ export function useGraphValidation(
         ),
       );
 
-    // Rule 7: Dataset node still profiling
-    nodes
-      .filter((n) => n.type === "dataset" && n.data?.datasetId)
-      .forEach((n) => {
-        const prog = datasetProgress[n.data.datasetId as string];
-
-        if (prog && !prog.done && !prog.error) {
-          issues.push(
-            makeIssue(
-              n.id,
-              "warning",
-              `Dataset is still profiling (${prog.progress}%)…`,
-            ),
-          );
-        }
-        if (prog?.error) {
-          issues.push(
-            makeIssue(n.id, "error", `Dataset profiling failed: ${prog.error}`),
-          );
-        }
-      });
-
-    // Rule 8: Conv2D / MaxPool must be followed by Flatten before Dense/Output
+    // Rule 7: Conv2D / MaxPool must be followed by Flatten before Dense/Output
     const CONV_TYPES = new Set(["conv2d", "maxpool"]);
     const DENSE_TYPES = new Set(["dense", "outputLayer", "hidden"]);
 
@@ -276,7 +250,7 @@ export function useGraphValidation(
         }
       });
 
-    // Rule 9: Dataset column count vs Input shape mismatch
+    // Rule 8: Dataset column count vs Input shape mismatch
     const datasetNodes = nodes.filter(
       (n) => n.type === "dataset" && n.data?.columns?.length > 0,
     );
@@ -326,5 +300,5 @@ export function useGraphValidation(
       nodeMessages,
       isValid: errorNodeIds.size === 0,
     };
-  }, [nodes, edges, datasetProgress]);
+  }, [nodes, edges]);
 }

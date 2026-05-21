@@ -1885,18 +1885,19 @@ async def start_training(req: TrainStartRequest, background_tasks: BackgroundTas
         model_nodes,
     )
 
-    background_tasks.add_task(
-        _run_training_job,
-        job_id,
-        req.nodes,
-        req.edges,
-        record,
-        req.framework,
-        req.epochs,
-        req.batch_size,
-        req.learning_rate,
-        None,
-        0,
+    asyncio.create_task(
+        _run_training_job(
+            job_id,
+            req.nodes,
+            req.edges,
+            record,
+            req.framework,
+            req.epochs,
+            req.batch_size,
+            req.learning_rate,
+            None,
+            0,
+        ),
     )
 
     return {"job_id": job_id, "status": "queued"}
@@ -1935,18 +1936,19 @@ async def update_job_status(job_id: str, update: JobUpdate, background_tasks: Ba
                 "checkpoint_path": job.get("checkpoint_path"),
             },
         )
-        background_tasks.add_task(
-            _run_training_job,
-            job_id,
-            job.get("nodes", []),
-            job.get("edges", []),
-            _dataset_registry.get(job.get("dataset_id")),
-            job.get("framework", "tensorflow"),
-            job.get("epochs", 10),
-            job.get("batch_size", 32),
-            job.get("learning_rate", 0.001),
-            job.get("checkpoint_path"),
-            job.get("epoch", 0),
+        asyncio.create_task(
+            _run_training_job(
+                job_id,
+                job.get("nodes", []),
+                job.get("edges", []),
+                _dataset_registry.get(job.get("dataset_id")),
+                job.get("framework", "tensorflow"),
+                job.get("epochs", 10),
+                job.get("batch_size", 32),
+                job.get("learning_rate", 0.001),
+                job.get("checkpoint_path"),
+                job.get("epoch", 0),
+            ),
         )
 
     return {"status": update.status}

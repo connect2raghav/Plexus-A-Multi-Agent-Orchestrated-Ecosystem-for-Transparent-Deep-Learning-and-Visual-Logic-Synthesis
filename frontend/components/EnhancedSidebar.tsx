@@ -1226,9 +1226,11 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                       <div className="space-y-1">
                         {nodes.map((node) => {
                           const isHighlighted = highlightedNodes.has(node.type);
+                          const nodeKey = `${node.type}-${(node as { dataProps?: { datasetId?: string } }).dataProps?.datasetId ?? node.label}`;
+
                           return (
                           <div
-                            key={node.type}
+                            key={nodeKey}
                             className="flex items-center gap-2"
                           >
                             <Button

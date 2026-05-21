@@ -1628,7 +1628,7 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
 
   // Preview: first 4 rows from the record
   const previewRows = (datasetRecord?.preview as Record<string, unknown>[] | undefined) || [];
-  const previewCols = datasetRecord?.columns || data.columns || [];
+  const previewCols = (datasetRecord?.columns || data.columns || []) as string[];
 
   return (
     <div
@@ -1933,7 +1933,13 @@ const VisualizationNode = ({
   isConnectable,
 }: NodeProps) => {
   const meta = VIZ_META[type] ?? { label: type, icon: "mdi:chart-bar" };
-  const training = usePlexusStore((s) => s.training);
+  const activeTraining = usePlexusStore((s) => s.training);
+  const trainingJobs = usePlexusStore((s) => s.trainingJobs);
+  const nodeJobId = (data as { jobId?: string })?.jobId;
+  const training =
+    nodeJobId && trainingJobs[nodeJobId]
+      ? trainingJobs[nodeJobId]
+      : activeTraining;
   const hasData = training.metrics.loss.length > 0;
   const [collapsed, setCollapsed] = useState(false);
   const trainingResult = training.result as Record<string, any> | null;
@@ -2063,11 +2069,11 @@ const VisualizationNode = ({
                     training.status === "running" ? "paused" : "running";
                   try {
                     await updateJobStatus(jobId, nextStatus);
-                    usePlexusStore.getState().updateTraining({
+                    usePlexusStore.getState().updateJob(jobId, {
                       status: nextStatus as any,
                     });
                   } catch (err) {
-                    usePlexusStore.getState().updateTraining({
+                    usePlexusStore.getState().updateJob(jobId, {
                       error: err instanceof Error ? err.message : String(err),
                     });
                   }
@@ -2085,11 +2091,11 @@ const VisualizationNode = ({
                   if (!jobId) return;
                   try {
                     await updateJobStatus(jobId, "stopped");
-                    usePlexusStore.getState().updateTraining({
+                    usePlexusStore.getState().updateJob(jobId, {
                       status: "stopped",
                     });
                   } catch (err) {
-                    usePlexusStore.getState().updateTraining({
+                    usePlexusStore.getState().updateJob(jobId, {
                       error: err instanceof Error ? err.message : String(err),
                     });
                   }

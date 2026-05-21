@@ -31,7 +31,189 @@ import { startTraining, validateGraphNodes, runGraphPreprocessing } from "@/lib/
 import { usePlexusStore } from "@/store/plexusStore";
 import { useTrainingSocket } from "@/hooks/useTrainingSocket";
 import { useGraphValidation } from "@/hooks/useGraphValidation";
+import {
+  detectModelPipelines,
+  pipelineModelLabel,
+} from "@/utils/pipelineDetection";
 import "reactflow/dist/style.css";
+
+// Pipeline colour palette — each pipeline gets a distinct accent colour
+const PIPELINE_COLOURS = [
+  "#006FEE", // blue
+  "#17C964", // green
+  "#F5A524", // amber
+  "#9353D3", // purple
+  "#F31260", // red
+  "#00B8D9", // cyan
+];
+
+let _pipelineColourIndex = 0;
+const _pipelineColourMap = new Map<string, string>();
+function getPipelineColour(pipelineId: string): string {
+  if (!_pipelineColourMap.has(pipelineId)) {
+    _pipelineColourMap.set(pipelineId, PIPELINE_COLOURS[_pipelineColourIndex % PIPELINE_COLOURS.length]);
+    _pipelineColourIndex++;
+  }
+  return _pipelineColourMap.get(pipelineId)!;
+}
+
+function bindFallbackDatasetToNodes(
+  nodes: Node[],
+  selectedDataset: { id: string; name: string; type: string; columns?: string[]; row_count?: number } | undefined,
+) {
+  if (!selectedDataset) return nodes;
+  let changed = false;
+
+  const nextNodes = nodes.map((node) => {
+    if (node.type !== "dataset" || node.data?.datasetId) return node;
+    changed = true;
+
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        datasetId: selectedDataset.id,
+        datasetName: selectedDataset.name,
+        datasetType: selectedDataset.type,
+        columns: selectedDataset.columns ?? [],
+        rowCount: selectedDataset.row_count ?? 0,
+      },
+    };
+  });
+
+  return changed ? nextNodes : nodes;
+}
+
+/** Inject evaluation/confusion/prediction/comparison nodes for a completed job. */
+function _injectResultNodes(
+  jobId: string,
+  job: import("@/store/plexusStore").TrainingJobState,
+  nodes: Node[],
+  setNodes: (fn: (nds: Node[]) => Node[]) => void,
+  setEdges: (fn: (eds: Edge[]) => Edge[]) => void,
+  addLog: (level: any, msg: string, src: string) => void,
+) {
+  const result = job.result as Record<string, any>;
+  const colour = getPipelineColour(job.pipelineId);
+  const datasetNodeId = job.pipelineId.split("::")[0];
+  const datasetNode = nodes.find((n) => n.id === datasetNodeId);
+
+  if (!datasetNode) return;
+
+  const modelResults: Record<string, any>[] =
+    result?.model_results?.length > 0
+      ? result.model_results
+      : result?.best_model ? [result.best_model] : [];
+
+  if (modelResults.length === 0) return;
+
+  // Anchor result positions beside the dataset/model path that launched this job.
+  const baseAnchorX = datasetNode.position.x + 640;
+  const baseAnchorY = datasetNode.position.y;
+
+  // Offset each pipeline's results vertically so they don't overlap
+  const pipelineIndex = _pipelineColourIndex - 1;
+  const yOffset = pipelineIndex * 320;
+
+  let addedCount = 0;
+
+  setNodes((nds) => {
+    const next = [...nds];
+
+    modelResults.forEach((modelResult, index) => {
+      const modelNode = nds.find((n) => n.id === modelResult.node_id);
+      const baseX = modelNode ? modelNode.position.x + 320 : baseAnchorX;
+      const baseY = modelNode ? modelNode.position.y + yOffset : baseAnchorY + yOffset + index * 260;
+      const modelLabel = modelResult.label || modelResult.model_type || "Model";
+      const modelKey = `${jobId}-${modelResult.node_id || modelResult.model_type || index}`;
+
+      const perModelResult = {
+        ...result,
+        final_loss: modelResult.metrics?.loss ?? result.final_loss,
+        final_accuracy: modelResult.metrics?.accuracy ?? result.final_accuracy,
+        final_val_loss: modelResult.metrics?.val_loss ?? result.final_val_loss,
+        final_val_accuracy: modelResult.metrics?.val_accuracy ?? result.final_val_accuracy,
+        best_model: modelResult,
+        model_results: [modelResult],
+        _pipelineLabel: job.label,
+        _pipelineColour: colour,
+        _jobId: jobId,
+      };
+
+      const evalId = `eval-${modelKey}`;
+      const confId = `conf-${modelKey}`;
+      const predId = `pred-${modelKey}`;
+
+      if (!next.find((n) => n.id === evalId)) {
+        next.push({
+          id: evalId, type: "evaluationResults",
+          position: { x: baseX, y: baseY },
+          data: { label: `Results: ${modelLabel}`, result: perModelResult },
+          style: { borderColor: colour },
+        });
+        addedCount++;
+      }
+      if (!next.find((n) => n.id === confId)) {
+        next.push({
+          id: confId, type: "confMatrix",
+          position: { x: baseX, y: baseY + 220 },
+          data: { label: `Confusion: ${modelLabel}`, result: perModelResult },
+          style: { borderColor: colour },
+        });
+        addedCount++;
+      }
+      if (!next.find((n) => n.id === predId)) {
+        next.push({
+          id: predId, type: "predTable",
+          position: { x: baseX + 320, y: baseY + 220 },
+          data: { label: `Predictions: ${modelLabel}`, result: perModelResult },
+          style: { borderColor: colour },
+        });
+        addedCount++;
+      }
+    });
+
+    // Model comparison node anchored below the dataset node
+    if (result?.comparison?.length > 0) {
+      const compareId = `compare-${jobId}`;
+      if (!next.find((n) => n.id === compareId)) {
+        next.push({
+          id: compareId, type: "modelComparison",
+          position: { x: baseAnchorX - 320, y: baseAnchorY + yOffset + 260 },
+          data: { label: `Comparison – ${job.datasetName}`, result: { ...result, _pipelineLabel: job.label, _pipelineColour: colour } },
+          style: { borderColor: colour },
+        });
+        addedCount++;
+      }
+    }
+
+    return next;
+  });
+
+  setEdges((eds) => {
+    const next = [...eds];
+    const has = (s: string, t: string) => next.some((e) => e.source === s && e.target === t);
+    const add = (s: string, t: string) => {
+      if (!has(s, t)) next.push({ id: `e-${s}-${t}`, source: s, target: t, animated: true, style: { stroke: colour, strokeWidth: 2 } });
+    };
+    modelResults.forEach((mr) => {
+      const mn = nodes.find((n) => n.id === mr.node_id);
+      if (!mn) return;
+      const mk = `${jobId}-${mr.node_id || mr.model_type}`;
+      add(mn.id, `eval-${mk}`);
+      add(mn.id, `conf-${mk}`);
+      add(mn.id, `pred-${mk}`);
+    });
+    if (result?.comparison?.length > 0) {
+      add(datasetNode.id, `compare-${jobId}`);
+    }
+    return next;
+  });
+
+  if (addedCount > 0) {
+    addLog("success", `[${job.label}] Auto-added ${addedCount} result node(s) in ${colour} colour.`, "FlowCanvas");
+  }
+}
 
 const edgeTypes = {
   custom: CustomEdge,
@@ -61,6 +243,10 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(getDefaultNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(getDefaultEdges());
+  const clearAllJobs = usePlexusStore((s) => s.clearAllJobs);
+  const loadedTemplateRef = useRef<string | null | undefined>(undefined);
+  const loadedProjectRef = useRef<string | null | undefined>(undefined);
+  const spawnedGhostsRef = useRef<Set<string>>(new Set());
 
   // Propagate node/edge changes to parent page (for training, etc.)
   useEffect(() => {
@@ -72,18 +258,25 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   // Update nodes and edges when template type changes
   useEffect(() => {
+    if (loadedTemplateRef.current === templateType) return;
+    loadedTemplateRef.current = templateType;
+
     if (templateType) {
       const template = getTemplateByType(templateType);
 
       if (template) {
         setNodes(template.nodes);
         setEdges(template.edges);
+        clearAllJobs();
       }
     }
-  }, [templateType, setNodes, setEdges]);
+  }, [templateType, setNodes, setEdges, clearAllJobs]);
 
   // Load project when projectId changes
   useEffect(() => {
+    if (loadedProjectRef.current === projectId) return;
+    loadedProjectRef.current = projectId;
+
     if (projectId) {
       const project = ProjectStorage.getProject(projectId);
 
@@ -94,10 +287,14 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         setCurrentProject(project);
       }
     } else {
+      setNodes(getDefaultNodes());
+      setEdges(getDefaultEdges());
       setCurrentProjectId(null);
       setCurrentProject(null);
+      clearAllJobs();
+      spawnedGhostsRef.current.clear();
     }
-  }, [projectId, setNodes, setEdges]);
+  }, [projectId, setNodes, setEdges, clearAllJobs]);
   const [showPanel, setShowPanel] = useState(false);
   const [framework, setFramework] = useState<"tensorflow" | "pytorch">(
     "tensorflow",
@@ -116,8 +313,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const datasets = usePlexusStore((s) => s.datasets);
   const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
   const backendOnline = usePlexusStore((s) => s.backendOnline);
-  const trainingStatus = usePlexusStore((s) => s.training.status);
-  const trainingJobId = usePlexusStore((s) => s.training.jobId);
+  const trainingJobs = usePlexusStore((s) => s.trainingJobs);
+  const activeJobId = usePlexusStore((s) => s.activeJobId);
   const startJob = usePlexusStore((s) => s.startJob);
   const setTrainingPanelOpen = usePlexusStore((s) => s.setTrainingPanelOpen);
   const addLog = usePlexusStore((s) => s.addLog);
@@ -125,358 +322,214 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const graphWarnings = usePlexusStore((s) => s.graphWarnings);
   const [isStartingTraining, setIsStartingTraining] = useState(false);
 
-  // Validate canvas nodes against dataset intelligence whenever nodes or dataset changes
+  // Connect WebSockets for ALL active jobs simultaneously
+  const activeJobIds = Object.keys(trainingJobs);
+  useTrainingSocket(activeJobIds);
+
+  // For the Train button label — any job currently running?
+  const anyRunning = Object.values(trainingJobs).some((j) => j.status === "running" || j.status === "queued");
+  const trainingStatus = anyRunning ? "running" : (activeJobId ? (trainingJobs[activeJobId]?.status ?? "idle") : "idle");
+
+  // Validate canvas nodes against dataset intelligence
   useEffect(() => {
-    if (!selectedDatasetId || nodes.length === 0) {
-      setGraphWarnings([]);
-      return;
-    }
+    if (!selectedDatasetId || nodes.length === 0) { setGraphWarnings([]); return; }
     const timer = setTimeout(async () => {
       try {
         const result = await validateGraphNodes(selectedDatasetId, nodes as unknown[]);
         setGraphWarnings(result.warnings);
-        result.warnings
-          .filter((w) => w.severity === "error")
-          .forEach((w) => {
-            addLog("warning", `Node '${w.node_type}' incompatible: ${w.message}`, "GraphValidator");
-          });
-      } catch {
-        // Validation is best-effort; don't block the user
-      }
+        result.warnings.filter((w) => w.severity === "error").forEach((w) => {
+          addLog("warning", `Node '${w.node_type}' incompatible: ${w.message}`, "GraphValidator");
+        });
+      } catch { /* best-effort */ }
     }, 800);
     return () => clearTimeout(timer);
   }, [nodes, selectedDatasetId, setGraphWarnings, addLog]);
 
-  const spawnedGhostsRef = useRef<Set<string>>(new Set());
-
   // Spawn ghost nodes when Architect suggestions are available
   useEffect(() => {
     if (!selectedDatasetId || !selectedDataset?.architect_status?.suggested_nodes) return;
-    
+    const datasetNode = nodes.find(
+      (node) =>
+        node.type === "dataset" && node.data?.datasetId === selectedDatasetId,
+    );
+    if (!datasetNode) return;
+
     const spawnKey = `${selectedDatasetId}-${selectedDataset.architect_status.status}`;
     if (spawnedGhostsRef.current.has(spawnKey)) return;
-    
     const suggestions = selectedDataset.architect_status.suggested_nodes;
     if (suggestions.length === 0) return;
-
     spawnedGhostsRef.current.add(spawnKey);
-
-    let maxX = 100;
-    let maxY = 100;
-    if (nodes.length > 0) {
-      const rightmostNode = nodes.reduce((prev, curr) => (prev.position.x > curr.position.x ? prev : curr));
-      maxX = rightmostNode.position.x + 300;
-      maxY = rightmostNode.position.y;
-    }
-
+    const maxX = datasetNode.position.x + 300;
+    const maxY = datasetNode.position.y;
     const baseId = `ghost-${selectedDatasetId}-${Date.now()}`;
-    const newNodes = suggestions.map((nodeType, index) => {
+    setNodes((nds) => [...nds, ...suggestions.map((nodeType: string, index: number) => {
       const ghostId = `${baseId}-${index}`;
       return {
-        id: ghostId,
-        type: "ghost",
+        id: ghostId, type: "ghost",
         position: { x: maxX + index * 250, y: maxY },
         data: {
           label: `Suggest: ${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)}`,
           icon: "lucide:plus-circle",
-          onClick: () => {
-             setNodes(nds => nds.map(n => 
-                n.id === ghostId ? { ...n, type: nodeType, data: { label: nodeType.charAt(0).toUpperCase() + nodeType.slice(1), details: "Instantiated from AI suggestion" } } : n
-             ));
-          }
-        }
+          onClick: () => setNodes(nds2 => nds2.map(n => n.id === ghostId
+            ? { ...n, type: nodeType, data: { label: nodeType.charAt(0).toUpperCase() + nodeType.slice(1), details: "From AI suggestion" } }
+            : n)),
+        },
       };
-    });
-
-    setNodes((nds) => [...nds, ...newNodes]);
+    })]);
   }, [selectedDataset, selectedDatasetId, nodes, setNodes]);
 
-  // Connect WebSocket for active job
-  useTrainingSocket(trainingJobId);
-
-  // Client-side graph validation (static rules, no LLM)
+  // Client-side graph validation
   const validation = useGraphValidation(nodes, edges);
 
+  // ── Multi-pipeline Train handler ──────────────────────────────────────────────────
   const handleStartTraining = async () => {
-    if (!selectedDatasetId) {
-      showError("No dataset selected. Upload and select a dataset first.");
-      return;
+    if (!backendOnline) { showError("Backend is offline."); return; }
+
+    const trainNodes = bindFallbackDatasetToNodes(nodes, selectedDataset);
+    if (trainNodes !== nodes) {
+      setNodes(trainNodes);
     }
-    if (!backendOnline) {
-      showError("Backend is offline. Start the FastAPI server first.");
+
+    const pipelines = detectModelPipelines(trainNodes, edges);
+    if (pipelines.length === 0) {
+      const hasDatasetNode = trainNodes.some((node) => node.type === "dataset");
+      const hasBoundDatasetNode = trainNodes.some(
+        (node) => node.type === "dataset" && node.data?.datasetId,
+      );
+      showError(
+        !hasDatasetNode
+          ? "No dataset nodes found. Drag a dataset onto the canvas first."
+          : !hasBoundDatasetNode
+            ? "This Dataset node is not linked to an uploaded dataset. Select a dataset in the sidebar or drag a specific dataset from the Data tab."
+            : "Connect at least one model node to a dataset node.",
+      );
       return;
     }
 
     setIsStartingTraining(true);
-    try {
-      // ── User-driven path: apply canvas preprocessing nodes first ──────
-      const hasPreprocessing = nodes.some((n) =>
-        ["normalize", "scale", "dropNulls", "oneHotEncode", "embedEncode"].includes(n.type || "")
-      );
-      let activeDatasetId = selectedDatasetId;
-      if (hasPreprocessing) {
-        try {
-          addLog("info", "Applying canvas preprocessing nodes to dataset…", "FlowCanvas");
-          const gpResult = await runGraphPreprocessing(selectedDatasetId, nodes as unknown[], edges as unknown[]);
-          if (gpResult.processed_dataset_id !== selectedDatasetId) {
-            activeDatasetId = gpResult.processed_dataset_id;
-            addLog("success", `Graph preprocessing applied (${gpResult.steps.length} steps). Training on processed dataset.`, "FlowCanvas");
+    const trainingConfigNode = nodes.find((n) => n.type === "training_config");
+    const trainingConfig = (trainingConfigNode?.data?.config || {}) as {
+      epochs?: number; batch_size?: number; learning_rate?: number; lr?: number;
+    };
+    const selectedEpochs = Number(trainingConfig.epochs || 20);
+    const selectedBatchSize = Number(trainingConfig.batch_size || 32);
+    const selectedLearningRate = Number(trainingConfig.learning_rate || trainingConfig.lr || 0.001);
+
+    let launchedCount = 0;
+    for (const pipeline of pipelines) {
+      try {
+        // Apply graph preprocessing for this pipeline's dataset
+        let activeDatasetId = pipeline.datasetId;
+        if (pipeline.preprocessingNodes.length > 0) {
+          try {
+            addLog("info", `[Pipeline: ${pipeline.datasetName}] Applying ${pipeline.preprocessingNodes.length} preprocessing node(s)…`, "FlowCanvas");
+            const gpResult = await runGraphPreprocessing(
+              pipeline.datasetId,
+              pipeline.allNodes as unknown[],
+              pipeline.allEdges as unknown[],
+            );
+            if (gpResult.processed_dataset_id !== pipeline.datasetId) {
+              activeDatasetId = gpResult.processed_dataset_id;
+              addLog("success", `[Pipeline: ${pipeline.datasetName}] Preprocessing done (${gpResult.steps.length} steps). Training on processed data.`, "FlowCanvas");
+            }
+          } catch (gpErr) {
+            addLog("warning", `[Pipeline: ${pipeline.datasetName}] Preprocessing failed, using raw data: ${gpErr}`, "FlowCanvas");
           }
-        } catch (gpErr) {
-          addLog("warning", `Graph preprocessing failed, training on raw dataset: ${gpErr}`, "FlowCanvas");
         }
+
+        const job = await startTraining({
+          nodes: pipeline.allNodes as unknown[],
+          edges: pipeline.allEdges as unknown[],
+          datasetId: activeDatasetId,
+          framework,
+          epochs: selectedEpochs,
+          batchSize: selectedBatchSize,
+          learningRate: selectedLearningRate,
+        });
+
+        const prepSteps = pipeline.preprocessingNodes.map((n) => n.type ?? "");
+        const modelTypes = [
+          pipeline.targetModelNode.type ?? pipelineModelLabel(pipeline),
+        ];
+        const label = [
+          pipeline.datasetName,
+          prepSteps.length ? prepSteps.join("+") : "raw",
+          pipelineModelLabel(pipeline),
+        ].join(" → ");
+
+        startJob(
+          job.job_id,
+          pipeline.pipelineId,
+          label,
+          selectedEpochs,
+          pipeline.datasetName,
+          prepSteps,
+          modelTypes,
+        );
+        setTrainingPanelOpen(true);
+        addLog("info", `[Pipeline: ${pipeline.datasetName}] Job ${job.job_id} started.`, "FlowCanvas");
+        showSuccess(`Pipeline "${label}" started! Job: ${job.job_id}`);
+        launchedCount++;
+
+        // Auto-inject per-pipeline viz nodes
+        const pipelineNodeIds = new Set(pipeline.allNodes.map((n) => n.id));
+        const hasLoss = nodes.some((n) => n.type === "lossCurve" && pipelineNodeIds.has(n.id));
+        if (!hasLoss) {
+          const maxX = pipeline.allNodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
+          const maxY = pipeline.allNodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
+          setNodes((nds) => [
+            ...nds,
+            {
+              id: `viz-loss-${job.job_id}`,
+              type: "lossCurve",
+              position: { x: maxX + 40, y: maxY + 140 },
+              data: { label: `Loss – ${label}`, jobId: job.job_id, pipelineId: pipeline.pipelineId },
+            },
+          ]);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        showError(`Pipeline "${pipeline.datasetName}" failed: ${msg}`);
+        addLog("error", `Pipeline ${pipeline.datasetName} start failed: ${msg}`, "FlowCanvas");
       }
-      const trainingConfigNode = nodes.find((n) => n.type === "training_config");
-      const trainingConfig = (trainingConfigNode?.data?.config || {}) as {
-        epochs?: number;
-        batch_size?: number;
-        learning_rate?: number;
-        lr?: number;
-      };
-      const selectedEpochs = Number(trainingConfig.epochs || 20);
-      const selectedBatchSize = Number(trainingConfig.batch_size || 32);
-      const selectedLearningRate = Number(
-        trainingConfig.learning_rate || trainingConfig.lr || 0.001,
-      );
-
-      const job = await startTraining({
-        nodes: nodes as unknown[],
-        edges: edges as unknown[],
-        datasetId: activeDatasetId,
-        framework,
-        epochs: selectedEpochs,
-        batchSize: selectedBatchSize,
-        learningRate: selectedLearningRate,
-      });
-
-      startJob(job.job_id, selectedEpochs);
-      setTrainingPanelOpen(true);
-      addLog("info", `Training job ${job.job_id} started.`, "FlowCanvas");
-      showSuccess(`Training started! Job: ${job.job_id}`);
-
-      // Auto-inject visualisation tiles if not already present
-      const hasLossCurve = nodes.some((n) => n.type === "lossCurve");
-      const hasGradientFlow = nodes.some((n) => n.type === "gradientFlow");
-
-      if (!hasLossCurve || !hasGradientFlow) {
-        // Place tiles below the last node, or at a fixed offset if canvas is empty
-        const maxY = nodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
-        const maxX = nodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
-        const baseX = maxX + 40;
-        const baseY = maxY + 120;
-        const newVizNodes: Node[] = [];
-
-        if (!hasLossCurve) {
-          newVizNodes.push({
-            id: `viz-loss-${Date.now()}`,
-            type: "lossCurve",
-            position: { x: baseX, y: baseY },
-            data: { label: "Loss Curve" },
-          });
-        }
-        if (!hasGradientFlow) {
-          newVizNodes.push({
-            id: `viz-grad-${Date.now() + 1}`,
-            type: "gradientFlow",
-            position: { x: baseX, y: baseY + 120 },
-            data: { label: "Gradient Flow" },
-          });
-        }
-        if (newVizNodes.length > 0) {
-          setNodes((nds) => [...nds, ...newVizNodes]);
-          addLog(
-            "info",
-            `Auto-added ${newVizNodes.map((n) => n.data.label).join(", ")} visualisation node(s).`,
-            "FlowCanvas",
-          );
-        }
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-
-      showError(`Failed to start training: ${msg}`);
-      addLog("error", `Training start failed: ${msg}`, "FlowCanvas");
-    } finally {
-      setIsStartingTraining(false);
     }
+
+    if (launchedCount > 1) {
+      showSuccess(`${launchedCount} independent model jobs launched in parallel!`);
+    }
+    setIsStartingTraining(false);
   };
 
-  // Auto-add Evaluation Results node when training completes
-  const prevTrainingStatus = useRef(trainingStatus);
+  useEffect(() => {
+    const handleGlobalStartTraining = () => {
+      void handleStartTraining();
+    };
+
+    window.addEventListener("plexus:start-training", handleGlobalStartTraining);
+
+    return () => {
+      window.removeEventListener(
+        "plexus:start-training",
+        handleGlobalStartTraining,
+      );
+    };
+  }, [handleStartTraining]);
+
+  // ── Auto-inject result nodes when any job completes ───────────────────────────────────
+  const prevJobStatuses = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    if (
-      prevTrainingStatus.current !== "completed" &&
-      trainingStatus === "completed"
-    ) {
-      const result = usePlexusStore.getState().training.result;
-      if (!result) {
-        prevTrainingStatus.current = trainingStatus;
-        return;
+    Object.entries(trainingJobs).forEach(([jobId, job]) => {
+      const prev = prevJobStatuses.current[jobId];
+      if (prev !== "completed" && job.status === "completed" && job.result) {
+        _injectResultNodes(jobId, job, nodes, setNodes, setEdges, addLog);
       }
-
-      const modelResults =
-        (result as Record<string, any>)?.model_results?.length > 0
-          ? ((result as Record<string, any>).model_results as Record<string, any>[]) 
-          : ((result as Record<string, any>).best_model
-              ? [(result as Record<string, any>).best_model]
-              : []);
-
-      if (modelResults.length === 0) {
-        prevTrainingStatus.current = trainingStatus;
-        return;
-      }
-
-      const maxX = nodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
-      const maxY = nodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
-      const datasetNode =
-        nodes.find(
-          (n) =>
-            n.type === "dataset" &&
-            n.data?.datasetId === selectedDatasetId,
-        ) || nodes.find((n) => n.type === "dataset");
-      const existingComparison = nodes.find((n) => n.type === "modelComparison");
-      const comparisonId =
-        (result as Record<string, any>).comparison
-          ? existingComparison?.id || `compare-${Date.now()}`
-          : null;
-
-      let addedCount = 0;
-
-      setNodes((nds) => {
-        const next = [...nds];
-
-        modelResults.forEach((modelResult, index) => {
-          const modelNode = nds.find((n) => n.id === modelResult.node_id);
-          const baseX = modelNode ? modelNode.position.x + 320 : maxX + 40;
-          const baseY = modelNode
-            ? modelNode.position.y
-            : maxY + 260 + index * 240;
-          const modelLabel = modelResult.label || modelResult.model_type || "Model";
-          const modelKey =
-            modelResult.node_id || modelResult.model_type || `model-${index}`;
-
-          const perModelResult = {
-            ...result,
-            final_loss: modelResult.metrics?.loss ?? result.final_loss,
-            final_accuracy: modelResult.metrics?.accuracy ?? result.final_accuracy,
-            final_val_loss: modelResult.metrics?.val_loss ?? result.final_val_loss,
-            final_val_accuracy: modelResult.metrics?.val_accuracy ?? result.final_val_accuracy,
-            best_model: modelResult,
-            model_results: [modelResult],
-          };
-
-          const evalId = `eval-${modelKey}`;
-          const confId = `conf-${modelKey}`;
-          const predId = `pred-${modelKey}`;
-
-          const evalNode = next.find((n) => n.id === evalId);
-          if (evalNode) {
-            evalNode.data = { ...evalNode.data, label: `Results: ${modelLabel}`, result: perModelResult };
-          } else {
-            next.push({
-              id: evalId,
-              type: "evaluationResults",
-              position: { x: baseX, y: baseY },
-              data: { label: `Results: ${modelLabel}`, result: perModelResult },
-            });
-            addedCount += 1;
-          }
-
-          const confNode = next.find((n) => n.id === confId);
-          if (confNode) {
-            confNode.data = { ...confNode.data, label: `Confusion: ${modelLabel}`, result: perModelResult };
-          } else {
-            next.push({
-              id: confId,
-              type: "confMatrix",
-              position: { x: baseX, y: baseY + 220 },
-              data: { label: `Confusion: ${modelLabel}`, result: perModelResult },
-            });
-            addedCount += 1;
-          }
-
-          const predNode = next.find((n) => n.id === predId);
-          if (predNode) {
-            predNode.data = { ...predNode.data, label: `Predictions: ${modelLabel}`, result: perModelResult };
-          } else {
-            next.push({
-              id: predId,
-              type: "predTable",
-              position: { x: baseX + 320, y: baseY + 220 },
-              data: { label: `Predictions: ${modelLabel}`, result: perModelResult },
-            });
-            addedCount += 1;
-          }
-        });
-
-        if (comparisonId) {
-          const compareX = datasetNode ? datasetNode.position.x : maxX + 40;
-          const compareY = datasetNode ? datasetNode.position.y + 260 : maxY + 260;
-          const comparisonNode = next.find((n) => n.id === comparisonId);
-          if (comparisonNode) {
-            comparisonNode.data = { ...comparisonNode.data, result };
-          } else {
-            next.push({
-              id: comparisonId,
-              type: "modelComparison",
-              position: { x: compareX, y: compareY },
-              data: { label: "Model Comparison", result },
-            });
-            addedCount += 1;
-          }
-        }
-
-        return next;
-      });
-
-      setEdges((eds) => {
-        const next = [...eds];
-        const hasEdge = (source: string, target: string) =>
-          next.some((e) => e.source === source && e.target === target);
-        const addEdgeIfMissing = (source: string, target: string) => {
-          if (!hasEdge(source, target)) {
-            next.push({
-              id: `e-${source}-${target}`,
-              source,
-              target,
-              animated: true,
-              style: { stroke: "#7c3aed", strokeWidth: 2 },
-            });
-          }
-        };
-
-        modelResults.forEach((modelResult) => {
-          const modelNode = nodes.find((n) => n.id === modelResult.node_id);
-          if (!modelNode) return;
-          const modelKey = modelResult.node_id || modelResult.model_type;
-          if (!modelKey) return;
-          addEdgeIfMissing(modelNode.id, `eval-${modelKey}`);
-          addEdgeIfMissing(modelNode.id, `conf-${modelKey}`);
-          addEdgeIfMissing(modelNode.id, `pred-${modelKey}`);
-        });
-
-        if (datasetNode && comparisonId) {
-          addEdgeIfMissing(datasetNode.id, comparisonId);
-        }
-
-        return next;
-      });
-
-      if (addedCount > 0) {
-        addLog(
-          "info",
-          `Auto-added ${addedCount} per-model result node(s).`,
-          "FlowCanvas",
-        );
-      }
-    }
-    prevTrainingStatus.current = trainingStatus;
-  }, [trainingStatus, nodes, setNodes, setEdges, addLog, selectedDatasetId]);
+      prevJobStatuses.current[jobId] = job.status;
+    });
+  }, [trainingJobs, nodes, setNodes, setEdges, addLog]);
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-
   const { project, fitView } = useReactFlow();
 
   // Helper function to close panel and reset state
@@ -728,12 +781,15 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
           // Dataset node default data
           ...(nodeData.type === "dataset"
             ? {
-                datasetId: nodeData.datasetId || null,
+                datasetId: nodeData.datasetId || selectedDataset?.id || null,
                 datasetName:
-                  nodeData.datasetName || nodeData.label || "Dataset",
-                datasetType: nodeData.datasetType || "csv",
-                columns: nodeData.columns || [],
-                rowCount: nodeData.rowCount || 0,
+                  nodeData.datasetName ||
+                  selectedDataset?.name ||
+                  nodeData.label ||
+                  "Dataset",
+                datasetType: nodeData.datasetType || selectedDataset?.type || "csv",
+                columns: nodeData.columns || selectedDataset?.columns || [],
+                rowCount: nodeData.rowCount || selectedDataset?.row_count || 0,
               }
             : {}),
           // Preprocessing nodes default data
@@ -755,7 +811,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [setNodes, project, nodes],
+    [setNodes, project, nodes, selectedDataset],
   );
 
   // Handle loading a template

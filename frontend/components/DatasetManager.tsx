@@ -969,7 +969,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   )}
 
                 {previewDataset.type === "csv" &&
-                  Object.keys(previewDataset.stats).length > 0 && (
+                  Object.keys(previewDataset.stats ?? {}).length > 0 && (
                     <div className="overflow-x-auto">
                       <h4 className="font-medium text-sm mb-2">
                         Column Statistics
@@ -996,7 +996,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                           </tr>
                         </thead>
                         <tbody>
-                          {Object.entries(previewDataset.stats).map(
+                          {Object.entries(previewDataset.stats ?? {}).map(
                             ([col, s]) => {
                               const stat = s as Record<string, unknown>;
 

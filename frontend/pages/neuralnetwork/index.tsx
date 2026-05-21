@@ -17,7 +17,7 @@ import DatasetManager from "@/components/DatasetManager";
 import EnhancedSidebar from "@/components/EnhancedSidebar";
 import FlowCanvasWrapper from "@/components/FlowCanvasWrapper";
 import TrainingPanel from "@/components/TrainingPanel";
-import { checkHealth, listDatasets, startTraining } from "@/lib/api";
+import { checkHealth, listDatasets } from "@/lib/api";
 import { usePlexusStore } from "@/store/plexusStore";
 
 // Small floating agent notifications
@@ -59,8 +59,8 @@ export default function NeuralNetworkPage() {
   const [templateType, setTemplateType] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [datasetModalOpen, setDatasetModalOpen] = useState(false);
-  const [canvasNodes, setCanvasNodes] = useState<Node[]>([]);
-  const [canvasEdges, setCanvasEdges] = useState<Edge[]>([]);
+  const [, setCanvasNodes] = useState<Node[]>([]);
+  const [, setCanvasEdges] = useState<Edge[]>([]);
   const router = useRouter();
 
   const [isMounted, setIsMounted] = useState(false);
@@ -80,7 +80,6 @@ export default function NeuralNetworkPage() {
   const setDatasetsStore = usePlexusStore((s) => s.setDatasets);
   const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
   const trainingStatus = usePlexusStore((s) => s.training.status);
-  const startJob = usePlexusStore((s) => s.startJob);
   const logs = usePlexusStore((s) => s.logs);
   const agentNotifications = usePlexusStore((s) => s.agentNotifications);
 
@@ -91,11 +90,17 @@ export default function NeuralNetworkPage() {
   const isTraining =
     trainingStatus === "running" || trainingStatus === "queued";
 
-  // Parse URL query on mount
+  // Parse URL query; explicitly clear stale project/template state for a blank project.
   useEffect(() => {
-    if (router.query.template) setTemplateType(router.query.template as string);
-    if (router.query.project) setProjectId(router.query.project as string);
-  }, [router.query]);
+    if (!router.isReady) return;
+
+    setTemplateType(
+      typeof router.query.template === "string" ? router.query.template : null,
+    );
+    setProjectId(
+      typeof router.query.project === "string" ? router.query.project : null,
+    );
+  }, [router.isReady, router.query.project, router.query.template]);
 
   // Poll backend health every 10 s
   useEffect(() => {
@@ -137,49 +142,10 @@ export default function NeuralNetworkPage() {
 
       return;
     }
-    if (!selectedDatasetId) {
-      addLog("warning", "Select a dataset first.", "Training");
-      setDatasetModalOpen(true);
-
-      return;
-    }
-    if (canvasNodes.length < 2) {
-      addLog(
-        "warning",
-        "Add at least 2 nodes to the canvas before training.",
-        "Training",
-      );
-
-      return;
-    }
-    try {
-      addLog("info", "Submitting training job…", "Training");
-      const job = await startTraining({
-        nodes: canvasNodes as unknown[],
-        edges: canvasEdges as unknown[],
-        datasetId: selectedDatasetId,
-        epochs: 20,
-        batchSize: 32,
-      });
-
-      startJob(job.job_id, 20);
-      addLog(
-        "success",
-        `Training job started (ID: ${job.job_id}).`,
-        "Training",
-      );
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-
-      addLog("error", `Failed to start training: ${msg}`, "Training");
-    }
+    window.dispatchEvent(new Event("plexus:start-training"));
   }, [
     backendOnline,
-    selectedDatasetId,
-    canvasNodes,
-    canvasEdges,
     addLog,
-    startJob,
   ]);
 
   return (

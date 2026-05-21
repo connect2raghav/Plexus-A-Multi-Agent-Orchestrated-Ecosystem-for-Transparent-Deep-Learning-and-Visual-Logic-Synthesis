@@ -2,7 +2,10 @@
  * store/plexusStore.ts
  * --------------------
  * Global Zustand store for Plexus.
- * Manages: datasets, training job state, console logs, agent results.
+ *
+ * KEY CHANGE: training is now a map of jobId → TrainingJobState so that
+ * multiple independent pipelines on the same canvas each get their own
+ * isolated metrics, results, and status.
  */
 
 import type {
@@ -16,7 +19,7 @@ import type {
 
 import { create } from "zustand";
 
-// ---- Log entry ----
+// ── Log entry ────────────────────────────────────────────────────────────────
 export interface LogEntry {
   id: string;
   timestamp: Date;
@@ -25,7 +28,7 @@ export interface LogEntry {
   source?: string;
 }
 
-// ---- Training state ----
+// ── Per-job training metrics ─────────────────────────────────────────────────
 export interface TrainingMetrics {
   loss: number[];
   accuracy: number[];
@@ -33,22 +36,41 @@ export interface TrainingMetrics {
   val_accuracy: number[];
 }
 
-export interface TrainingState {
-  jobId: string | null;
-  status: "idle" | "queued" | "running" | "paused" | "stopped" | "completed" | "error";
+export type TrainingStatus =
+  | "idle"
+  | "queued"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "completed"
+  | "error";
+
+export interface TrainingJobState {
+  jobId: string;
+  /** The canvas dataset-node ID that is the root of this pipeline */
+  pipelineId: string;
+  /** Human-readable label, e.g. "Pipeline A – iris.csv + normalize + RF" */
+  label: string;
+  status: TrainingStatus;
   progress: number;
   epoch: number;
   epochs: number;
   metrics: TrainingMetrics;
   gradientNorms: Record<string, number>;
-  highlightedNodes: string[];
   result: Record<string, unknown> | null;
   error: string | null;
+  /** Preprocessing steps applied before training */
+  preprocessingSteps: string[];
+  /** Dataset name used for this pipeline */
+  datasetName: string;
+  /** Model node types in this pipeline */
+  modelTypes: string[];
+  startedAt: string;
 }
 
-// ---- Dataset profiling progress ----
+// ── Dataset profiling progress ───────────────────────────────────────────────
 export interface DatasetProfilingState {
-  progress: number; // 0-100
+  progress: number;
   message: string;
   done: boolean;
   error: string | null;
@@ -56,7 +78,7 @@ export interface DatasetProfilingState {
   cleaning_status?: CleaningStatus;
 }
 
-// ---- Agent results ----
+// ── Agent notifications ──────────────────────────────────────────────────────
 export interface AgentNotification {
   id: string;
   agentName: string;
@@ -67,9 +89,8 @@ export interface AgentNotification {
   dismissed: boolean;
 }
 
-// ---- Store shape ----
+// ── Store shape ──────────────────────────────────────────────────────────────
 export interface PlexusStore {
-  // Backend connectivity
   backendOnline: boolean;
   setBackendOnline: (online: boolean) => void;
 
@@ -87,10 +108,29 @@ export interface PlexusStore {
   setDatasetProgress: (id: string, state: DatasetProfilingState) => void;
   clearDatasetProgress: (id: string) => void;
 
-  // Training
-  training: TrainingState;
-  startJob: (jobId: string, epochs: number) => void;
-  updateTraining: (patch: Partial<TrainingState>) => void;
+  // ── Multi-pipeline training ──────────────────────────────────────────────
+  /** Map of jobId → TrainingJobState */
+  trainingJobs: Record<string, TrainingJobState>;
+  /** Which job tab is active in the TrainingPanel */
+  activeJobId: string | null;
+
+  startJob: (
+    jobId: string,
+    pipelineIdOrEpochs: string | number,
+    label?: string,
+    epochs?: number,
+    datasetName?: string,
+    preprocessingSteps?: string[],
+    modelTypes?: string[],
+  ) => void;
+  updateJob: (jobId: string, patch: Partial<TrainingJobState>) => void;
+  removeJob: (jobId: string) => void;
+  setActiveJobId: (jobId: string | null) => void;
+  clearAllJobs: () => void;
+
+  // Legacy single-training shim for existing visualisation nodes/pages
+  training: TrainingJobState;
+  updateTraining: (patch: Partial<TrainingJobState>) => void;
   resetTraining: () => void;
 
   // Console
@@ -109,20 +149,20 @@ export interface PlexusStore {
   dismissNotification: (id: string) => void;
   clearNotifications: () => void;
 
-  // Dataset intelligence (compatibility map from SemanticAgent)
+  // Dataset intelligence
   datasetIntelligence: Record<string, DatasetIntelligence>;
   setDatasetIntelligence: (id: string, intel: DatasetIntelligence) => void;
 
-  // Graph validation warnings from backend
+  // Graph validation warnings
   graphWarnings: GraphValidationWarning[];
   setGraphWarnings: (warnings: GraphValidationWarning[]) => void;
   clearGraphWarnings: () => void;
 
-  // Resource estimates (live as graph changes)
+  // Resource estimates
   resourceEstimate: ResourceResult | null;
   setResourceEstimate: (r: ResourceResult | null) => void;
 
-  // UI state
+  // UI panels
   consolePanelOpen: boolean;
   setConsolePanelOpen: (open: boolean) => void;
   agentPanelOpen: boolean;
@@ -131,21 +171,25 @@ export interface PlexusStore {
   setTrainingPanelOpen: (open: boolean) => void;
 }
 
-const INITIAL_TRAINING: TrainingState = {
-  jobId: null,
+const EMPTY_JOB: TrainingJobState = {
+  jobId: "",
+  pipelineId: "",
+  label: "No active job",
   status: "idle",
   progress: 0,
   epoch: 0,
   epochs: 10,
   metrics: { loss: [], accuracy: [], val_loss: [], val_accuracy: [] },
   gradientNorms: {},
-  highlightedNodes: [],
   result: null,
   error: null,
+  preprocessingSteps: [],
+  datasetName: "",
+  modelTypes: [],
+  startedAt: "",
 };
 
-export const usePlexusStore = create<PlexusStore>((set) => ({
-  // Backend
+export const usePlexusStore = create<PlexusStore>((set, get) => ({
   backendOnline: false,
   setBackendOnline: (online) => set({ backendOnline: online }),
 
@@ -180,34 +224,113 @@ export const usePlexusStore = create<PlexusStore>((set) => ({
   clearDatasetProgress: (id) =>
     set((state) => {
       const next = { ...state.datasetProgress };
-
       delete next[id];
-
       return { datasetProgress: next };
     }),
 
-  // Training
-  training: INITIAL_TRAINING,
-  startJob: (jobId, epochs) =>
-    set({
-      training: {
-        ...INITIAL_TRAINING,
+  // ── Multi-pipeline training ────────────────────────────────────────────────
+  trainingJobs: {},
+  activeJobId: null,
+
+  startJob: (
+    jobId,
+    pipelineIdOrEpochs,
+    label,
+    epochs,
+    datasetName,
+    preprocessingSteps = [],
+    modelTypes = [],
+  ) =>
+    set((state) => {
+      const isLegacyCall = typeof pipelineIdOrEpochs === "number";
+      const resolvedEpochs = isLegacyCall ? pipelineIdOrEpochs : (epochs ?? 10);
+      const resolvedPipelineId = isLegacyCall ? jobId : pipelineIdOrEpochs;
+      const resolvedDatasetName = datasetName ?? "Dataset";
+      const resolvedLabel =
+        label ??
+        (isLegacyCall
+          ? `Training ${jobId}`
+          : `${resolvedDatasetName} → ${modelTypes.length ? modelTypes.join("+") : "model"}`);
+
+      const newJob: TrainingJobState = {
         jobId,
-        epochs,
+        pipelineId: resolvedPipelineId,
+        label: resolvedLabel,
         status: "queued",
-      },
-      trainingPanelOpen: true,
+        progress: 0,
+        epoch: 0,
+        epochs: resolvedEpochs,
+        metrics: { loss: [], accuracy: [], val_loss: [], val_accuracy: [] },
+        gradientNorms: {},
+        result: null,
+        error: null,
+        preprocessingSteps,
+        datasetName: resolvedDatasetName,
+        modelTypes,
+        startedAt: new Date().toISOString(),
+      };
+      return {
+        trainingJobs: { ...state.trainingJobs, [jobId]: newJob },
+        activeJobId: jobId,
+        trainingPanelOpen: true,
+      };
     }),
+
+  updateJob: (jobId, patch) =>
+    set((state) => {
+      const existing = state.trainingJobs[jobId];
+      if (!existing) return state;
+      return {
+        trainingJobs: {
+          ...state.trainingJobs,
+          [jobId]: { ...existing, ...patch },
+        },
+      };
+    }),
+
+  removeJob: (jobId) =>
+    set((state) => {
+      const next = { ...state.trainingJobs };
+      delete next[jobId];
+      const ids = Object.keys(next);
+      return {
+        trainingJobs: next,
+        activeJobId:
+          state.activeJobId === jobId ? (ids[ids.length - 1] ?? null) : state.activeJobId,
+      };
+    }),
+
+  setActiveJobId: (jobId) => set({ activeJobId: jobId }),
+
+  clearAllJobs: () => set({ trainingJobs: {}, activeJobId: null }),
+
+  // Legacy shim — returns the active job or an empty placeholder
+  get training() {
+    const state = get();
+    const id = state.activeJobId;
+    return (id ? state.trainingJobs[id] : undefined) ?? EMPTY_JOB;
+  },
+
   updateTraining: (patch) =>
-    set((state) => ({ training: { ...state.training, ...patch } })),
-  resetTraining: () => set({ training: INITIAL_TRAINING }),
+    set((state) => {
+      const jobId = state.activeJobId;
+      if (!jobId || !state.trainingJobs[jobId]) return state;
+      return {
+        trainingJobs: {
+          ...state.trainingJobs,
+          [jobId]: { ...state.trainingJobs[jobId], ...patch },
+        },
+      };
+    }),
+
+  resetTraining: () => set({ trainingJobs: {}, activeJobId: null }),
 
   // Console
   logs: [],
   addLog: (level, message, source) =>
     set((state) => ({
       logs: [
-        ...state.logs.slice(-499), // keep last 500
+        ...state.logs.slice(-499),
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           timestamp: new Date(),

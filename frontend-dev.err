@@ -1,0 +1,19 @@
+ ⨯ ./components/FlowCanvas.tsx
+Error:   [31mx[0m Expected ':', got ','
+     ,-[[36;1;4mC:\Academics VIT\SEM 4\EDI\Plexus\frontend\components\FlowCanvas.tsx[0m:394:1]
+ [2m391[0m |           : !hasBoundDatasetNode
+ [2m392[0m |             ? "This Dataset node is not linked to an uploaded dataset. Select a dataset in the sidebar or drag a specific dataset from the Data tab."
+ [2m393[0m |           ? "Connect at least one model node to a dataset node."
+ [2m394[0m |             : "Connect at least one model node to a dataset node.",
+     : [35;1m                                                                  ^[0m
+ [2m395[0m |       );
+ [2m396[0m |       return;
+ [2m397[0m |     }
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/FlowCanvas.tsx
+./components/FlowCanvasWrapper.tsx
