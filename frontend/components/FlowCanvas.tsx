@@ -58,8 +58,12 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState(getDefaultEdges());
 
   // Propagate node/edge changes to parent page (for training, etc.)
-  useEffect(() => { onNodesChangeProp?.(nodes); }, [nodes, onNodesChangeProp]);
-  useEffect(() => { onEdgesChangeProp?.(edges); }, [edges, onEdgesChangeProp]);
+  useEffect(() => {
+    onNodesChangeProp?.(nodes);
+  }, [nodes, onNodesChangeProp]);
+  useEffect(() => {
+    onEdgesChangeProp?.(edges);
+  }, [edges, onEdgesChangeProp]);
 
   // Update nodes and edges when template type changes
   useEffect(() => {
@@ -122,24 +126,40 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const handleStartTraining = async () => {
     if (!selectedDatasetId) {
       showError("No dataset selected. Upload and select a dataset first.");
+
       return;
     }
     if (!backendOnline) {
       showError("Backend is offline. Start the FastAPI server first.");
+
       return;
     }
     setIsStartingTraining(true);
     try {
+      const trainingConfigNode = nodes.find((n) => n.type === "training_config");
+      const trainingConfig = (trainingConfigNode?.data?.config || {}) as {
+        epochs?: number;
+        batch_size?: number;
+        learning_rate?: number;
+        lr?: number;
+      };
+      const selectedEpochs = Number(trainingConfig.epochs || 20);
+      const selectedBatchSize = Number(trainingConfig.batch_size || 32);
+      const selectedLearningRate = Number(
+        trainingConfig.learning_rate || trainingConfig.lr || 0.001,
+      );
+
       const job = await startTraining({
         nodes: nodes as unknown[],
         edges: edges as unknown[],
         datasetId: selectedDatasetId,
         framework,
-        epochs: 20,
-        batchSize: 32,
-        learningRate: 0.001,
+        epochs: selectedEpochs,
+        batchSize: selectedBatchSize,
+        learningRate: selectedLearningRate,
       });
-      startJob(job.job_id, 20);
+
+      startJob(job.job_id, selectedEpochs);
       setTrainingPanelOpen(true);
       addLog("info", `Training job ${job.job_id} started.`, "FlowCanvas");
       showSuccess(`Training started! Job: ${job.job_id}`);
@@ -147,6 +167,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
       // Auto-inject visualisation tiles if not already present
       const hasLossCurve = nodes.some((n) => n.type === "lossCurve");
       const hasGradientFlow = nodes.some((n) => n.type === "gradientFlow");
+
       if (!hasLossCurve || !hasGradientFlow) {
         // Place tiles below the last node, or at a fixed offset if canvas is empty
         const maxY = nodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
@@ -154,6 +175,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         const baseX = maxX + 40;
         const baseY = maxY + 120;
         const newVizNodes: Node[] = [];
+
         if (!hasLossCurve) {
           newVizNodes.push({
             id: `viz-loss-${Date.now()}`,
@@ -175,12 +197,13 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
           addLog(
             "info",
             `Auto-added ${newVizNodes.map((n) => n.data.label).join(", ")} visualisation node(s).`,
-            "FlowCanvas"
+            "FlowCanvas",
           );
         }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+
       showError(`Failed to start training: ${msg}`);
       addLog("error", `Training start failed: ${msg}`, "FlowCanvas");
     } finally {
@@ -190,30 +213,176 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   // Auto-add Evaluation Results node when training completes
   const prevTrainingStatus = useRef(trainingStatus);
+
   useEffect(() => {
-    if (prevTrainingStatus.current !== "completed" && trainingStatus === "completed") {
+    if (
+      prevTrainingStatus.current !== "completed" &&
+      trainingStatus === "completed"
+    ) {
       const result = usePlexusStore.getState().training.result;
-      const hasEvalNode = nodes.some((n) => n.type === "evaluationResults");
-      if (!hasEvalNode && result) {
-        const maxX = nodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
-        const maxY = nodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
-        setNodes((nds) => [
-          ...nds,
-          {
-            id: `eval-${Date.now()}`,
-            type: "evaluationResults",
-            position: { x: maxX + 40, y: maxY + 260 },
-            data: {
-              label: "Evaluation Results",
-              result,
-            },
-          },
-        ]);
-        addLog("info", "Auto-added Evaluation Results node.", "FlowCanvas");
+      if (!result) {
+        prevTrainingStatus.current = trainingStatus;
+        return;
+      }
+
+      const modelResults =
+        (result as Record<string, any>)?.model_results?.length > 0
+          ? ((result as Record<string, any>).model_results as Record<string, any>[]) 
+          : ((result as Record<string, any>).best_model
+              ? [(result as Record<string, any>).best_model]
+              : []);
+
+      if (modelResults.length === 0) {
+        prevTrainingStatus.current = trainingStatus;
+        return;
+      }
+
+      const maxX = nodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
+      const maxY = nodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
+      const datasetNode =
+        nodes.find(
+          (n) =>
+            n.type === "dataset" &&
+            n.data?.datasetId === selectedDatasetId,
+        ) || nodes.find((n) => n.type === "dataset");
+      const existingComparison = nodes.find((n) => n.type === "modelComparison");
+      const comparisonId =
+        (result as Record<string, any>).comparison
+          ? existingComparison?.id || `compare-${Date.now()}`
+          : null;
+
+      let addedCount = 0;
+
+      setNodes((nds) => {
+        const next = [...nds];
+
+        modelResults.forEach((modelResult, index) => {
+          const modelNode = nds.find((n) => n.id === modelResult.node_id);
+          const baseX = modelNode ? modelNode.position.x + 320 : maxX + 40;
+          const baseY = modelNode
+            ? modelNode.position.y
+            : maxY + 260 + index * 240;
+          const modelLabel = modelResult.label || modelResult.model_type || "Model";
+          const modelKey =
+            modelResult.node_id || modelResult.model_type || `model-${index}`;
+
+          const perModelResult = {
+            ...result,
+            final_loss: modelResult.metrics?.loss ?? result.final_loss,
+            final_accuracy: modelResult.metrics?.accuracy ?? result.final_accuracy,
+            final_val_loss: modelResult.metrics?.val_loss ?? result.final_val_loss,
+            final_val_accuracy: modelResult.metrics?.val_accuracy ?? result.final_val_accuracy,
+            best_model: modelResult,
+            model_results: [modelResult],
+          };
+
+          const evalId = `eval-${modelKey}`;
+          const confId = `conf-${modelKey}`;
+          const predId = `pred-${modelKey}`;
+
+          const evalNode = next.find((n) => n.id === evalId);
+          if (evalNode) {
+            evalNode.data = { ...evalNode.data, label: `Results: ${modelLabel}`, result: perModelResult };
+          } else {
+            next.push({
+              id: evalId,
+              type: "evaluationResults",
+              position: { x: baseX, y: baseY },
+              data: { label: `Results: ${modelLabel}`, result: perModelResult },
+            });
+            addedCount += 1;
+          }
+
+          const confNode = next.find((n) => n.id === confId);
+          if (confNode) {
+            confNode.data = { ...confNode.data, label: `Confusion: ${modelLabel}`, result: perModelResult };
+          } else {
+            next.push({
+              id: confId,
+              type: "confMatrix",
+              position: { x: baseX, y: baseY + 220 },
+              data: { label: `Confusion: ${modelLabel}`, result: perModelResult },
+            });
+            addedCount += 1;
+          }
+
+          const predNode = next.find((n) => n.id === predId);
+          if (predNode) {
+            predNode.data = { ...predNode.data, label: `Predictions: ${modelLabel}`, result: perModelResult };
+          } else {
+            next.push({
+              id: predId,
+              type: "predTable",
+              position: { x: baseX + 320, y: baseY + 220 },
+              data: { label: `Predictions: ${modelLabel}`, result: perModelResult },
+            });
+            addedCount += 1;
+          }
+        });
+
+        if (comparisonId) {
+          const compareX = datasetNode ? datasetNode.position.x : maxX + 40;
+          const compareY = datasetNode ? datasetNode.position.y + 260 : maxY + 260;
+          const comparisonNode = next.find((n) => n.id === comparisonId);
+          if (comparisonNode) {
+            comparisonNode.data = { ...comparisonNode.data, result };
+          } else {
+            next.push({
+              id: comparisonId,
+              type: "modelComparison",
+              position: { x: compareX, y: compareY },
+              data: { label: "Model Comparison", result },
+            });
+            addedCount += 1;
+          }
+        }
+
+        return next;
+      });
+
+      setEdges((eds) => {
+        const next = [...eds];
+        const hasEdge = (source: string, target: string) =>
+          next.some((e) => e.source === source && e.target === target);
+        const addEdgeIfMissing = (source: string, target: string) => {
+          if (!hasEdge(source, target)) {
+            next.push({
+              id: `e-${source}-${target}`,
+              source,
+              target,
+              animated: true,
+              style: { stroke: "#7c3aed", strokeWidth: 2 },
+            });
+          }
+        };
+
+        modelResults.forEach((modelResult) => {
+          const modelNode = nodes.find((n) => n.id === modelResult.node_id);
+          if (!modelNode) return;
+          const modelKey = modelResult.node_id || modelResult.model_type;
+          if (!modelKey) return;
+          addEdgeIfMissing(modelNode.id, `eval-${modelKey}`);
+          addEdgeIfMissing(modelNode.id, `conf-${modelKey}`);
+          addEdgeIfMissing(modelNode.id, `pred-${modelKey}`);
+        });
+
+        if (datasetNode && comparisonId) {
+          addEdgeIfMissing(datasetNode.id, comparisonId);
+        }
+
+        return next;
+      });
+
+      if (addedCount > 0) {
+        addLog(
+          "info",
+          `Auto-added ${addedCount} per-model result node(s).`,
+          "FlowCanvas",
+        );
       }
     }
     prevTrainingStatus.current = trainingStatus;
-  }, [trainingStatus, nodes, setNodes, addLog]);
+  }, [trainingStatus, nodes, setNodes, setEdges, addLog, selectedDatasetId]);
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -326,6 +495,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
           label: nodeData.label,
           icon: nodeData.icon,
           details: nodeData.details,
+          ...(nodeData.dataProps || {}),
           ...([
             "inputLayer",
             "outputLayer",
@@ -432,6 +602,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
                 config: {
                   epochs: 10,
                   batch_size: 32,
+                  learning_rate: 0.001,
                   validation_split: 0.2,
                   early_stopping: false,
                   save_best: true,
@@ -468,7 +639,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
           ...(nodeData.type === "dataset"
             ? {
                 datasetId: nodeData.datasetId || null,
-                datasetName: nodeData.datasetName || nodeData.label || "Dataset",
+                datasetName:
+                  nodeData.datasetName || nodeData.label || "Dataset",
                 datasetType: nodeData.datasetType || "csv",
                 columns: nodeData.columns || [],
                 rowCount: nodeData.rowCount || 0,
@@ -674,18 +846,18 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
                   border: "2px solid #3b82f6",
                 }
               : validation.errorNodeIds.has(node.id)
-              ? {
-                  boxShadow: "0 0 0 2px #ef4444",
-                  border: "2px solid #ef4444",
-                  borderRadius: "0.75rem",
-                }
-              : validation.warningNodeIds.has(node.id)
-              ? {
-                  boxShadow: "0 0 0 2px #f59e0b",
-                  border: "2px solid #f59e0b",
-                  borderRadius: "0.75rem",
-                }
-              : {}),
+                ? {
+                    boxShadow: "0 0 0 2px #ef4444",
+                    border: "2px solid #ef4444",
+                    borderRadius: "0.75rem",
+                  }
+                : validation.warningNodeIds.has(node.id)
+                  ? {
+                      boxShadow: "0 0 0 2px #f59e0b",
+                      border: "2px solid #f59e0b",
+                      borderRadius: "0.75rem",
+                    }
+                  : {}),
           },
           // Inject validation messages so node components can render tooltips
           data: {
@@ -879,9 +1051,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
                   isDisabled={!backendOnline || !selectedDatasetId}
                   isLoading={isStartingTraining || trainingStatus === "running"}
                   startContent={
-                    !isStartingTraining && trainingStatus !== "running" && (
-                      <Play className="w-4 h-4" />
-                    )
+                    !isStartingTraining &&
+                    trainingStatus !== "running" && <Play className="w-4 h-4" />
                   }
                   title={
                     !selectedDatasetId

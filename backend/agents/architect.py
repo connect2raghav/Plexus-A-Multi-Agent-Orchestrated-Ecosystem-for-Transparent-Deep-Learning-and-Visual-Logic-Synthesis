@@ -24,6 +24,7 @@ Outputs (AgentResult.data keys)
     keras_code  : str          – Keras Sequential model code
     nodes       : list[dict]   – React-Flow node list (for frontend)
     edges       : list[dict]   – React-Flow edge list (for frontend)
+    suggested_nodes : list[str] – Node types suggested (e.g. ['dense', 'dropout', 'randomForest'])
 """
 
 from __future__ import annotations
@@ -40,41 +41,66 @@ from ..core.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
+SUGGESTABLE_NODE_IDS = {
+    "dense",
+    "dropout",
+    "randomForest",
+    "svm",
+    "knn",
+    "logisticRegression",
+    "decisionTree",
+    "gradientBoosting",
+    "extraTrees",
+    "naiveBayes",
+    "adaBoost",
+    "linearRegression",
+    "ridgeRegression",
+    "lassoRegression",
+    "mlpClassifier",
+    "conv2d",
+    "maxpool",
+    "flatten",
+}
+
 
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """\
-You are a senior deep learning engineer.
-When asked to design a neural network architecture you MUST respond with
-a single JSON array (no extra text) inside a ```json ... ``` block.
+You are a senior ML engineer.
+When asked to design an architecture or pick ML models, you MUST respond with
+a single JSON object (no extra text) inside a ```json ... ``` block.
 
-Each element of the array represents one layer and has these keys:
+The JSON object must have keys:
+  "description": string, human-readable reasoning
+  "suggested_nodes": list of strings, IDs of frontend nodes to highlight specifically. Allowable IDs include: "dense", "dropout", "randomForest", "svm", "knn", "logisticRegression", "decisionTree", "gradientBoosting", "extraTrees", "naiveBayes", "adaBoost", "linearRegression", "ridgeRegression", "lassoRegression", "mlpClassifier", "conv2d", "maxpool", "flatten".
+  "layers": array of layer specs (only if neural net is recommended, else empty).
+
+Each element of the "layers" array represents one layer and has these keys:
   "id"         : string, e.g. "layer_0"
   "type"       : string, Keras layer class name (Dense, Dropout, BatchNormalization, etc.)
   "params"     : object, keyword args for that layer (e.g. {"units": 128})
   "activation" : string or null
 
 Rules:
-  - Include an InputLayer as the first element with params {"input_shape": [<n_features>]}.
-  - For classification include a final Dense layer with units = n_classes and
-    activation = "softmax".
-  - For binary classification use units=1 and activation="sigmoid".
-  - For regression use units=1 and activation=null.
-  - Keep architectures practical: 2-4 hidden layers for tabular data.
+  - Keep architectures practical.
+  - Suggest 2-3 standard ML models if the dataset is small tabular data.
 """
 
 _FEW_SHOT = """
 Example JSON for a binary classification task with 10 features:
 ```json
-[
-  {"id": "layer_0", "type": "InputLayer", "params": {"input_shape": [10]}, "activation": null},
-  {"id": "layer_1", "type": "Dense", "params": {"units": 64}, "activation": "relu"},
-  {"id": "layer_2", "type": "Dropout", "params": {"rate": 0.3}, "activation": null},
-  {"id": "layer_3", "type": "Dense", "params": {"units": 32}, "activation": "relu"},
-  {"id": "layer_4", "type": "Dense", "params": {"units": 1}, "activation": "sigmoid"}
-]
+{
+  "description": "For this small tabular dataset, Random Forest is a strong baseline. A small Neural Network is also viable.",
+  "suggested_nodes": ["randomForest", "svm", "dense", "dropout"],
+  "layers": [
+    {"id": "layer_0", "type": "InputLayer", "params": {"input_shape": [10]}, "activation": null},
+    {"id": "layer_1", "type": "Dense", "params": {"units": 64}, "activation": "relu"},
+    {"id": "layer_2", "type": "Dropout", "params": {"rate": 0.3}, "activation": null},
+    {"id": "layer_3", "type": "Dense", "params": {"units": 1}, "activation": "sigmoid"}
+  ]
+}
 ```
 """
 
@@ -146,6 +172,10 @@ class ArchitectAgent(BaseAgent):
         # ---- Build LLM prompt ------------------------------------------
         user_prompt = self._build_prompt(profile, task_type, n_features, n_classes, n_samples)
 
+        deterministic_nodes = self._model_suggestions_from_profile(
+            profile, task_type, n_features, n_classes, n_samples
+        )
+
         # ---- Call LLM --------------------------------------------------
         self._logger.info("Calling LLM for architecture suggestion…")
         try:
@@ -155,20 +185,34 @@ class ArchitectAgent(BaseAgent):
                 max_tokens=1200,
             )
         except Exception as exc:  # noqa: BLE001
-            return self._fail(f"LLM call failed: {exc}")
+            self._logger.warning(
+                "LLM call failed; using deterministic model suggestions: %s", exc
+            )
+            raw_response = ""
 
         # ---- Parse JSON layer list -------------------------------------
-        layers = self._parse_layers(raw_response)
-        if layers is None:
+        parsed = self._parse_json(raw_response)
+        if parsed is None:
             self._logger.warning(
                 "Could not parse JSON from LLM response; using fallback architecture."
             )
+            parsed = {
+                "layers": self._fallback_layers(n_features, n_classes, task_type),
+                "description": "Deterministic architecture and model suggestions generated from dataset profile.",
+                "suggested_nodes": deterministic_nodes,
+            }
+
+        layers = parsed.get("layers", [])
+        if not layers:
             layers = self._fallback_layers(n_features, n_classes, task_type)
 
         # ---- Generate Keras code + React-Flow graph --------------------
         keras_code = graph_to_keras_code(layers)
         nodes, edges = layers_to_graph(layers)
-        description = self._describe_architecture(layers, task_type)
+        description = parsed.get("description", self._describe_architecture(layers, task_type))
+        suggested_nodes = self._sanitize_suggestions(
+            parsed.get("suggested_nodes", []), deterministic_nodes
+        )
 
         return self._ok(
             {
@@ -177,8 +221,49 @@ class ArchitectAgent(BaseAgent):
                 "keras_code": keras_code,
                 "nodes": nodes,
                 "edges": edges,
+                "suggested_nodes": suggested_nodes
             }
         )
+
+    @staticmethod
+    def _sanitize_suggestions(raw_nodes: Any, fallback_nodes: List[str]) -> List[str]:
+        nodes: List[str] = []
+        if isinstance(raw_nodes, list):
+            for item in raw_nodes:
+                if isinstance(item, str) and item in SUGGESTABLE_NODE_IDS and item not in nodes:
+                    nodes.append(item)
+        for item in fallback_nodes:
+            if item not in nodes:
+                nodes.append(item)
+        return nodes[:6]
+
+    @staticmethod
+    def _model_suggestions_from_profile(
+        profile: DatasetProfile,
+        task_type: str,
+        n_features: int,
+        n_classes: int,
+        n_samples: int,
+    ) -> List[str]:
+        """Build a deterministic model shortlist from the dataset profile."""
+        has_categorical = bool(profile.categorical_columns)
+        has_many_features = n_features >= 50
+        is_small = bool(n_samples and n_samples < 5000)
+
+        if task_type == "regression":
+            suggestions = ["randomForest", "gradientBoosting", "ridgeRegression"]
+            suggestions.append("lassoRegression" if has_many_features else "linearRegression")
+            return suggestions
+
+        suggestions = ["randomForest", "gradientBoosting"]
+        if is_small:
+            suggestions.extend(["svm", "knn"])
+        if n_classes <= 2:
+            suggestions.append("logisticRegression")
+        if has_categorical:
+            suggestions.append("decisionTree")
+        suggestions.extend(["mlpClassifier", "dense", "dropout"])
+        return suggestions
 
     # ------------------------------------------------------------------
     # Prompt construction
@@ -218,61 +303,34 @@ class ArchitectAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _parse_layers(raw: str) -> Optional[List[Dict[str, Any]]]:
+    def _parse_json(raw: str) -> Optional[Dict[str, Any]]:
         """
-        Try four strategies to extract a JSON layer list from an LLM response.
-
-        1. ```json ... ```  fenced block
-        2. ``` ... ```      fenced block without language tag
-        3. Bare JSON array or object with "layers" key
-        4. Bracket-matched array scan (handles extra surrounding text)
+        Try to extract a JSON object from an LLM response.
         """
-        def _try_list(text: str) -> Optional[List[Dict[str, Any]]]:
+        def _try_parse(text: str) -> Optional[Dict[str, Any]]:
             try:
                 data = json.loads(text.strip())
-                if isinstance(data, list):
-                    return data
                 if isinstance(data, dict):
-                    for key in ("layers", "architecture", "model"):
-                        if isinstance(data.get(key), list):
-                            return data[key]
-            except (json.JSONDecodeError, ValueError):
+                    return data
+            except json.JSONDecodeError:
                 pass
             return None
 
-        # 1 – ```json ... ```
-        m = re.search(r"```json\s*([\s\S]+?)```", raw, re.IGNORECASE)
-        if m:
-            result = _try_list(m.group(1))
-            if result is not None:
-                return result
+        # Strategy 1: strict fenced json
+        match = re.search(r"```json\s*(.*?)\s*```", raw, re.DOTALL)
+        if match:
+            res = _try_parse(match.group(1))
+            if res: return res
 
-        # 2 – ``` ... ``` (no language tag)
-        m = re.search(r"```\s*([\s\S]+?)```", raw)
-        if m:
-            result = _try_list(m.group(1))
-            if result is not None:
-                return result
+        # Strategy 2: any fenced code block
+        match = re.search(r"```\s*(.*?)\s*```", raw, re.DOTALL)
+        if match:
+            res = _try_parse(match.group(1))
+            if res: return res
 
-        # 3 – Try the whole response as JSON
-        result = _try_list(raw)
-        if result is not None:
-            return result
-
-        # 4 – Find the largest balanced [ ... ] block in the text
-        for start in [i for i, c in enumerate(raw) if c == "["]:
-            depth = 0
-            for offset, ch in enumerate(raw[start:]):
-                if ch == "[":
-                    depth += 1
-                elif ch == "]":
-                    depth -= 1
-                    if depth == 0:
-                        candidate = raw[start : start + offset + 1]
-                        result = _try_list(candidate)
-                        if result:
-                            return result
-                        break
+        # Strategy 3: raw text parsing
+        res = _try_parse(raw)
+        if res: return res
 
         return None
 

@@ -2,7 +2,9 @@
 
 ## 1. Executive Summary
 
-**Plexus** is a visual, drag‑and‑drop deep learning IDE where users build, train, and deploy neural networks without writing code. The platform runs **completely locally** (no cloud). Users drag datasets from a sidebar onto an empty canvas, receive AI‑generated preprocessing suggestions, assemble layers by connecting nodes, train models with real‑time visualisation **directly on the canvas** (collapsible tiles), and export results. The system uses **static rules** for common errors and **AI agents** (Data, Architect, Debugger) for complex suggestions. Every interactive element on the canvas is **editable** (sliders, toggles, input fields) and training can be paused/resumed with updated parameters. A modern UI with toast notifications for all actions and errors is required.
+**Plexus** is a no-code, AI-assisted model training and learning platform. Its real motive is not only to draw nodes, but to let a learner upload data, understand that data, get explainable AI assistance, build a model visually, train a real model locally, inspect real metrics, improve the graph, and export usable artifacts without writing code. The platform runs **completely locally** (no cloud). Users drag datasets from a sidebar onto an empty canvas, receive AI-generated or deterministic fallback preprocessing suggestions, assemble layers/models by connecting nodes, train models with real-time visualisation **directly on the canvas** (collapsible tiles), and export results. The system uses **static rules** for common errors and **AI agents** (Data, Architect, Debugger) for complex suggestions. Every interactive element on the canvas is **editable** (sliders, toggles, input fields) and training can be paused/resumed with updated parameters. A modern UI with toast notifications for all actions and errors is required.
+
+Core rule: no feature should be a decorative placeholder. If an item appears in the sidebar or canvas as a training, cleaning, suggestion, deployment, or evaluation feature, it must either execute real logic or be clearly marked as not implemented. Hardcoded demo outputs must be replaced with dataset-derived, model-derived, or job-derived results.
 
 ---
 
@@ -88,6 +90,8 @@
 - as soon as the data set is loded into the work space--> the dataset reading, suitable models suggestions, cleaning script for the dataset, and other important  things should be ready in the backend model 
 - for this use database if you want sqlite if you wany use the existing cleaning script for the same dataset the api load will be reduced 
 - the connectors and nodes where the connectors will attach should be slightly bigger it is hard to connect the node
+- when multiple model blocks exist, evaluation/confusion/prediction nodes must attach to their respective model blocks so results are traceable; model comparison should sit below the dataset for clarity
+- suggested models should auto-highlight in the Layers tab once dataset profiling finishes (no manual search required)
 -  
 
 ---
@@ -118,11 +122,139 @@ Implement **exactly** as described. Prioritise: (1) empty canvas + drag‑and‑
 - Basic background profiling and auto-trigger of Data Agent for CSS datasets via SQLite/file registry (`_dataset_registry`).
 - Auto-injection of visualisation nodes upon training start.
 - WebSocket streaming and basic training simulation / fallback logic.
+- **Node Connections & Hooks**: `useReactFlow` errors fixed, handles scaled and padded for easier UX grabbing.
+- **Agent Integrations**: Google GenAI installed, Architect module outputs functional suggestion schemas to frontend.
+- **Dataset Reusability**: Datasets from the "Data Sources" tab are now successfully injected dynamically into the "Layers" tab, allowing drag-and-drop initialization on canvas.
+- **Classical ML Expansion**: Standard models such as Random Forest, SVM, KNN, Logistic Regression, and Decision Tree added to frontend registry with icons and categorisation.
+- **AI Sidebar Recommendations**: Sidebar UI explicitly highlights AI-recommended nodes based on Architect suggestions with a real-time Ask AI feature mapping JSON recommendations to Node IDs.
+- **Auto AI Highlighting**: Architect suggestions are now applied automatically on dataset selection and cached in dataset metadata.
+- **Dataset Node Polling**: Dataset nodes now poll backend status directly so the AI Preprocess button appears even when the Dataset Manager modal is closed.
+- **Per-Model Results Wiring**: Evaluation/Confusion/Prediction nodes now attach to the specific model blocks they belong to so multi-model comparisons remain traceable on canvas.
+- **CLI Readability**: Backend agent logs now render clear key/value event summaries for quick scanning.
 
 **❌ Remaining / Needs Updating:**
-- **Connector Nodes**: Make handles slightly bigger and easier to grab as per latest feedback.
-- **Unified Node Configuration**: Add inline interactive controls (sliders/inputs) directly inside `Training Config` and Layer Nodes instead of standard `data.onChange` only.
-- **Dataset Node & Preprocessing**: Implement drag-and-drop Dataset nodes to canvas, with an explicit `AI Preprocess` button available *only* when the script is generated.
+- **Training Orchestration Expansion**: Hook classical ML nodes to the training dispatcher (scikit-learn backend instead of purely PyTorch fallback).
+- **SQLite Migration**: Finalize the transition of `dataset_registry.json` and `jobs_registry.json` pure dictionaries over to an SQLAlchemy-backed SQLite DB for crash resilience.
 - **Visualisation Nodes**: Ensure `lossCurve`, `gradientFlow`, and `evaluationResults` nodes are correctly defined in `CustomNodes.tsx` and render charts inside the canvas.
 - **CLI Visibility**: Ensure the backend chain of agents logs its actions properly to the CLI.
-- **Pause/Resume Mechanics**: Fully integrate the Pause/Resume functions directly on the Training Monitor logic.
+
+---
+
+## 9. Implementation Update - 2026-05-20
+
+**Implemented in this pass:**
+- Loaded datasets are now available again from the **Layers** tab under **Data Sources** with full dataset id, row count, column list, cleaning status, and cleaned-dataset badge metadata passed into canvas nodes.
+- Dataset nodes on the canvas now use the React Flow node id and real node position when applying **AI Preprocess**, then create and connect a cleaned dataset node without mutating the original dataset.
+- The **AI Preprocess** availability now survives backend restarts because `cleaning_status` is stored in dataset records and persisted through SQLite state records.
+- Architect suggestions now always return a usable model shortlist from dataset profile heuristics if the LLM is unavailable or returns incomplete JSON.
+- The Layers section now includes additional working classical/tabular models: Random Forest, SVM, KNN, Logistic Regression, Decision Tree, Gradient Boosting, Extra Trees, Naive Bayes, AdaBoost, Linear Regression, Ridge Regression, Lasso Regression, and MLP Classifier.
+- Classical/tabular model training is now wired to the backend through `backend/core/trainer.py` using scikit-learn. The selected classical model node determines the estimator; if no compatible model node exists, the trainer chooses a dataset-appropriate fallback.
+- CSV training now performs real local preprocessing: encoding fallback, numeric/categorical separation, imputation, scaling, one-hot encoding, target inference, train/test split, fit, and real metric calculation.
+- Training Config node values for epochs, batch size, and learning rate are now read by `FlowCanvas` when starting training instead of using fixed constants.
+- SQLite persistence has been expanded with full JSON state records for datasets and jobs so backend metadata is not lost or truncated to older typed table fields.
+- Backend CLI logging now records dataset uploads, Architect Agent requests, training queue events, training start, and real trainer completion summaries.
+
+**Still remaining after this pass:**
+- PyTorch graph-topology neural-network training is still not fully implemented; tabular/classical sklearn training is now real, while deep graph training still needs a dedicated PyTorch execution path.
+- Pause/resume currently updates job status, but true checkpoint-based resume and architecture-change restart handling still need deeper worker support.
+- API deployment ZIP generation and checkpoint export remain incomplete.
+- Hyperparameter search remains optional and not yet implemented.
+
+---
+
+## 10. Backend Ground-Up Functional Plan & Progress - 2026-05-20
+
+**Actual project motive being enforced now:**
+- Plexus must behave as a no-code AI-assisted model training and learning platform, not a static node editor.
+- Dataset upload must trigger real backend work: profiling, cleaning plan/script, model suggestions, metadata persistence, and CLI-visible status.
+- Model nodes must map to executable backend trainers. Non-working sidebar entries should be treated as incomplete until wired.
+- Evaluation and visualisation should use actual job outputs. Hardcoded matrices/tables/activation values are technical debt and must be replaced.
+
+**Backend activity logging requirement:**
+- Every backend agent run must print clear lifecycle events in the CLI:
+  - `queued`: task accepted and context recorded.
+  - `started`: agent began work.
+  - `progress`: important internal step, such as profiling, LLM request, fallback generation, validation, or persistence.
+  - `completed`: result summary, suggested models, steps, validation status, or metrics.
+  - `failed`: error message and where fallback was used.
+- Events must also be persisted so frontend/debug panels can later show agent history.
+
+**Hardcoded or weak functionality still known:**
+- Frontend confusion matrix, prediction table, and activation heatmap still include placeholder/demo values and need backend-derived outputs.
+- Deep-learning graph topology execution is still incomplete; current real training path is strongest for CSV/tabular classical sklearn models.
+- Deployment/API ZIP generation is still not fully executable.
+- Pause/resume is status-based and not checkpoint-accurate yet.
+
+**Progress started in this section:**
+- Added persistent backend agent activity events using SQLite state records and `/api/agents/activity`.
+- Backend CLI now prints structured events such as `[AGENT:data_agent] STARTED`, `[AGENT:architect_agent] COMPLETED`, and `[AGENT:training_orchestrator] FAILED/COMPLETED` with dataset/job context and result details.
+- Data Agent now produces a functional deterministic cleaning script if the LLM is unavailable or if returned AI code fails validation, so CSV cleaning is not blocked by API keys or bad generated code.
+- Automatically prepares Architect/model suggestions after CSV profiling so the backend has model suggestions ready before the user clicks Ask AI.
+- Added agent logs for dataset profiling, Data Agent cleaning generation, Architect suggestions, manual agent API calls, preprocessing application, resource/debug/optimizer agents, and training orchestration.
+- CSV profiling and preprocessing now use encoding fallback for UTF-8, UTF-8-SIG, CP1252, and Latin-1.
+
+**Verification notes for this section:**
+- `python -m compileall backend\api.py backend\agents\data_agent.py backend\agents\architect.py backend\core\trainer.py` passed.
+- Data Agent smoke test on `assets/Unclean Dataset.csv` returned `success=True`, deterministic fallback mode when LLM output was invalid, and validation passed.
+- CSV preview smoke test on `assets/Unclean Dataset.csv` returned 136 rows using encoding fallback.
+
+---
+
+## 11. Branding and Workflow Execution Update - 2026-05-20
+
+**Implemented in this pass:**
+- Removed remaining old-name and old-owner repository branding from the visible frontend shell. The help center now says Plexus, the old repository button was removed, and the navbar no longer renders the old repository link.
+- Replaced the old logo component with `PlexusLogo` and updated frontend imports so source-level project naming matches Plexus.
+- Confirmed no remaining old-name, old-owner, or old repository button traces in `frontend`, `backend`, `README.md`, or this vision file using repository search excluding generated dependency/build files.
+- Expanded backend training orchestration so multiple classical ML model tiles in the canvas are trained in parallel instead of only picking one model.
+- Backend training now writes per-job model artifacts and a manifest under `backend/models/<job_id>` when a real training job runs.
+- Training results now include `model_results`, ranked `comparison`, `best_model`, metrics, confusion matrix, sample predictions, and artifact paths for frontend use.
+- Frontend result nodes now use backend-derived data for confusion matrix, prediction samples, and model comparison instead of hardcoded demo values.
+- Added a dedicated `modelComparison` canvas node and sidebar entry. Training completion now auto-adds Evaluation Results, Model Comparison, Confusion Matrix, and Prediction Samples nodes when backend results are available.
+- Saved sklearn artifacts now include the fitted preprocessing pipeline, feature column list, class names, target column, task type, and model metadata so backend prediction can run against raw JSON feature rows.
+- Added `/api/models/predict` and wired the `testModel` canvas node to accept JSON rows, call the saved artifact, and show predictions/confidence values in the node.
+
+**Verified in this pass:**
+- `python -m compileall backend\api.py backend\core\trainer.py` passed.
+- Backend trainer smoke test trained Random Forest and SVM in parallel on `assets/Unclean Dataset.csv`, produced two real model results, ranked Random Forest first, and wrote real artifact paths during the test.
+- Backend prediction smoke test loaded the saved Random Forest artifact bundle and returned a prediction through the fitted preprocessing pipeline using a real dataset row.
+- Temporary smoke-test model artifacts were removed after verification.
+- `npm run build` in `frontend` completed successfully. The build still reports existing lint/prettier/a11y warnings, but no compile or type-blocking error.
+
+**Still remaining after this pass:**
+- Add true per-model live completion events so each model's result node can appear immediately as that model finishes, not only after the full parallel training job completes.
+- Deep-learning graph execution, pause/resume checkpointing, and deployment ZIP export still need dedicated backend implementation.
+
+---
+
+## 12. Implementation Update - 2026-05-21
+
+**Implemented in this pass:**
+- AI model suggestions now auto-highlight in the Layers tab when a dataset is selected; cached Architect suggestions are reused to avoid redundant calls.
+- Dataset nodes poll backend status directly, ensuring the **AI Preprocess** button appears once cleaning is ready even if the Dataset Manager modal is closed.
+- Per-model result nodes (Evaluation, Confusion Matrix, Predictions) now attach directly to each corresponding model block so multi-model comparisons remain visually traceable.
+- Model Comparison nodes now sit below the dataset and can be connected for clearer layout.
+- Backend agent CLI output is now formatted as concise, readable key/value events.
+
+**Still remaining after this pass:**
+- True deep-learning (graph-topology) execution and checkpoint-based pause/resume for PyTorch still need a dedicated training path.
+- Deployment ZIP export and API packaging remain incomplete.
+- Per-model live completion events (streaming each model as it finishes) are still pending.
+
+---
+
+## 13. Implementation Update - 2026-05-21 (Pass 2)
+
+**Implemented in this pass:**
+- **Deep-learning (PyTorch) graph training verified and hardened**: The `_run_deep_training` function in `trainer.py` builds a real `nn.Sequential` model from canvas node topology (Dense, Dropout, BatchNorm, Activation, Flatten, Reshape), trains with real loss and gradient computation, produces real confusion matrix and prediction samples, and saves checkpoints. Added `activationHeatmap` and `testModel` to `IGNORED_NODE_TYPES` so they don't break topology parsing.
+- **Checkpoint-based pause/resume now fully wired**: When a user clicks Pause, the deep-graph trainer saves a `.pt` checkpoint with model state, optimizer state, and epoch number. When Resume is clicked, the backend passes the `checkpoint_path` and `start_epoch` to the trainer, which loads the checkpoint and continues training. Existing metrics are preserved (appended, not replaced) so the frontend loss curve continues seamlessly. A clear `[AGENT:training_orchestrator] STARTED | resume training from checkpoint` CLI event is now logged on resume.
+- **Deployment ZIP export now functional**: The `ApiDeployNode` on the canvas is no longer a static placeholder. After training completes, clicking "Download ZIP" calls the `DeploymentAgent` which generates a real `app.py` (FastAPI serving endpoint), `Dockerfile`, `requirements.txt`, and `README.md`, bundles them into a ZIP, and triggers a browser download. Framework, task type, model path, and input shape are derived from the actual training result. Fixed a pre-existing syntax error in `deployment.py` where the `_SKLEARN_TEMPLATE` triple-quote string was broken.
+- **Fixed `ReferenceError: Cannot access 'allNodes' before initialization`**: The `useEffect` for auto-highlighting AI suggestions in `EnhancedSidebar.tsx` referenced `allNodes` in its dependency array before the `useMemo` that defines `allNodes`. Reordered so `allNodes` is defined first.
+- **Frontend build verified**: `next build` compiles successfully with zero type/compile errors.
+- **Backend compile verified**: `py_compile` passes for `api.py`, `trainer.py`, and `deployment.py`.
+
+**Still remaining after this pass:**
+- Per-model live completion events (streaming each model's result node as that model finishes, before the full parallel job completes).
+- Hyperparameter grid search UI.
+- Model template expansion (ResNet-18, LSTM templates that expand into connected node groups when dragged).
+

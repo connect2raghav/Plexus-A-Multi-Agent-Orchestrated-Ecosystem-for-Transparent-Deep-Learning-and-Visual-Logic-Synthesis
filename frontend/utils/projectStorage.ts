@@ -17,7 +17,7 @@ export interface SavedProject {
 }
 
 class ProjectStorage {
-  private static readonly STORAGE_KEY = "neod_saved_projects";
+  private static readonly STORAGE_KEY = "plexus_saved_projects";
 
   static saveProject(
     project: Omit<SavedProject, "id" | "createdAt" | "lastModified">,

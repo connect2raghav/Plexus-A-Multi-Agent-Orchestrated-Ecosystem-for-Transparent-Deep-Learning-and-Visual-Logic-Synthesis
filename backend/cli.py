@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
-# Make sure the parent directory (neod/) is in sys.path so the orchestration
+# Make sure the project parent directory is in sys.path so the orchestration
 # package is importable when cli.py is run directly as `python cli.py`.
 # ---------------------------------------------------------------------------
 _HERE = Path(__file__).resolve().parent
@@ -35,7 +35,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(_HERE / ".env")      # backend/.env  (preferred)
-load_dotenv(_PROJECT_ROOT / ".env")  # neod/.env  (fallback)
+load_dotenv(_PROJECT_ROOT / ".env")  # Plexus .env fallback
 
 # ---------------------------------------------------------------------------
 # Module-level logging setup
@@ -290,7 +290,7 @@ async def main() -> None:
     if nodes:
         ok(
             f"React-Flow graph ready: {len(nodes)} nodes, {len(edges)} edges "
-            f"(use these to populate the NEOD frontend)."
+            f"(use these to populate the Plexus frontend)."
         )
 
     # ------------------------------------------------------------------ #

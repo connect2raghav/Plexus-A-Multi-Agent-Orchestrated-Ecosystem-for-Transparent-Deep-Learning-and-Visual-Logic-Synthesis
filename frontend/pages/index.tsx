@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { NeoDLogo } from "@/components/NeoDLogo";
+import { PlexusLogo } from "@/components/PlexusLogo";
 import DefaultLayout from "@/layouts/default";
 
 export default function IndexPage() {
@@ -33,7 +33,7 @@ export default function IndexPage() {
         <div className="text-center max-w-5xl mx-auto">
           {/* Logo and Badge */}
           <div className="flex justify-center mb-6">
-            <NeoDLogo size="xl" />
+            <PlexusLogo size="xl" />
           </div>
 
           <Chip

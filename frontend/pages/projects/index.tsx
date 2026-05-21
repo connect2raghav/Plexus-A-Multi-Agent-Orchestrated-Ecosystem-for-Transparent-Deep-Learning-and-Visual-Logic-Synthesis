@@ -24,8 +24,6 @@ import {
   Trash2,
   Download,
   Upload,
-  Share2,
-  Star,
   Clock,
   Target,
   Folder,
@@ -36,7 +34,7 @@ import {
 } from "lucide-react";
 
 import DefaultLayout from "@/layouts/default";
-import { NeoDLogo } from "@/components/NeoDLogo";
+import { PlexusLogo } from "@/components/PlexusLogo";
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
 
 // ---------------------------------------------------------------------------
@@ -63,7 +61,7 @@ const getCategoryIcon = (category: string) => {
 };
 
 const getStatusColor = (
-  status: string
+  status: string,
 ): "success" | "warning" | "primary" | "danger" | "default" => {
   switch (status) {
     case "completed":
@@ -107,12 +105,13 @@ const ProjectsPage: React.FC = () => {
       ProjectStorage.deleteProject(id);
       refresh();
     },
-    [refresh]
+    [refresh],
   );
 
   const handleDuplicate = useCallback(
     (id: string) => {
       const src = ProjectStorage.getProject(id);
+
       if (!src) return;
       ProjectStorage.saveProject({
         name: `${src.name} (Copy)`,
@@ -126,17 +125,19 @@ const ProjectsPage: React.FC = () => {
       });
       refresh();
     },
-    [refresh]
+    [refresh],
   );
 
   const handleExport = useCallback((id: string) => {
     const project = ProjectStorage.getProject(id);
+
     if (!project) return;
     const blob = new Blob([JSON.stringify(project, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+
     a.href = url;
     a.download = `${project.name.replace(/\s+/g, "_")}.plexus`;
     a.click();
@@ -145,15 +146,19 @@ const ProjectsPage: React.FC = () => {
 
   const handleImport = useCallback(() => {
     const input = document.createElement("input");
+
     input.type = "file";
     input.accept = ".plexus,.json";
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
+
       if (!file) return;
       const reader = new FileReader();
+
       reader.onload = (ev) => {
         try {
           const data = JSON.parse(ev.target?.result as string) as SavedProject;
+
           ProjectStorage.saveProject({
             name: data.name,
             description: data.description,
@@ -183,14 +188,15 @@ const ProjectsPage: React.FC = () => {
         p.name.toLowerCase().includes(q) ||
         (p.description || "").toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q);
-      const matchStatus =
-        filterStatus === "all" || p.status === filterStatus;
+      const matchStatus = filterStatus === "all" || p.status === filterStatus;
       const matchFw =
         filterFramework === "all" || p.framework === filterFramework;
+
       return matchSearch && matchStatus && matchFw;
     })
     .sort((a, b) => {
       let cmp = 0;
+
       if (sortBy === "name") cmp = a.name.localeCompare(b.name);
       else if (sortBy === "createdAt")
         cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -198,6 +204,7 @@ const ProjectsPage: React.FC = () => {
         cmp =
           new Date(a.lastModified).getTime() -
           new Date(b.lastModified).getTime();
+
       return sortOrder === "asc" ? cmp : -cmp;
     });
 
@@ -219,7 +226,9 @@ const ProjectsPage: React.FC = () => {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between w-full">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{getCategoryIcon(project.category)}</span>
+            <span className="text-2xl">
+              {getCategoryIcon(project.category)}
+            </span>
             <div>
               <h4 className="font-semibold text-sm line-clamp-1">
                 {project.name}
@@ -228,50 +237,49 @@ const ProjectsPage: React.FC = () => {
             </div>
           </div>
           <div onClick={(e) => e.stopPropagation()}>
-          <Dropdown>
-            <DropdownTrigger>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
+            <Dropdown>
+              <DropdownTrigger>
+                <Button isIconOnly size="sm" variant="light">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu
+                onAction={(key) => {
+                  if (key === "delete") handleDelete(project.id);
+                  else if (key === "duplicate") handleDuplicate(project.id);
+                  else if (key === "export") handleExport(project.id);
+                  else if (key === "open")
+                    router.push(`/neuralnetwork?project=${project.id}`);
+                }}
               >
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu
-              onAction={(key) => {
-                if (key === "delete") handleDelete(project.id);
-                else if (key === "duplicate") handleDuplicate(project.id);
-                else if (key === "export") handleExport(project.id);
-                else if (key === "open")
-                  router.push(`/neuralnetwork?project=${project.id}`);
-              }}
-            >
-              <DropdownItem key="open" startContent={<Edit className="w-4 h-4" />}>
-                Open
-              </DropdownItem>
-              <DropdownItem
-                key="duplicate"
-                startContent={<Copy className="w-4 h-4" />}
-              >
-                Duplicate
-              </DropdownItem>
-              <DropdownItem
-                key="export"
-                startContent={<Download className="w-4 h-4" />}
-              >
-                Export .plexus
-              </DropdownItem>
-              <DropdownItem
-                key="delete"
-                className="text-danger"
-                color="danger"
-                startContent={<Trash2 className="w-4 h-4" />}
-              >
-                Delete
-              </DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
+                <DropdownItem
+                  key="open"
+                  startContent={<Edit className="w-4 h-4" />}
+                >
+                  Open
+                </DropdownItem>
+                <DropdownItem
+                  key="duplicate"
+                  startContent={<Copy className="w-4 h-4" />}
+                >
+                  Duplicate
+                </DropdownItem>
+                <DropdownItem
+                  key="export"
+                  startContent={<Download className="w-4 h-4" />}
+                >
+                  Export .plexus
+                </DropdownItem>
+                <DropdownItem
+                  key="delete"
+                  className="text-danger"
+                  color="danger"
+                  startContent={<Trash2 className="w-4 h-4" />}
+                >
+                  Delete
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
           </div>
         </div>
       </CardHeader>
@@ -317,9 +325,7 @@ const ProjectsPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              <span>
-                {new Date(project.lastModified).toLocaleDateString()}
-              </span>
+              <span>{new Date(project.lastModified).toLocaleDateString()}</span>
             </div>
           </div>
         </div>
@@ -388,7 +394,7 @@ const ProjectsPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <NeoDLogo showText={false} size="md" />
+            <PlexusLogo showText={false} size="md" />
             <div>
               <h1 className="text-2xl font-bold">Plexus Projects</h1>
               <p className="text-default-500">

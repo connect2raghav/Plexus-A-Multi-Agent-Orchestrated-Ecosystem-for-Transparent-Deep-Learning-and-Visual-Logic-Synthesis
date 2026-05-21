@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef } from "react";
+
 import { getTrainingWsUrl } from "@/lib/api";
 import { usePlexusStore } from "@/store/plexusStore";
 
@@ -19,10 +20,15 @@ export function useTrainingSocket(jobId: string | null): void {
 
     const url = getTrainingWsUrl(jobId);
     const socket = new WebSocket(url);
+
     ws.current = socket;
 
     socket.onopen = () => {
-      addLog("info", `Connected to training stream for job ${jobId}.`, "WebSocket");
+      addLog(
+        "info",
+        `Connected to training stream for job ${jobId}.`,
+        "WebSocket",
+      );
     };
 
     socket.onmessage = (event) => {
@@ -47,11 +53,12 @@ export function useTrainingSocket(jobId: string | null): void {
             const ep = msg.epoch;
             const loss = msg.metrics?.loss?.at(-1);
             const acc = msg.metrics?.accuracy?.at(-1);
+
             if (loss !== undefined && acc !== undefined) {
               addLog(
                 "info",
                 `Epoch ${ep}: loss=${loss.toFixed(4)}, accuracy=${(acc * 100).toFixed(2)}%`,
-                "Training"
+                "Training",
               );
             }
           }
@@ -63,18 +70,29 @@ export function useTrainingSocket(jobId: string | null): void {
           });
           addLog("success", "Training completed.", "Training");
         } else if (msg.type === "error") {
-          updateTraining({ status: "error", error: msg.error ?? "Unknown error" });
+          updateTraining({
+            status: "error",
+            error: msg.error ?? "Unknown error",
+          });
           addLog("error", `Training error: ${msg.error}`, "Training");
         } else if (msg.type === "log") {
           addLog("info", msg.message ?? JSON.stringify(msg), "Training");
         }
       } catch (err) {
-        addLog("error", `Failed to parse WebSocket message: ${err}`, "WebSocket");
+        addLog(
+          "error",
+          `Failed to parse WebSocket message: ${err}`,
+          "WebSocket",
+        );
       }
     };
 
     socket.onerror = () => {
-      addLog("warning", `WebSocket error for job ${jobId}. Will retry.`, "WebSocket");
+      addLog(
+        "warning",
+        `WebSocket error for job ${jobId}. Will retry.`,
+        "WebSocket",
+      );
     };
 
     socket.onclose = () => {

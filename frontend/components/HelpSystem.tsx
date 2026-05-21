@@ -54,7 +54,7 @@ const HelpSystem: React.FC<HelpSystemProps> = ({
 
   const quickStartSteps = [
     {
-      title: "Welcome to NEOD",
+      title: "Welcome to Plexus",
       description:
         "Start by dragging neural network layers from the sidebar to the canvas.",
       icon: "lucide:brain",
@@ -480,7 +480,7 @@ const HelpSystem: React.FC<HelpSystemProps> = ({
               <ModalHeader>
                 <div className="flex items-center gap-2">
                   <HelpCircle className="w-5 h-5" />
-                  NEOD Help Center
+                  Plexus Help Center
                 </div>
               </ModalHeader>
               <ModalBody>
@@ -555,15 +555,6 @@ const HelpSystem: React.FC<HelpSystemProps> = ({
               <ModalFooter>
                 <Button variant="light" onPress={onClose}>
                   Close
-                </Button>
-                <Button
-                  color="primary"
-                  startContent={<ExternalLink className="w-4 h-4" />}
-                  onPress={() =>
-                    window.open("https://github.com/mahendra189/neod", "_blank")
-                  }
-                >
-                  GitHub Repository
                 </Button>
               </ModalFooter>
             </>

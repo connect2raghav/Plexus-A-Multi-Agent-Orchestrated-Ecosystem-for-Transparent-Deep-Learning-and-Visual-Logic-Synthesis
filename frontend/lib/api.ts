@@ -12,22 +12,26 @@ const BASE_URL =
 
 async function request<T = unknown>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json", ...init.headers },
     ...init,
   });
+
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     let msg = text;
+
     try {
       const json = JSON.parse(text);
+
       msg = json.detail || json.message || text;
     } catch {}
     throw new Error(msg);
   }
   if (res.status === 204) return undefined as unknown as T;
+
   return res.json() as Promise<T>;
 }
 
@@ -54,6 +58,13 @@ export interface DatasetRecord {
   stats: Record<string, unknown>;
   status?: "profiling" | "ready" | "error";
   preprocessing_suggestions?: PreprocessingSuggestion[];
+  cleaning_status?: CleaningStatus;
+  architect_status?: {
+    status: "pending" | "running" | "done" | "error";
+    suggested_nodes?: string[];
+    description?: string;
+    error?: string;
+  };
   is_cleaned_duplicate?: boolean;
   parent_dataset_id?: string;
 }
@@ -83,22 +94,26 @@ export interface DatasetStatusRecord {
   row_count: number;
   preprocessing_suggestions: PreprocessingSuggestion[];
   cleaning_status?: CleaningStatus;
+  architect_status?: DatasetRecord["architect_status"];
 }
 
 export const uploadDataset = async (file: File): Promise<DatasetRecord> => {
   const form = new FormData();
+
   form.append("file", file);
   const res = await fetch(`${BASE_URL}/api/datasets/upload`, {
     method: "POST",
     body: form,
   });
+
   if (!res.ok) throw new Error(await res.text());
+
   return res.json();
 };
 
 export const listDatasets = () =>
   request<{ datasets: DatasetRecord[] }>("/api/datasets").then(
-    (r) => r.datasets
+    (r) => r.datasets,
   );
 
 export const getDataset = (id: string) =>
@@ -111,7 +126,9 @@ export const getDatasetStatus = (id: string) =>
   request<DatasetStatusRecord>(`/api/datasets/${id}/status`);
 
 export const applyPreprocessing = (id: string) =>
-  request<DatasetRecord>(`/api/datasets/${id}/apply-preprocessing`, { method: "POST" });
+  request<DatasetRecord>(`/api/datasets/${id}/apply-preprocessing`, {
+    method: "POST",
+  });
 
 // ============================================================
 // Agents
@@ -143,11 +160,12 @@ export interface ArchitectResult {
   keras_code: string;
   nodes: unknown[];
   edges: unknown[];
+  suggested_nodes?: string[];
 }
 
 export const runArchitectAgent = (
   datasetId: string,
-  taskType = "classification"
+  taskType = "classification",
 ) =>
   request<ArchitectResult>("/api/agents/architect", {
     method: "POST",
@@ -162,14 +180,19 @@ export interface ResourceResult {
   hardware_recommendation: string;
   warnings: string[];
   model_size_kb: number;
-  layer_stats: { id: string; type: string; params: number; output_size: number }[];
+  layer_stats: {
+    id: string;
+    type: string;
+    params: number;
+    output_size: number;
+  }[];
 }
 
 export const runResourceAgent = (
   nodes: unknown[],
   edges: unknown[],
   batchSize = 32,
-  epochs = 10
+  epochs = 10,
 ) =>
   request<ResourceResult>("/api/agents/resource", {
     method: "POST",
@@ -191,7 +214,7 @@ export interface DebugResult {
 
 export const runDebuggerAgent = (
   history: Record<string, number[]>,
-  gradientNorms: Record<string, number> = {}
+  gradientNorms: Record<string, number> = {},
 ) =>
   request<DebugResult>("/api/agents/debug", {
     method: "POST",
@@ -212,7 +235,7 @@ export interface OptimizerResult {
 export const runOptimizerAgent = (
   history: Record<string, number[]>,
   currentLr = 0.001,
-  currentBatchSize = 32
+  currentBatchSize = 32,
 ) =>
   request<OptimizerResult>("/api/agents/optimize", {
     method: "POST",
@@ -231,12 +254,48 @@ export interface DeploymentResult {
 export const runDeploymentAgent = (
   framework: string,
   outputUnits = 1,
-  taskType = "classification"
+  taskType = "classification",
+  modelPath?: string,
+  inputShape?: number[],
 ) =>
   request<DeploymentResult>("/api/agents/deploy", {
     method: "POST",
-    body: JSON.stringify({ framework, output_units: outputUnits, task_type: taskType }),
+    body: JSON.stringify({
+      framework,
+      output_units: outputUnits,
+      task_type: taskType,
+      model_path: modelPath,
+      input_shape: inputShape,
+    }),
   });
+
+export const downloadDeploymentZip = async (params: {
+  framework: string;
+  outputUnits: number;
+  taskType: string;
+  modelPath?: string;
+  inputShape?: number[];
+}): Promise<Blob> => {
+  const res = await fetch(`${BASE_URL}/api/agents/deploy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      framework: params.framework,
+      output_units: params.outputUnits,
+      task_type: params.taskType,
+      model_path: params.modelPath,
+      input_shape: params.inputShape,
+      return_zip: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text);
+  }
+
+  return res.blob();
+};
 
 // ============================================================
 // Code generation
@@ -245,7 +304,7 @@ export const runDeploymentAgent = (
 export const generateCode = (
   nodes: unknown[],
   edges: unknown[],
-  framework = "tensorflow"
+  framework = "tensorflow",
 ) =>
   request<{ code: string; framework: string }>("/api/generate/code", {
     method: "POST",
@@ -258,7 +317,7 @@ export const generateCode = (
 
 export interface TrainJob {
   job_id: string;
-  status: "queued" | "running" | "completed" | "error";
+  status: "queued" | "running" | "paused" | "stopped" | "completed" | "error";
 }
 
 export const startTraining = (params: {
@@ -297,11 +356,34 @@ export const getJobStatus = (jobId: string) =>
     logs: string[];
   }>(`/api/train/${jobId}/status`);
 
+export const updateJobStatus = (jobId: string, status: string) =>
+  request<{ status: string }>(`/api/train/${jobId}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+
+export interface PredictionResult {
+  model_type: string;
+  task_type: string;
+  count: number;
+  predictions: { prediction: string | number; confidence?: number | null }[];
+}
+
+export const predictModel = (
+  artifactPath: string,
+  rows: Record<string, unknown>[],
+) =>
+  request<PredictionResult>("/api/models/predict", {
+    method: "POST",
+    body: JSON.stringify({ artifact_path: artifactPath, rows }),
+  });
+
 // ============================================================
 // WebSocket URL helper
 // ============================================================
 
 export const getTrainingWsUrl = (jobId: string): string => {
   const wsBase = BASE_URL.replace(/^http/, "ws");
+
   return `${wsBase}/ws/train/${jobId}`;
 };

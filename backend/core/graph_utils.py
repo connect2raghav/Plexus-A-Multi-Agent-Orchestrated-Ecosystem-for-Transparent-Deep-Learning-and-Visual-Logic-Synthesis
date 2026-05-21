@@ -3,7 +3,7 @@ core/graph_utils.py
 -------------------
 Helpers to convert between the flat layer-list format returned by the
 Architect Agent and:
-  - A React-Flow-compatible node/edge graph (for the NEOD frontend)
+  - A React-Flow-compatible node/edge graph (for the Plexus frontend)
   - A Keras/TensorFlow Sequential model code snippet
 
 Layer dict format (internal standard):
@@ -54,7 +54,7 @@ def layers_to_graph(
     Returns
     -------
     (nodes, edges) : tuple of lists
-        Ready to be serialised as JSON and sent to the NEOD frontend.
+        Ready to be serialised as JSON and sent to the Plexus frontend.
     """
     nodes: List[NodeDef] = []
     edges: List[EdgeDef] = []

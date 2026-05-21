@@ -1,6 +1,6 @@
 import { title, subtitle } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
-import { NeoDLogo } from "@/components/NeoDLogo";
+import { PlexusLogo } from "@/components/PlexusLogo";
 
 export default function AboutPage() {
   return (
@@ -11,7 +11,7 @@ export default function AboutPage() {
       <section className="flex flex-col items-center justify-center gap-8 py-8 md:py-10">
         <div className="inline-block max-w-4xl text-center justify-center">
           <div className="flex justify-center mb-6">
-            <NeoDLogo size="xl" />
+            <PlexusLogo size="xl" />
           </div>
           <h1 className={title()}>About Plexus</h1>
           <div className={subtitle({ class: "mt-4" })}>
@@ -21,11 +21,12 @@ export default function AboutPage() {
 
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <p className="text-lg text-default-700">
-            Plexus is a revolutionary visual neural network designer that empowers
-            users to create, train, and deploy AI models using an intuitive
-            drag-and-drop interface. Whether you&apos;re a beginner exploring
-            machine learning or an expert prototyping complex architectures,
-            Plexus makes neural network development accessible and efficient.
+            Plexus is a revolutionary visual neural network designer that
+            empowers users to create, train, and deploy AI models using an
+            intuitive drag-and-drop interface. Whether you&apos;re a beginner
+            exploring machine learning or an expert prototyping complex
+            architectures, Plexus makes neural network development accessible
+            and efficient.
           </p>
 
           <div className="grid md:grid-cols-3 gap-8 mt-12">

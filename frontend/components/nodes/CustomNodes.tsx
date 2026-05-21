@@ -1,15 +1,37 @@
-import React, { memo, useState, useMemo } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
+import React, { memo, useEffect, useMemo, useState } from "react";
+import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import { Icon } from "@iconify/react";
-import { Input, Select, SelectItem, Switch, Progress, Chip } from "@heroui/react";
+import {
+  Input,
+  Select,
+  SelectItem,
+  Switch,
+  Progress,
+  Chip,
+  Button,
+} from "@heroui/react";
 import clsx from "clsx";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
-  ResponsiveContainer, Legend,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as ReTooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
-import { usePlexusStore } from "@/store/plexusStore";
 
 import { nodeStyles } from "./nodeStyles";
+
+import { usePlexusStore } from "@/store/plexusStore";
+import {
+  applyPreprocessing,
+  downloadDeploymentZip,
+  getDatasetStatus,
+  predictModel,
+  updateJobStatus,
+} from "@/lib/api";
 
 const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
   const isProcessing = data.isProcessing || false;
@@ -1091,6 +1113,7 @@ const TrainingConfigNode = ({
     data.config || {
       epochs: 10,
       batch_size: 32,
+      learning_rate: 0.001,
       validation_split: 0.2,
       early_stopping: false,
       save_best: true,
@@ -1227,6 +1250,21 @@ const TrainingConfigNode = ({
           </div>
 
           <div className="space-y-2">
+            <label className="text-xs">Learning Rate</label>
+            <Input
+              className="text-gray-800"
+              min="0.0001"
+              size="sm"
+              step="0.0001"
+              type="number"
+              value={config.learning_rate?.toString()}
+              onChange={(e) =>
+                updateConfig("learning_rate", parseFloat(e.target.value))
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
             <label className="text-xs">Validation Split</label>
             <Input
               className="text-gray-800"
@@ -1344,18 +1382,129 @@ const MetricsNode = ({ data, type, selected, isConnectable }: NodeProps) => {
 // ---------------------------------------------------------------------------
 // DatasetNode
 // ---------------------------------------------------------------------------
-const DatasetNode = ({ data, selected, isConnectable }: NodeProps) => {
+const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
   const datasetProgress = usePlexusStore((s) => s.datasetProgress);
+  const addDataset = usePlexusStore((s) => s.addDataset);
+  const setDatasetProgress = usePlexusStore((s) => s.setDatasetProgress);
+  const patchDataset = usePlexusStore((s) => s.patchDataset);
+  const datasetRecord = usePlexusStore((s) =>
+    s.datasets.find((d) => d.id === data.datasetId),
+  );
   const progress = data.datasetId ? datasetProgress[data.datasetId] : null;
   const isProfiling = progress && !progress.done && !progress.error;
   const isError = progress?.error;
+  const cleaningStatus = progress?.cleaning_status || data.cleaningStatus;
+  const isCleaningDone = cleaningStatus?.status === "done";
+  const architectStatus = (datasetRecord as { architect_status?: any } | undefined)
+    ?.architect_status;
+
+  const [isApplying, setIsApplying] = useState(false);
+  const reactFlowInstance = useReactFlow();
+
+  useEffect(() => {
+    if (!data.datasetId) return;
+    if (isCleaningDone && !isProfiling && architectStatus?.status === "done") {
+      return;
+    }
+
+    let active = true;
+    const poll = async () => {
+      try {
+        const status = await getDatasetStatus(data.datasetId);
+        if (!active) return;
+        const isDone =
+          status.done &&
+          (!status.cleaning_status ||
+            status.cleaning_status.status === "done" ||
+            status.cleaning_status.status === "error");
+
+        setDatasetProgress(data.datasetId, {
+          progress: status.progress,
+          message: status.message,
+          done: isDone,
+          error: status.error,
+          preprocessing_suggestions: status.preprocessing_suggestions,
+          cleaning_status: status.cleaning_status,
+        });
+
+        patchDataset(data.datasetId, {
+          status: status.dataset_status,
+          columns: status.columns,
+          row_count: status.row_count,
+          preprocessing_suggestions: status.preprocessing_suggestions,
+          cleaning_status: status.cleaning_status,
+          architect_status: status.architect_status,
+        });
+      } catch {
+        // Ignore transient errors; next poll will retry
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 1500);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [data.datasetId, isCleaningDone, isProfiling, patchDataset, setDatasetProgress]);
+
+  const handleAIPreprocess = async () => {
+    if (!data.datasetId || isApplying) return;
+    setIsApplying(true);
+    try {
+      // Call the backend to apply standard cleaning script
+      const cleanedDataset = await applyPreprocessing(data.datasetId);
+
+      addDataset(cleanedDataset);
+      // Automatically place the new cleaned dataset node next to this one
+      const currentNode = reactFlowInstance.getNode(id);
+      const nodeX = (currentNode?.position.x || 100) + 300;
+      const nodeY = currentNode?.position.y || 100;
+
+      const newNode = {
+        id: `dataset-cleaned-${cleanedDataset.id}`,
+        type: "dataset",
+        position: { x: nodeX, y: nodeY },
+        data: {
+          label: cleanedDataset.name,
+          datasetId: cleanedDataset.id,
+          datasetName: cleanedDataset.name,
+          datasetType: cleanedDataset.type,
+          rowCount: cleanedDataset.row_count,
+          columns: cleanedDataset.columns,
+          isCleaned: true,
+        },
+      };
+
+      reactFlowInstance.addNodes(newNode);
+
+      // Auto-connect original dataset to cleaned dataset
+      setTimeout(() => {
+        reactFlowInstance.addEdges({
+          id: `e-${id}-cleaned-${cleanedDataset.id}`,
+          source: id,
+          target: newNode.id,
+          animated: true,
+          style: { stroke: "#10b981", strokeWidth: 2 },
+        });
+      }, 100);
+    } catch (err) {
+      console.error("Failed to apply cleaning script:", err);
+    } finally {
+      setIsApplying(false);
+    }
+  };
 
   return (
     <div
       className={clsx(
         "min-w-[200px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-md p-3 transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-cyan-400 dark:border-cyan-600",
-        isError && "border-danger"
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-cyan-400 dark:border-cyan-600",
+        isError && "border-danger",
+        data.isCleaned &&
+          "border-green-500 from-green-50 to-emerald-50 bg-gradient-to-br",
       )}
     >
       {/* Only output handle — dataset is the source */}
@@ -1370,21 +1519,33 @@ const DatasetNode = ({ data, selected, isConnectable }: NodeProps) => {
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">🗄️</span>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm truncate">
+          <div className="font-semibold text-sm truncate flex items-center gap-2">
             {data.datasetName || data.label || "Dataset"}
+            {data.isCleaned && (
+              <Icon
+                className="text-green-500 w-4 h-4 ml-1"
+                icon="mdi:check-circle"
+              />
+            )}
           </div>
           <div className="text-xs text-default-500">
             {data.datasetType || "csv"}
           </div>
         </div>
         {isProfiling && (
-          <Chip color="warning" size="sm" variant="flat">profiling</Chip>
+          <Chip color="warning" size="sm" variant="flat">
+            profiling
+          </Chip>
         )}
         {isError && (
-          <Chip color="danger" size="sm" variant="flat">error</Chip>
+          <Chip color="danger" size="sm" variant="flat">
+            error
+          </Chip>
         )}
         {!isProfiling && !isError && data.datasetId && (
-          <Chip color="success" size="sm" variant="flat">ready</Chip>
+          <Chip color="success" size="sm" variant="flat">
+            ready
+          </Chip>
         )}
       </div>
 
@@ -1401,11 +1562,44 @@ const DatasetNode = ({ data, selected, isConnectable }: NodeProps) => {
         </div>
       )}
 
+      {/* AI Preprocess Button */}
+      {isCleaningDone && !data.isCleaned && (
+        <div className="mt-2 mb-2">
+          <Button
+            className="w-full font-medium"
+            color="primary"
+            isLoading={isApplying}
+            size="sm"
+            startContent={!isApplying && <Icon icon="mdi:magic-staff" />}
+            variant="flat"
+            onPress={handleAIPreprocess}
+          >
+            AI Preprocess
+          </Button>
+        </div>
+      )}
+
+      {/* Metadata */}
+      {isProfiling && (
+        <div className="space-y-1 mb-2">
+          <Progress
+            aria-label="Profiling"
+            color="warning"
+            size="sm"
+            value={progress.progress}
+          />
+          <p className="text-xs text-default-500">{progress.message}</p>
+        </div>
+      )}
+
       {/* Metadata */}
       {!isProfiling && !isError && (
         <div className="text-xs text-default-500 space-y-0.5">
           {data.rowCount > 0 && (
-            <div>{data.rowCount.toLocaleString()} rows · {(data.columns || []).length} cols</div>
+            <div>
+              {data.rowCount.toLocaleString()} rows ·{" "}
+              {(data.columns || []).length} cols
+            </div>
           )}
           {data.columns && data.columns.length > 0 && (
             <div className="truncate text-default-400">
@@ -1417,9 +1611,7 @@ const DatasetNode = ({ data, selected, isConnectable }: NodeProps) => {
       )}
 
       {/* Error message */}
-      {isError && (
-        <p className="text-xs text-danger mt-1">{isError}</p>
-      )}
+      {isError && <p className="text-xs text-danger mt-1">{isError}</p>}
     </div>
   );
 };
@@ -1427,27 +1619,64 @@ const DatasetNode = ({ data, selected, isConnectable }: NodeProps) => {
 // ---------------------------------------------------------------------------
 // PreprocessingNode  (normalize, dropNulls, oneHotEncode, embedEncode, scale)
 // ---------------------------------------------------------------------------
-const PREPROCESS_META: Record<string, { label: string; icon: string; color: string }> = {
-  normalize:    { label: "Normalize",     icon: "mdi:chart-bell-curve",    color: "border-blue-400"   },
-  dropNulls:    { label: "Drop Nulls",    icon: "mdi:table-remove",        color: "border-red-400"    },
-  oneHotEncode: { label: "One-Hot Encode",icon: "mdi:code-array",          color: "border-violet-400" },
-  embedEncode:  { label: "Embed Encode",  icon: "mdi:vector-combine",      color: "border-purple-400" },
-  scale:        { label: "Scale",         icon: "mdi:scale-balance",       color: "border-green-400"  },
+const PREPROCESS_META: Record<
+  string,
+  { label: string; icon: string; color: string }
+> = {
+  normalize: {
+    label: "Normalize",
+    icon: "mdi:chart-bell-curve",
+    color: "border-blue-400",
+  },
+  dropNulls: {
+    label: "Drop Nulls",
+    icon: "mdi:table-remove",
+    color: "border-red-400",
+  },
+  oneHotEncode: {
+    label: "One-Hot Encode",
+    icon: "mdi:code-array",
+    color: "border-violet-400",
+  },
+  embedEncode: {
+    label: "Embed Encode",
+    icon: "mdi:vector-combine",
+    color: "border-purple-400",
+  },
+  scale: {
+    label: "Scale",
+    icon: "mdi:scale-balance",
+    color: "border-green-400",
+  },
 };
 
-const PreprocessingNode = ({ data, type, selected, isConnectable }: NodeProps) => {
-  const meta = PREPROCESS_META[type] ?? { label: type, icon: "mdi:filter", color: "border-default-400" };
+const PreprocessingNode = ({
+  data,
+  type,
+  selected,
+  isConnectable,
+}: NodeProps) => {
+  const meta = PREPROCESS_META[type] ?? {
+    label: type,
+    icon: "mdi:filter",
+    color: "border-default-400",
+  };
 
   return (
     <div
       className={clsx(
         "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : meta.color
+        selected ? "border-primary ring-2 ring-primary/30" : meta.color,
       )}
     >
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
       <div className="flex items-center gap-2">
-        <Icon icon={meta.icon} className="w-5 h-5 text-default-600" />
+        <Icon className="w-5 h-5 text-default-600" icon={meta.icon} />
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm">{data.label || meta.label}</div>
           {data.columns && data.columns.length > 0 && (
@@ -1457,104 +1686,273 @@ const PreprocessingNode = ({ data, type, selected, isConnectable }: NodeProps) =
           )}
         </div>
       </div>
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Right} type="source" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Right}
+        type="source"
+      />
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-// VisualisationNode  (lossCurve, gradientFlow, confMatrix, predTable, activationHeatmap)
+// VisualisationNode  (lossCurve, gradientFlow, confMatrix, predTable, modelComparison)
 // ---------------------------------------------------------------------------
 const VIZ_META: Record<string, { label: string; icon: string }> = {
-  lossCurve:          { label: "Loss Curve",          icon: "mdi:chart-line" },
-  gradientFlow:       { label: "Gradient Flow",       icon: "mdi:water-wave" },
-  confMatrix:         { label: "Confusion Matrix",    icon: "mdi:grid" },
-  predTable:          { label: "Predictions Table",   icon: "mdi:table-eye" },
-  activationHeatmap:  { label: "Activation Heatmap",  icon: "mdi:fire" },
+  lossCurve: { label: "Loss Curve", icon: "mdi:chart-line" },
+  gradientFlow: { label: "Gradient Flow", icon: "mdi:water-wave" },
+  confMatrix: { label: "Confusion Matrix", icon: "mdi:grid" },
+  predTable: { label: "Predictions Table", icon: "mdi:table-eye" },
+  modelComparison: { label: "Model Comparison", icon: "mdi:compare-horizontal" },
+  activationHeatmap: { label: "Activation Heatmap", icon: "mdi:fire" },
 };
 
-const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+const VisualizationNode = ({
+  data,
+  type,
+  selected,
+  isConnectable,
+}: NodeProps) => {
   const meta = VIZ_META[type] ?? { label: type, icon: "mdi:chart-bar" };
   const training = usePlexusStore((s) => s.training);
   const hasData = training.metrics.loss.length > 0;
   const [collapsed, setCollapsed] = useState(false);
+  const trainingResult = training.result as Record<string, any> | null;
+  const result = (data as { result?: Record<string, any> })?.result || trainingResult;
+  const hasResult = Boolean(result);
+  const bestModel =
+    (result?.best_model as Record<string, any> | undefined) ??
+    ((result?.model_results as Record<string, any>[] | undefined)?.[0]);
+  const confusionMatrix = bestModel?.confusion_matrix as number[][] | undefined;
+  const classNames = (bestModel?.class_names as string[] | undefined) ?? [];
+  const predictionRows =
+    (bestModel?.predictions as
+      | { actual: string | number; predicted: string | number; confidence?: number | null }[]
+      | undefined) ?? [];
+  const comparisonRows =
+    (result?.comparison as
+      | {
+          rank: number;
+          label: string;
+          model_type: string;
+          val_accuracy?: number;
+          val_loss?: number;
+          artifact_path?: string;
+        }[]
+      | undefined) ?? [];
 
   // Build chart data for loss curve
   const chartData = useMemo(() => {
     const { loss, accuracy, val_loss, val_accuracy } = training.metrics;
-    const len = Math.max(loss.length, accuracy.length, val_loss.length, val_accuracy.length);
+    const len = Math.max(
+      loss.length,
+      accuracy.length,
+      val_loss.length,
+      val_accuracy.length,
+    );
+
     return Array.from({ length: len }, (_, i) => ({
       epoch: i + 1,
       loss: loss[i] ?? null,
-      accuracy: accuracy[i] !== undefined ? +(accuracy[i] * 100).toFixed(2) : null,
+      accuracy:
+        accuracy[i] !== undefined ? +(accuracy[i] * 100).toFixed(2) : null,
       val_loss: val_loss[i] ?? null,
-      val_accuracy: val_accuracy[i] !== undefined ? +(val_accuracy[i] * 100).toFixed(2) : null,
+      val_accuracy:
+        val_accuracy[i] !== undefined
+          ? +(val_accuracy[i] * 100).toFixed(2)
+          : null,
     }));
   }, [training.metrics]);
 
   // Gradient entries
   const gradEntries = useMemo(
-    () => Object.entries(training.gradientNorms).sort(([, a], [, b]) => (b as number) - (a as number)),
-    [training.gradientNorms]
+    () =>
+      Object.entries(training.gradientNorms).sort(
+        ([, a], [, b]) => (b as number) - (a as number),
+      ),
+    [training.gradientNorms],
   );
 
   return (
     <div
       className={clsx(
         "rounded-xl border-2 bg-white dark:bg-default-100 shadow-md transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-amber-400 dark:border-amber-600",
-        collapsed ? "min-w-[180px]" : "min-w-[320px]"
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-amber-400 dark:border-amber-600",
+        collapsed ? "min-w-[180px]" : "min-w-[320px]",
       )}
     >
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
 
       {/* Header — always visible */}
       <div
         className="flex items-center gap-2 p-3 cursor-pointer select-none"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <Icon icon={meta.icon} className="w-5 h-5 text-amber-500" />
+        <Icon className="w-5 h-5 text-amber-500" icon={meta.icon} />
         <div className="flex-1">
           <div className="font-medium text-sm">{data.label || meta.label}</div>
           {hasData && type === "lossCurve" && collapsed && (
             <div className="text-xs text-default-500">
-              loss: {training.metrics.loss[training.metrics.loss.length - 1]?.toFixed(4)}
+              loss:{" "}
+              {training.metrics.loss[training.metrics.loss.length - 1]?.toFixed(
+                4,
+              )}
             </div>
           )}
-          {!hasData && (
-            <div className="text-xs text-default-400">waiting for training…</div>
+          {!hasData && !hasResult && (
+            <div className="text-xs text-default-400">
+              waiting for training…
+            </div>
           )}
         </div>
-        <Icon icon={collapsed ? "lucide:chevron-down" : "lucide:chevron-up"} className="w-4 h-4 text-default-400" />
+        <Icon
+          className="w-4 h-4 text-default-400"
+          icon={collapsed ? "lucide:chevron-down" : "lucide:chevron-up"}
+        />
       </div>
 
       {/* Expanded content — differs by vis type */}
-      {!collapsed && hasData && (
+      {!collapsed && (hasData || hasResult) && (
         <div className="px-3 pb-3">
+          {/* ---- Training Controls (For Monitor Node) ---- */}
+          {type === "lossCurve" && (
+            <div className="flex gap-2 justify-center py-2 border-b border-default-200 dark:border-default-700/50 mb-2">
+              <Button
+                color={training.status === "running" ? "warning" : "success"}
+                size="sm"
+                startContent={
+                  <Icon
+                    icon={
+                      training.status === "running"
+                        ? "lucide:pause"
+                        : "lucide:play"
+                    }
+                  />
+                }
+                variant="flat"
+                onPress={async () => {
+                  const jobId = training.jobId;
+                  if (!jobId) return;
+                  const nextStatus =
+                    training.status === "running" ? "paused" : "running";
+                  try {
+                    await updateJobStatus(jobId, nextStatus);
+                    usePlexusStore.getState().updateTraining({
+                      status: nextStatus as any,
+                    });
+                  } catch (err) {
+                    usePlexusStore.getState().updateTraining({
+                      error: err instanceof Error ? err.message : String(err),
+                    });
+                  }
+                }}
+              >
+                {training.status === "running" ? "Pause" : "Resume"}
+              </Button>
+              <Button
+                color="danger"
+                size="sm"
+                startContent={<Icon icon="lucide:square" />}
+                variant="flat"
+                onPress={async () => {
+                  const jobId = training.jobId;
+                  if (!jobId) return;
+                  try {
+                    await updateJobStatus(jobId, "stopped");
+                    usePlexusStore.getState().updateTraining({
+                      status: "stopped",
+                    });
+                  } catch (err) {
+                    usePlexusStore.getState().updateTraining({
+                      error: err instanceof Error ? err.message : String(err),
+                    });
+                  }
+                }}
+              >
+                Stop
+              </Button>
+            </div>
+          )}
+
           {/* ---- Loss Curve ---- */}
           {type === "lossCurve" && chartData.length > 1 && (
             <div className="space-y-2">
-              <ResponsiveContainer width="100%" height={140}>
-                <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="epoch" tick={{ fontSize: 9 }} tickLine={false} />
+              <ResponsiveContainer height={140} width="100%">
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+                >
+                  <CartesianGrid opacity={0.3} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="epoch"
+                    tick={{ fontSize: 9 }}
+                    tickLine={false}
+                  />
                   <YAxis tick={{ fontSize: 9 }} tickLine={false} />
                   <ReTooltip contentStyle={{ fontSize: 10 }} />
                   <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Line dataKey="loss" stroke="#006FEE" strokeWidth={2} dot={false} name="Train" type="monotone" />
-                  <Line dataKey="val_loss" stroke="#F5A524" strokeWidth={2} dot={false} name="Val" type="monotone" />
+                  <Line
+                    dataKey="loss"
+                    dot={false}
+                    name="Train"
+                    stroke="#006FEE"
+                    strokeWidth={2}
+                    type="monotone"
+                  />
+                  <Line
+                    dataKey="val_loss"
+                    dot={false}
+                    name="Val"
+                    stroke="#F5A524"
+                    strokeWidth={2}
+                    type="monotone"
+                  />
                 </LineChart>
               </ResponsiveContainer>
               {chartData.some((d) => d.accuracy !== null) && (
-                <ResponsiveContainer width="100%" height={100}>
-                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="epoch" tick={{ fontSize: 9 }} tickLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} tickLine={false} unit="%" />
+                <ResponsiveContainer height={100} width="100%">
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+                  >
+                    <CartesianGrid opacity={0.3} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="epoch"
+                      tick={{ fontSize: 9 }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      tick={{ fontSize: 9 }}
+                      tickLine={false}
+                      unit="%"
+                    />
                     <ReTooltip contentStyle={{ fontSize: 10 }} />
-                    <Line dataKey="accuracy" stroke="#17C964" strokeWidth={2} dot={false} name="Acc" type="monotone" />
-                    <Line dataKey="val_accuracy" stroke="#9353D3" strokeWidth={2} dot={false} name="Val Acc" type="monotone" />
+                    <Line
+                      dataKey="accuracy"
+                      dot={false}
+                      name="Acc"
+                      stroke="#17C964"
+                      strokeWidth={2}
+                      type="monotone"
+                    />
+                    <Line
+                      dataKey="val_accuracy"
+                      dot={false}
+                      name="Val Acc"
+                      stroke="#9353D3"
+                      strokeWidth={2}
+                      type="monotone"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -1567,9 +1965,15 @@ const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) =
               {gradEntries.slice(0, 8).map(([layerId, norm]) => {
                 const n = norm as number;
                 const isDead = n < 1e-5;
+
                 return (
-                  <div key={layerId} className="flex items-center gap-1.5 text-[10px]">
-                    <span className={`truncate w-20 ${isDead ? "text-red-500" : "text-default-600"}`}>
+                  <div
+                    key={layerId}
+                    className="flex items-center gap-1.5 text-[10px]"
+                  >
+                    <span
+                      className={`truncate w-20 ${isDead ? "text-red-500" : "text-default-600"}`}
+                    >
                       {layerId}
                     </span>
                     <div className="flex-1 bg-default-100 rounded-full h-1.5 overflow-hidden">
@@ -1578,7 +1982,9 @@ const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) =
                         style={{ width: `${Math.min(100, n * 100)}%` }}
                       />
                     </div>
-                    <span className={`w-12 text-right font-mono ${isDead ? "text-red-500" : "text-default-500"}`}>
+                    <span
+                      className={`w-12 text-right font-mono ${isDead ? "text-red-500" : "text-default-500"}`}
+                    >
                       {isDead ? "DEAD" : n.toFixed(4)}
                     </span>
                   </div>
@@ -1587,21 +1993,23 @@ const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) =
             </div>
           )}
           {type === "gradientFlow" && gradEntries.length === 0 && (
-            <div className="text-xs text-default-400 text-center py-2">No gradient data yet</div>
+            <div className="text-xs text-default-400 text-center py-2">
+              No gradient data yet
+            </div>
           )}
 
           {/* ---- Confusion Matrix ---- */}
           {type === "confMatrix" && (
             <div className="text-xs">
-              {training.status === "completed" ? (
+              {training.status === "completed" && confusionMatrix?.length ? (
                 <div className="space-y-1">
-                  <div className="grid grid-cols-3 gap-0.5">
-                    {/* Simple 2x2 or 3x3 placeholder matrix */}
-                    {[
-                      [85, 5, 2],
-                      [3, 90, 4],
-                      [1, 6, 88],
-                    ].map((row, ri) => (
+                  <div
+                    className="grid gap-0.5"
+                    style={{
+                      gridTemplateColumns: `repeat(${confusionMatrix.length}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {confusionMatrix.map((row, ri) => (
                       <React.Fragment key={ri}>
                         {row.map((val, ci) => (
                           <div
@@ -1618,10 +2026,16 @@ const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) =
                       </React.Fragment>
                     ))}
                   </div>
-                  <p className="text-default-400 text-center">Simulated confusion matrix</p>
+                  <p className="text-default-400 text-center">
+                    {classNames.length > 0
+                      ? `Classes: ${classNames.slice(0, 4).join(", ")}${classNames.length > 4 ? "..." : ""}`
+                      : "Confusion matrix"}
+                  </p>
                 </div>
               ) : (
-                <p className="text-default-400 text-center py-2">Appears after training</p>
+                <p className="text-default-400 text-center py-2">
+                  Appears after training
+                </p>
               )}
             </div>
           )}
@@ -1629,60 +2043,88 @@ const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) =
           {/* ---- Predictions Table ---- */}
           {type === "predTable" && (
             <div className="text-xs">
-              {training.status === "completed" ? (
+              {training.status === "completed" && predictionRows.length > 0 ? (
                 <table className="w-full text-[10px] border-collapse">
                   <thead>
                     <tr>
-                      <th className="border border-default-200 bg-default-50 px-1.5 py-1 text-left">Actual</th>
-                      <th className="border border-default-200 bg-default-50 px-1.5 py-1 text-left">Predicted</th>
-                      <th className="border border-default-200 bg-default-50 px-1.5 py-1 text-left">Conf</th>
+                      <th className="border border-default-200 bg-default-50 px-1.5 py-1 text-left">
+                        Actual
+                      </th>
+                      <th className="border border-default-200 bg-default-50 px-1.5 py-1 text-left">
+                        Predicted
+                      </th>
+                      <th className="border border-default-200 bg-default-50 px-1.5 py-1 text-left">
+                        Conf
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { actual: "Cat", predicted: "Cat", conf: "97%" },
-                      { actual: "Dog", predicted: "Dog", conf: "93%" },
-                      { actual: "Cat", predicted: "Dog", conf: "51%" },
-                      { actual: "Dog", predicted: "Dog", conf: "88%" },
-                    ].map((row, i) => (
-                      <tr key={i} className={row.actual !== row.predicted ? "bg-red-50 dark:bg-red-900/10" : ""}>
-                        <td className="border border-default-100 px-1.5 py-0.5">{row.actual}</td>
-                        <td className="border border-default-100 px-1.5 py-0.5">{row.predicted}</td>
-                        <td className="border border-default-100 px-1.5 py-0.5 font-mono">{row.conf}</td>
+                    {predictionRows.map((row, i) => (
+                      <tr
+                        key={i}
+                        className={
+                          row.actual !== row.predicted
+                            ? "bg-red-50 dark:bg-red-900/10"
+                            : ""
+                        }
+                      >
+                        <td className="border border-default-100 px-1.5 py-0.5">
+                          {row.actual}
+                        </td>
+                        <td className="border border-default-100 px-1.5 py-0.5">
+                          {row.predicted}
+                        </td>
+                        <td className="border border-default-100 px-1.5 py-0.5 font-mono">
+                          {row.confidence !== null && row.confidence !== undefined
+                            ? `${Math.round(row.confidence * 100)}%`
+                            : "-"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
-                <p className="text-default-400 text-center py-2">Appears after training</p>
+                <p className="text-default-400 text-center py-2">
+                  Appears after training
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ---- Model Comparison ---- */}
+          {type === "modelComparison" && (
+            <div className="text-xs">
+              {comparisonRows.length > 0 ? (
+                <div className="space-y-1">
+                  {comparisonRows.map((row) => (
+                    <div
+                      key={`${row.rank}-${row.model_type}`}
+                      className="grid grid-cols-[1.5rem_1fr_3.5rem] gap-2 items-center"
+                    >
+                      <span className="font-mono text-default-400">#{row.rank}</span>
+                      <span className="truncate">{row.label || row.model_type}</span>
+                      <span className="font-mono text-right">
+                        {row.val_accuracy !== undefined
+                          ? `${Math.round(row.val_accuracy * 100)}%`
+                          : row.val_loss?.toFixed(3)}
+                      </span>
+                    </div>
+                  ))}
+                  <p className="text-default-400 text-center">Model comparison</p>
+                </div>
+              ) : (
+                <p className="text-default-400 text-center py-2">
+                  Appears after training
+                </p>
               )}
             </div>
           )}
 
           {/* ---- Activation Heatmap ---- */}
           {type === "activationHeatmap" && (
-            <div className="text-xs">
-              {training.status === "completed" || training.status === "running" ? (
-                <div className="space-y-1">
-                  <div className="grid grid-cols-8 gap-0.5">
-                    {Array.from({ length: 64 }, (_, i) => {
-                      const val = Math.random();
-                      return (
-                        <div
-                          key={i}
-                          className="aspect-square rounded-sm"
-                          style={{
-                            backgroundColor: `rgba(${Math.round(255 * val)}, ${Math.round(100 * (1 - val))}, 0, ${0.3 + val * 0.7})`,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  <p className="text-default-400 text-center">Layer activation values</p>
-                </div>
-              ) : (
-                <p className="text-default-400 text-center py-2">Appears during training</p>
-              )}
+            <div className="text-xs text-default-400 text-center py-2">
+              Activation maps are available only for supported deep-learning
+              image models.
             </div>
           )}
         </div>
@@ -1696,7 +2138,11 @@ const VisualizationNode = ({ data, type, selected, isConnectable }: NodeProps) =
 // ---------------------------------------------------------------------------
 // EvaluationResultsNode — auto-added after training completes
 // ---------------------------------------------------------------------------
-const EvaluationResultsNode = ({ data, selected, isConnectable }: NodeProps) => {
+const EvaluationResultsNode = ({
+  data,
+  selected,
+  isConnectable,
+}: NodeProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const training = usePlexusStore((s) => s.training);
   const result = (data.result || training.result) as Record<string, any> | null;
@@ -1706,17 +2152,24 @@ const EvaluationResultsNode = ({ data, selected, isConnectable }: NodeProps) => 
       className={clsx(
         "rounded-xl border-2 shadow-md transition-all",
         "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-green-400 dark:border-green-600",
-        collapsed ? "min-w-[180px]" : "min-w-[280px]"
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-green-400 dark:border-green-600",
+        collapsed ? "min-w-[180px]" : "min-w-[280px]",
       )}
     >
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
 
       <div
         className="flex items-center gap-2 p-3 cursor-pointer select-none"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <Icon icon="mdi:trophy" className="w-5 h-5 text-green-500" />
+        <Icon className="w-5 h-5 text-green-500" icon="mdi:trophy" />
         <div className="flex-1">
           <div className="font-semibold text-sm">Evaluation Results</div>
           {result && collapsed && (
@@ -1727,36 +2180,49 @@ const EvaluationResultsNode = ({ data, selected, isConnectable }: NodeProps) => 
             </div>
           )}
         </div>
-        <Icon icon={collapsed ? "lucide:chevron-down" : "lucide:chevron-up"} className="w-4 h-4 text-default-400" />
+        <Icon
+          className="w-4 h-4 text-default-400"
+          icon={collapsed ? "lucide:chevron-down" : "lucide:chevron-up"}
+        />
       </div>
 
       {!collapsed && result && (
         <div className="px-3 pb-3 space-y-2">
           {(result as any).mode === "simulated" && (
-            <Chip color="warning" size="sm" variant="flat">simulated</Chip>
+            <Chip color="warning" size="sm" variant="flat">
+              simulated
+            </Chip>
           )}
           <div className="grid grid-cols-2 gap-2 text-xs">
             {(result as any).final_loss !== undefined && (
               <div className="bg-white dark:bg-default-100 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-blue-500">{(result as any).final_loss.toFixed(4)}</div>
+                <div className="text-lg font-bold text-blue-500">
+                  {(result as any).final_loss.toFixed(4)}
+                </div>
                 <div className="text-default-500">Loss</div>
               </div>
             )}
             {(result as any).final_accuracy !== undefined && (
               <div className="bg-white dark:bg-default-100 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-green-500">{((result as any).final_accuracy * 100).toFixed(1)}%</div>
+                <div className="text-lg font-bold text-green-500">
+                  {((result as any).final_accuracy * 100).toFixed(1)}%
+                </div>
                 <div className="text-default-500">Accuracy</div>
               </div>
             )}
             {(result as any).final_val_loss !== undefined && (
               <div className="bg-white dark:bg-default-100 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-amber-500">{(result as any).final_val_loss.toFixed(4)}</div>
+                <div className="text-lg font-bold text-amber-500">
+                  {(result as any).final_val_loss.toFixed(4)}
+                </div>
                 <div className="text-default-500">Val Loss</div>
               </div>
             )}
             {(result as any).final_val_accuracy !== undefined && (
               <div className="bg-white dark:bg-default-100 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-purple-500">{((result as any).final_val_accuracy * 100).toFixed(1)}%</div>
+                <div className="text-lg font-bold text-purple-500">
+                  {((result as any).final_val_accuracy * 100).toFixed(1)}%
+                </div>
                 <div className="text-default-500">Val Accuracy</div>
               </div>
             )}
@@ -1766,35 +2232,122 @@ const EvaluationResultsNode = ({ data, selected, isConnectable }: NodeProps) => 
 
       {!collapsed && !result && (
         <div className="px-3 pb-3">
-          <p className="text-xs text-default-400 text-center">No training results yet</p>
+          <p className="text-xs text-default-400 text-center">
+            No training results yet
+          </p>
         </div>
       )}
 
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Right} type="source" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Right}
+        type="source"
+      />
     </div>
   );
 };
-
 
 // ---------------------------------------------------------------------------
 // TestModelNode
 // ---------------------------------------------------------------------------
 const TestModelNode = ({ data, selected, isConnectable }: NodeProps) => {
+  const training = usePlexusStore((s) => s.training);
+  const [inputJson, setInputJson] = useState("[{}]");
+  const [result, setResult] = useState<
+    { prediction: string | number; confidence?: number | null }[] | null
+  >(null);
+  const [error, setError] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
+  const bestModel = (training.result as Record<string, any> | null)
+    ?.best_model as Record<string, any> | undefined;
+  const artifactPath = (data.artifactPath || bestModel?.artifact_path) as
+    | string
+    | undefined;
+
+  const runPrediction = async () => {
+    if (!artifactPath) {
+      setError("Train a model first so Plexus has a saved artifact.");
+      return;
+    }
+
+    setIsRunning(true);
+    setError("");
+    setResult(null);
+    try {
+      const parsed = JSON.parse(inputJson);
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      const response = await predictModel(artifactPath, rows);
+
+      setResult(response.predictions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <div
       className={clsx(
-        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-green-400 dark:border-green-600"
+        "min-w-[260px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-green-400 dark:border-green-600",
       )}
     >
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
       <div className="flex items-center gap-2">
-        <Icon icon="mdi:test-tube" className="w-5 h-5 text-green-500" />
+        <Icon className="w-5 h-5 text-green-500" icon="mdi:test-tube" />
         <div className="flex-1">
-          <div className="font-medium text-sm">{data.label || "Test Model"}</div>
-          <div className="text-xs text-default-500">Evaluate on test set</div>
+          <div className="font-medium text-sm">
+            {data.label || "Test Model"}
+          </div>
+          <div className="text-xs text-default-500">
+            {artifactPath ? "Saved artifact ready" : "Train a model first"}
+          </div>
         </div>
       </div>
+      <textarea
+        className="mt-3 w-full rounded-lg border border-default-200 bg-default-50 p-2 text-[10px] font-mono outline-none focus:border-green-500"
+        rows={4}
+        value={inputJson}
+        onChange={(event) => setInputJson(event.target.value)}
+      />
+      <Button
+        className="mt-2 w-full"
+        color="success"
+        isDisabled={!artifactPath}
+        isLoading={isRunning}
+        size="sm"
+        variant="flat"
+        onPress={runPrediction}
+      >
+        Run Prediction
+      </Button>
+      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+      {result && (
+        <div className="mt-2 space-y-1 text-xs">
+          {result.map((row, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between rounded bg-default-50 px-2 py-1"
+            >
+              <span>{String(row.prediction)}</span>
+              <span className="font-mono text-default-500">
+                {row.confidence !== null && row.confidence !== undefined
+                  ? `${Math.round(row.confidence * 100)}%`
+                  : "-"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -1807,14 +2360,23 @@ const ExportCodeNode = ({ data, selected, isConnectable }: NodeProps) => {
     <div
       className={clsx(
         "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-indigo-400 dark:border-indigo-600"
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-indigo-400 dark:border-indigo-600",
       )}
     >
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
       <div className="flex items-center gap-2">
-        <Icon icon="mdi:code-braces" className="w-5 h-5 text-indigo-500" />
+        <Icon className="w-5 h-5 text-indigo-500" icon="mdi:code-braces" />
         <div className="flex-1">
-          <div className="font-medium text-sm">{data.label || "Export Code"}</div>
+          <div className="font-medium text-sm">
+            {data.label || "Export Code"}
+          </div>
           <div className="text-xs text-default-500">
             {data.framework || "tensorflow"} · {data.format || "python"}
           </div>
@@ -1825,24 +2387,99 @@ const ExportCodeNode = ({ data, selected, isConnectable }: NodeProps) => {
 };
 
 // ---------------------------------------------------------------------------
-// ApiDeployNode
+// ApiDeployNode — downloads a deployment ZIP with FastAPI app + Docker
 // ---------------------------------------------------------------------------
 const ApiDeployNode = ({ data, selected, isConnectable }: NodeProps) => {
+  const training = usePlexusStore((s) => s.training);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [error, setError] = useState("");
+  const [downloaded, setDownloaded] = useState(false);
+
+  const result = training.result as Record<string, any> | null;
+  const framework = (result?.framework || result?.mode || "sklearn") as string;
+  const taskType = (result?.task_type || "classification") as string;
+  const outputUnits = (result?.output_units || 1) as number;
+  const artifactDir = result?.artifact_dir as string | undefined;
+  const bestModel = result?.best_model as Record<string, any> | undefined;
+  const modelPath = (bestModel?.artifact_path || artifactDir || "model.joblib") as string;
+  const inputShape = (result?.input_shape || [784]) as number[];
+  const isReady = training.status === "completed" && result;
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    setError("");
+    setDownloaded(false);
+    try {
+      const blob = await downloadDeploymentZip({
+        framework,
+        outputUnits,
+        taskType,
+        modelPath,
+        inputShape,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plexus_deployment.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+      setDownloaded(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div
       className={clsx(
-        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-pink-400 dark:border-pink-600"
+        "min-w-[220px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-md p-3 transition-all",
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-pink-400 dark:border-pink-600",
       )}
     >
-      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+      <Handle
+        className={nodeStyles.handle}
+        isConnectable={isConnectable}
+        position={Position.Left}
+        type="target"
+      />
       <div className="flex items-center gap-2">
-        <Icon icon="mdi:api" className="w-5 h-5 text-pink-500" />
+        <Icon className="w-5 h-5 text-pink-500" icon="mdi:api" />
         <div className="flex-1">
-          <div className="font-medium text-sm">{data.label || "API Deploy"}</div>
+          <div className="font-medium text-sm">
+            {data.label || "API Deploy"}
+          </div>
           <div className="text-xs text-default-500">FastAPI · Docker</div>
         </div>
       </div>
+      <Button
+        className="mt-3 w-full"
+        color={downloaded ? "success" : "secondary"}
+        isDisabled={!isReady}
+        isLoading={isDownloading}
+        size="sm"
+        startContent={
+          downloaded ? (
+            <Icon icon="lucide:check" />
+          ) : (
+            <Icon icon="lucide:download" />
+          )
+        }
+        variant="flat"
+        onPress={handleDownload}
+      >
+        {downloaded
+          ? "Downloaded!"
+          : isDownloading
+            ? "Generating..."
+            : isReady
+              ? "Download ZIP"
+              : "Train a model first"}
+      </Button>
+      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
     </div>
   );
 };
@@ -1920,28 +2557,50 @@ export const nodeTypes = {
   softmax: memo((props: NodeProps) => <BaseNode {...props} />),
   recurrent: memo((props: NodeProps) => <BaseNode {...props} />),
 
+  // ---- Classic ML Models ----
+  randomForest: memo((props: NodeProps) => <BaseNode {...props} />),
+  svm:          memo((props: NodeProps) => <BaseNode {...props} />),
+  knn:          memo((props: NodeProps) => <BaseNode {...props} />),
+  logisticRegression: memo((props: NodeProps) => <BaseNode {...props} />),
+  decisionTree: memo((props: NodeProps) => <BaseNode {...props} />),
+  gradientBoosting: memo((props: NodeProps) => <BaseNode {...props} />),
+  extraTrees: memo((props: NodeProps) => <BaseNode {...props} />),
+  naiveBayes: memo((props: NodeProps) => <BaseNode {...props} />),
+  adaBoost: memo((props: NodeProps) => <BaseNode {...props} />),
+  linearRegression: memo((props: NodeProps) => <BaseNode {...props} />),
+  ridgeRegression: memo((props: NodeProps) => <BaseNode {...props} />),
+  lassoRegression: memo((props: NodeProps) => <BaseNode {...props} />),
+  mlpClassifier: memo((props: NodeProps) => <BaseNode {...props} />),
+
   // ---- Data Sources ----
   dataset: memo((props: NodeProps) => <DatasetNode {...props} />),
 
   // ---- Preprocessing ----
-  normalize:    memo((props: NodeProps) => <PreprocessingNode {...props} />),
-  dropNulls:    memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  normalize: memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  dropNulls: memo((props: NodeProps) => <PreprocessingNode {...props} />),
   oneHotEncode: memo((props: NodeProps) => <PreprocessingNode {...props} />),
-  embedEncode:  memo((props: NodeProps) => <PreprocessingNode {...props} />),
-  scale:        memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  embedEncode: memo((props: NodeProps) => <PreprocessingNode {...props} />),
+  scale: memo((props: NodeProps) => <PreprocessingNode {...props} />),
 
   // ---- Visualisation ----
-  lossCurve:         memo((props: NodeProps) => <VisualizationNode {...props} />),
-  gradientFlow:      memo((props: NodeProps) => <VisualizationNode {...props} />),
-  confMatrix:        memo((props: NodeProps) => <VisualizationNode {...props} />),
-  predTable:         memo((props: NodeProps) => <VisualizationNode {...props} />),
-  activationHeatmap: memo((props: NodeProps) => <VisualizationNode {...props} />),
+  lossCurve: memo((props: NodeProps) => <VisualizationNode {...props} />),
+  gradientFlow: memo((props: NodeProps) => <VisualizationNode {...props} />),
+  confMatrix: memo((props: NodeProps) => <VisualizationNode {...props} />),
+  predTable: memo((props: NodeProps) => <VisualizationNode {...props} />),
+  modelComparison: memo((props: NodeProps) => (
+    <VisualizationNode {...props} />
+  )),
+  activationHeatmap: memo((props: NodeProps) => (
+    <VisualizationNode {...props} />
+  )),
 
   // ---- Output / Test ----
-  testModel:  memo((props: NodeProps) => <TestModelNode {...props} />),
+  testModel: memo((props: NodeProps) => <TestModelNode {...props} />),
   exportCode: memo((props: NodeProps) => <ExportCodeNode {...props} />),
-  apiDeploy:  memo((props: NodeProps) => <ApiDeployNode {...props} />),
+  apiDeploy: memo((props: NodeProps) => <ApiDeployNode {...props} />),
 
   // ---- Evaluation Results (auto-added post-training) ----
-  evaluationResults: memo((props: NodeProps) => <EvaluationResultsNode {...props} />),
+  evaluationResults: memo((props: NodeProps) => (
+    <EvaluationResultsNode {...props} />
+  )),
 };

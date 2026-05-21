@@ -1,6 +1,6 @@
 import type { AppProps } from "next/app";
-import React, { useEffect, useState } from "react";
 
+import React, { useEffect, useState } from "react";
 import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useRouter } from "next/router";
@@ -19,6 +19,7 @@ export default function App({ Component, pageProps }: AppProps) {
   // fires a useEffect that sets the theme class during hydration, which
   // collides with React 18 / Next 15's internal dehydrated boundaries.
   const [mounted, setMounted] = useState(false);
+
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
@@ -36,10 +37,10 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <HeroUIProvider navigate={router.push}>
       <NextThemesProvider
+        disableTransitionOnChange
         attribute="class"
         defaultTheme="light"
         enableSystem={false}
-        disableTransitionOnChange
       >
         <ToastProvider>
           <Component {...pageProps} />

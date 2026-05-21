@@ -137,6 +137,7 @@ class DataAgent(BaseAgent):
 
         # ---- Step 3: Call LLM -------------------------------------------
         self._logger.info("Calling LLM to generate cleaning code…")
+        used_fallback = False
         try:
             raw_response = self._get_llm().chat(
                 messages=[{"role": "user", "content": user_prompt}],
@@ -144,19 +145,30 @@ class DataAgent(BaseAgent):
                 max_tokens=1200,
             )
         except Exception as exc:  # noqa: BLE001
-            return self._fail(f"LLM call failed: {exc}")
+            self._logger.warning(
+                "LLM cleaning generation failed; using deterministic cleaning script: %s",
+                exc,
+            )
+            raw_response = ""
+            used_fallback = True
 
         # ---- Step 4: Extract code block ---------------------------------
         code = self._extract_code(raw_response)
         if not code:
-            return self._fail(
-                "LLM did not return a valid Python code block.",
-                raw_response=raw_response,
-            )
+            code = self._fallback_cleaning_code(profile)
+            used_fallback = True
 
         # ---- Step 5: Validate the code on a tiny sample -----------------
         sample_df = analyzer.get_sample_df(n=5)
         validation = self._validate_code(code, sample_df)
+        if not validation.get("passed"):
+            self._logger.warning(
+                "Generated cleaning code failed validation; using deterministic fallback: %s",
+                validation.get("error"),
+            )
+            code = self._fallback_cleaning_code(profile)
+            validation = self._validate_code(code, sample_df)
+            used_fallback = True
 
         # ---- Step 6: Build structured steps list ------------------------
         steps = self._infer_steps(profile)
@@ -167,7 +179,8 @@ class DataAgent(BaseAgent):
                 "code": code,
                 "steps": steps,
                 "validation": validation,
-            }
+            },
+            mode="deterministic_fallback" if used_fallback else "llm",
         )
 
     # ------------------------------------------------------------------
@@ -301,3 +314,33 @@ class DataAgent(BaseAgent):
                 )
 
         return steps
+
+    @staticmethod
+    def _fallback_cleaning_code(profile: DatasetProfile) -> str:
+        """Generate a deterministic pandas cleaning function from the profile."""
+        target = profile.target_column or ""
+        return f'''def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Deterministic cleaning function generated from dataset profile."""
+    df = df.copy()
+    df = df.dropna(how="all")
+    target_col = {target!r}
+
+    for col in df.select_dtypes(include="number").columns:
+        if col == target_col:
+            continue
+        median = df[col].median()
+        df[col] = df[col].fillna(0 if pd.isna(median) else median)
+
+    for col in df.select_dtypes(exclude="number").columns:
+        if col == target_col:
+            df[col] = df[col].fillna("__missing__")
+            continue
+        df[col] = df[col].fillna("__missing__").astype("category").cat.codes
+
+    numeric_features = [col for col in df.select_dtypes(include="number").columns if col != target_col]
+    for col in numeric_features:
+        std = df[col].std()
+        if std and not pd.isna(std):
+            df[col] = (df[col] - df[col].mean()) / std
+
+    return df'''

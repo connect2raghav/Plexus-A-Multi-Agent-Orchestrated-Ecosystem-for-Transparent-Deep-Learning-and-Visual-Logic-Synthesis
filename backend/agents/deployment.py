@@ -80,6 +80,63 @@ torch>=2.0.0
 pydantic>=2.0.0
 """
 
+_SKLEARN_REQUIREMENTS = """fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+numpy>=1.24.0
+pandas>=2.0.0
+joblib>=1.3.0
+scikit-learn>=1.4.0
+pydantic>=2.0.0
+"""
+
+_SKLEARN_TEMPLATE = """\"\"\"\
+Plexus-generated FastAPI serving application (scikit-learn).
+Run: uvicorn app:app --host 0.0.0.0 --port 8000
+\"\"\"
+import pandas as pd
+from fastapi import FastAPI
+from pydantic import BaseModel
+from joblib import load
+
+app = FastAPI(title="Plexus Model API")
+
+# ---- Load model bundle ----
+bundle = load("{model_path}")
+model = bundle.get("model") if isinstance(bundle, dict) else bundle
+preprocessor = bundle.get("preprocessor") if isinstance(bundle, dict) else None
+feature_columns = bundle.get("feature_columns") if isinstance(bundle, dict) else []
+
+
+class PredictRequest(BaseModel):
+    rows: list  # list of dict rows
+
+
+class PredictResponse(BaseModel):
+    predictions: list
+    probabilities: list | None
+
+
+@app.get("/health")
+def health():
+    return {{"status": "ok"}}
+
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(req: PredictRequest):
+    frame = pd.DataFrame(req.rows)
+    if feature_columns:
+        frame = frame[feature_columns]
+    X = preprocessor.transform(frame) if preprocessor is not None else frame
+    predictions = model.predict(X)
+    probabilities = None
+    if hasattr(model, "predict_proba"):
+        probabilities = model.predict_proba(X)
+    return PredictResponse(
+        predictions=predictions.tolist(),
+        probabilities=probabilities.tolist() if probabilities is not None else None,
+    )
+"""
+
 
 class DeploymentAgent(BaseAgent):
     """Generates deployment boilerplate for a trained Keras/PyTorch model."""
@@ -121,6 +178,21 @@ class DeploymentAgent(BaseAgent):
             )
             predict_code = self._torch_predict_code(task_type, output_units)
             requirements = _TORCH_REQUIREMENTS
+        elif framework in ("sklearn", "scikit-learn"):
+            app_code = _SKLEARN_TEMPLATE.format(model_path=model_path)
+            readme = self._generate_readme("sklearn", model_path, input_shape)
+            return self._ok({
+                "files": {
+                    "app.py": app_code,
+                    "Dockerfile": _DOCKERFILE_TEMPLATE,
+                    "requirements.txt": _SKLEARN_REQUIREMENTS,
+                    "README.md": readme,
+                },
+                "summary": (
+                    "Generated FastAPI serving code for a scikit-learn model. "
+                    "Build with `docker build -t plexus-model .` and run with `docker run -p 8000:8000 plexus-model`."
+                ),
+            })
         else:
             return self._fail(f"Unsupported framework: {framework!r}. Use 'tensorflow' or 'pytorch'.")
 

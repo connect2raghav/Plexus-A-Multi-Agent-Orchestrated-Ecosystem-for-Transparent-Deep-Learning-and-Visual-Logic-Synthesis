@@ -25,6 +25,10 @@ import { usePlexusStore } from "@/store/plexusStore";
 
 const statusColour = (s: string) => {
   switch (s) {
+    case "paused":
+      return "warning";
+    case "stopped":
+      return "default";
     case "completed":
       return "success";
     case "running":
@@ -50,14 +54,19 @@ const TrainingPanel: React.FC = () => {
       loss.length,
       accuracy.length,
       val_loss.length,
-      val_accuracy.length
+      val_accuracy.length,
     );
+
     return Array.from({ length: len }, (_, i) => ({
       epoch: i + 1,
       loss: loss[i] ?? null,
-      accuracy: accuracy[i] !== undefined ? +(accuracy[i] * 100).toFixed(2) : null,
+      accuracy:
+        accuracy[i] !== undefined ? +(accuracy[i] * 100).toFixed(2) : null,
       val_loss: val_loss[i] ?? null,
-      val_accuracy: val_accuracy[i] !== undefined ? +(val_accuracy[i] * 100).toFixed(2) : null,
+      val_accuracy:
+        val_accuracy[i] !== undefined
+          ? +(val_accuracy[i] * 100).toFixed(2)
+          : null,
     }));
   }, [training.metrics]);
 
@@ -65,9 +74,9 @@ const TrainingPanel: React.FC = () => {
   const gradEntries = useMemo(
     () =>
       Object.entries(training.gradientNorms).sort(
-        ([, a], [, b]) => (b as number) - (a as number)
+        ([, a], [, b]) => (b as number) - (a as number),
       ),
-    [training.gradientNorms]
+    [training.gradientNorms],
   );
 
   if (!open) return null;
@@ -82,7 +91,9 @@ const TrainingPanel: React.FC = () => {
           <Activity className="w-5 h-5 text-primary" />
           <div>
             <span className="font-semibold">Training</span>
-            <p className="text-[10px] text-default-400 leading-tight">Primary results on canvas</p>
+            <p className="text-[10px] text-default-400 leading-tight">
+              Primary results on canvas
+            </p>
           </div>
           <Chip
             color={statusColour(training.status) as any}
@@ -142,11 +153,16 @@ const TrainingPanel: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  ["Final Loss", (training.result as any).final_loss?.toFixed(4)],
+                  [
+                    "Final Loss",
+                    (training.result as any).final_loss?.toFixed(4),
+                  ],
                   [
                     "Final Accuracy",
                     training.result
-                      ? ((training.result as any).final_accuracy * 100).toFixed(2) + "%"
+                      ? ((training.result as any).final_accuracy * 100).toFixed(
+                          2,
+                        ) + "%"
                       : null,
                   ],
                   [
@@ -156,9 +172,9 @@ const TrainingPanel: React.FC = () => {
                   [
                     "Val Accuracy",
                     training.result
-                      ? ((training.result as any).final_val_accuracy * 100).toFixed(
-                          2
-                        ) + "%"
+                      ? (
+                          (training.result as any).final_val_accuracy * 100
+                        ).toFixed(2) + "%"
                       : null,
                   ],
                 ]
@@ -180,7 +196,9 @@ const TrainingPanel: React.FC = () => {
             <CardBody className="p-3">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-danger mt-0.5 shrink-0" />
-                <p className="text-sm text-danger break-all">{training.error}</p>
+                <p className="text-sm text-danger break-all">
+                  {training.error}
+                </p>
               </div>
             </CardBody>
           </Card>
@@ -240,13 +258,17 @@ const TrainingPanel: React.FC = () => {
             </h4>
             <ResponsiveContainer height={140} width="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid opacity={0.3} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="epoch"
                   tick={{ fontSize: 10 }}
                   tickLine={false}
                 />
-                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} tickLine={false} />
+                <YAxis
+                  domain={["auto", "auto"]}
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                />
                 <Tooltip contentStyle={{ fontSize: 11 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Line
@@ -278,14 +300,22 @@ const TrainingPanel: React.FC = () => {
             </h4>
             <ResponsiveContainer height={120} width="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid opacity={0.3} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="epoch"
                   tick={{ fontSize: 10 }}
                   tickLine={false}
                 />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickLine={false} unit="%" />
-                <Tooltip contentStyle={{ fontSize: 11 }} formatter={(v: number) => `${v.toFixed(2)}%`} />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  unit="%"
+                />
+                <Tooltip
+                  contentStyle={{ fontSize: 11 }}
+                  formatter={(v: number) => `${v.toFixed(2)}%`}
+                />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Line
                   dataKey="accuracy"
@@ -319,6 +349,7 @@ const TrainingPanel: React.FC = () => {
               {gradEntries.slice(0, 8).map(([id, norm]) => {
                 const n = norm as number;
                 const isDead = n < 1e-5;
+
                 return (
                   <div key={id} className="flex items-center gap-2 text-xs">
                     <span
@@ -350,7 +381,12 @@ const TrainingPanel: React.FC = () => {
         <Button size="sm" variant="flat" onPress={resetTraining}>
           Reset
         </Button>
-        <Button color="primary" size="sm" variant="flat" onPress={() => setOpen(false)}>
+        <Button
+          color="primary"
+          size="sm"
+          variant="flat"
+          onPress={() => setOpen(false)}
+        >
           Close
         </Button>
       </div>

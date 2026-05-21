@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { Badge, Card, CardBody, Button, Input, Chip, Tooltip } from "@heroui/react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Card, CardBody, Button, Input, Chip, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
 import {
   AlertCircle,
@@ -11,10 +11,10 @@ import {
   Filter,
   Layers,
   Home,
-  Plus,
   Search,
   Sparkles,
   X,
+  Upload,
 } from "lucide-react";
 import { useRouter } from "next/router";
 
@@ -34,7 +34,17 @@ function DatasetSidebarPanel() {
         className="w-full"
         color="primary"
         size="sm"
-        startContent={<Plus className="w-3.5 h-3.5" />}
+        startContent={<Upload className="w-3.5 h-3.5" />}
+        variant="solid"
+        onPress={() => setModalOpen(true)}
+      >
+        Upload Dataset
+      </Button>
+      <Button
+        className="w-full mt-1"
+        color="secondary"
+        size="sm"
+        startContent={<Database className="w-3.5 h-3.5" />}
         variant="flat"
         onPress={() => setModalOpen(true)}
       >
@@ -54,13 +64,15 @@ function DatasetSidebarPanel() {
           {datasets.map((d) => (
             <button
               key={d.id}
+              draggable
               className={`w-full text-left p-2 rounded-lg border text-xs transition-all ${
                 d.id === selectedDatasetId
                   ? "border-primary bg-primary-50 dark:bg-primary-900/20"
                   : "border-default-200 hover:border-default-400 hover:bg-default-50"
               }`}
-              draggable
-              onClick={() => selectDataset(d.id === selectedDatasetId ? null : d.id)}
+              onClick={() =>
+                selectDataset(d.id === selectedDatasetId ? null : d.id)
+              }
               onDragStart={(e) => {
                 e.dataTransfer.setData(
                   "application/reactflow",
@@ -69,18 +81,26 @@ function DatasetSidebarPanel() {
                     label: d.name,
                     icon: "lucide:database",
                     details: `${d.type} dataset`,
-                    datasetId: d.id,
-                    datasetName: d.name,
-                    datasetType: d.type,
-                    columns: d.columns || [],
-                    rowCount: d.row_count || 0,
-                  })
+                    dataProps: {
+                      datasetId: d.id,
+                      datasetName: d.name,
+                      datasetType: d.type,
+                      columns: d.columns || [],
+                      rowCount: d.row_count || 0,
+                      cleaningStatus: d.cleaning_status,
+                      architectStatus: d.architect_status,
+                      isCleaned: Boolean(d.is_cleaned_duplicate),
+                      parentDatasetId: d.parent_dataset_id,
+                    },
+                  }),
                 );
                 e.dataTransfer.effectAllowed = "move";
               }}
             >
               <div className="flex items-center justify-between">
-                <span className="font-medium truncate max-w-[12rem]">{d.name}</span>
+                <span className="font-medium truncate max-w-[12rem]">
+                  {d.name}
+                </span>
                 <div className="flex items-center gap-1">
                   {(d as any).is_demo && (
                     <span className="text-[10px] bg-secondary-100 text-secondary-600 dark:bg-secondary-900/30 dark:text-secondary-400 px-1.5 py-0.5 rounded-full font-medium">
@@ -94,7 +114,9 @@ function DatasetSidebarPanel() {
               </div>
               <div className="flex items-center gap-2 text-default-500 mt-0.5">
                 <span>{d.type}</span>
-                {d.row_count > 0 && <span>{d.row_count.toLocaleString()} rows</span>}
+                {d.row_count > 0 && (
+                  <span>{d.row_count.toLocaleString()} rows</span>
+                )}
               </div>
               <div className="text-[10px] text-default-400 mt-0.5 italic">
                 Drag onto canvas to use
@@ -144,6 +166,115 @@ const nodeTypesByCategory = [
         details: "Text Output Node",
         keywords: ["text", "output", "result", "words"],
         popularity: 70,
+      },
+    ],
+  },
+  {
+    category: "Classic ML",
+    nodes: [
+      {
+        type: "randomForest",
+        label: "Random Forest",
+        icon: "lucide:trees",
+        details: "Ensemble of decision trees",
+        keywords: ["random", "forest", "ensemble", "tree", "classification", "regression"],
+        popularity: 90,
+      },
+      {
+        type: "svm",
+        label: "Support Vector Machine",
+        icon: "lucide:scissors",
+        details: "SVM Classifier / Regressor",
+        keywords: ["svm", "support", "vector", "machine", "linear"],
+        popularity: 80,
+      },
+      {
+        type: "knn",
+        label: "K-Nearest Neighbors",
+        icon: "lucide:users",
+        details: "KNN Classifier",
+        keywords: ["knn", "k-nearest", "neighbors", "distance"],
+        popularity: 75,
+      },
+      {
+        type: "logisticRegression",
+        label: "Logistic Regression",
+        icon: "lucide:trending-up",
+        details: "Linear classifier",
+        keywords: ["logistic", "regression", "linear", "classification"],
+        popularity: 85,
+      },
+      {
+        type: "decisionTree",
+        label: "Decision Tree",
+        icon: "lucide:git-merge",
+        details: "Basic tree classifier",
+        keywords: ["decision", "tree", "rule"],
+        popularity: 70,
+      },
+      {
+        type: "gradientBoosting",
+        label: "Gradient Boosting",
+        icon: "lucide:trending-up",
+        details: "Boosted trees for tabular data",
+        keywords: ["gradient", "boosting", "gbm", "tree", "ensemble"],
+        popularity: 88,
+      },
+      {
+        type: "extraTrees",
+        label: "Extra Trees",
+        icon: "lucide:trees",
+        details: "Extremely randomized trees",
+        keywords: ["extra", "trees", "ensemble", "random"],
+        popularity: 78,
+      },
+      {
+        type: "naiveBayes",
+        label: "Naive Bayes",
+        icon: "lucide:sigma",
+        details: "Fast probabilistic classifier",
+        keywords: ["naive", "bayes", "probability", "classification"],
+        popularity: 72,
+      },
+      {
+        type: "adaBoost",
+        label: "AdaBoost",
+        icon: "lucide:chevrons-up",
+        details: "Adaptive boosted weak learners",
+        keywords: ["adaboost", "boosting", "ensemble"],
+        popularity: 72,
+      },
+      {
+        type: "linearRegression",
+        label: "Linear Regression",
+        icon: "lucide:line-chart",
+        details: "Linear model for regression",
+        keywords: ["linear", "regression", "baseline"],
+        popularity: 82,
+      },
+      {
+        type: "ridgeRegression",
+        label: "Ridge Regression",
+        icon: "lucide:activity",
+        details: "L2-regularized regression",
+        keywords: ["ridge", "linear", "regression", "l2"],
+        popularity: 74,
+      },
+      {
+        type: "lassoRegression",
+        label: "Lasso Regression",
+        icon: "lucide:chart-no-axes-column",
+        details: "L1-regularized regression",
+        keywords: ["lasso", "linear", "regression", "l1"],
+        popularity: 68,
+      },
+      {
+        type: "mlpClassifier",
+        label: "MLP Classifier",
+        icon: "lucide:brain-circuit",
+        details: "Sklearn neural network classifier",
+        keywords: ["mlp", "neural", "network", "classifier"],
+        popularity: 76,
       },
     ],
   },
@@ -605,6 +736,14 @@ const nodeTypesByCategory = [
         popularity: 65,
       },
       {
+        type: "modelComparison",
+        label: "Model Comparison",
+        icon: "lucide:git-compare-arrows",
+        details: "Compare trained model scores and artifacts",
+        keywords: ["compare", "models", "accuracy", "metrics", "ranking"],
+        popularity: 85,
+      },
+      {
         type: "activationHeatmap",
         label: "Activation Heatmap",
         icon: "lucide:flame",
@@ -657,20 +796,116 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<"layers" | "data" | "agents">("layers");
+  const [sidebarTab, setSidebarTab] = useState<"layers" | "data" | "agents">(
+    "layers",
+  );
 
   // Plexus store
   const agentNotifications = usePlexusStore((s) => s.agentNotifications);
   const dismissNotification = usePlexusStore((s) => s.dismissNotification);
+  const addAgentNotification = usePlexusStore((s) => s.addAgentNotification);
   const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
+  const patchDataset = usePlexusStore((s) => s.patchDataset);
+  const datasets = usePlexusStore((s) => s.datasets);
   const activeNotifications = agentNotifications.filter((n) => !n.dismissed);
 
-  // Flatten all nodes for easier searching
+  const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
+  const [isSuggesting, setIsSuggesting] = useState(false);
+
+  // Ask AI for suggestions
+  const handleAskAI = async () => {
+    if (!selectedDatasetId) {
+      addAgentNotification(
+        "Architect",
+        "error",
+        "Please add or select a dataset first",
+      );
+      return;
+    }
+    
+    setIsSuggesting(true);
+    try {
+      const { runArchitectAgent } = await import("@/lib/api");
+      const result = await runArchitectAgent(selectedDatasetId, "classification");
+      
+      if (result.suggested_nodes) {
+        setHighlightedNodes(new Set(result.suggested_nodes));
+        setSearchQuery(""); // Clear search to see everything
+        setSelectedCategory("all");
+
+        patchDataset(selectedDatasetId, {
+          architect_status: {
+            status: "done",
+            suggested_nodes: result.suggested_nodes,
+            description: result.description,
+          },
+        });
+
+        addAgentNotification(
+          "Architect",
+          "suggestion",
+          "Highlighted AI suggested layers/models based on your dataset!",
+          result,
+        );
+      }
+    } catch (e: any) {
+      addAgentNotification(
+        "Architect",
+        "error",
+        "Failed to get suggestions: " + (e.message || "Unknown error"),
+      );
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
+  // Flatten all nodes for easier searching and dynamically inject datasets
   const allNodes = useMemo(() => {
-    return nodeTypesByCategory.flatMap((category) =>
+    const baseNodes = nodeTypesByCategory.flatMap((category) =>
       category.nodes.map((node) => ({ ...node, category: category.category })),
     );
-  }, []);
+
+    const datasetNodes = datasets.map((ds) => ({
+      type: "dataset",
+      label: ds.name,
+      icon: "lucide:database",
+      details: `${ds.columns?.length ?? 0} cols | ${(ds.row_count ?? 0).toLocaleString()} rows`,
+      keywords: ["dataset", "source", "data", ds.name.toLowerCase()],
+      popularity: 100,
+      category: "Data Sources",
+      dataProps: {
+        datasetId: ds.id,
+        datasetName: ds.name,
+        datasetType: ds.type,
+        rowCount: ds.row_count ?? 0,
+        columns: ds.columns ?? [],
+        cleaningStatus: ds.cleaning_status,
+        architectStatus: ds.architect_status,
+        isCleaned: Boolean(ds.is_cleaned_duplicate),
+        parentDatasetId: ds.parent_dataset_id,
+      },
+    }));
+
+    return [...baseNodes, ...datasetNodes];
+  }, [datasets]);
+
+  // Auto-highlight AI suggestions when a dataset is selected
+  useEffect(() => {
+    if (!selectedDatasetId) {
+      setHighlightedNodes(new Set());
+      return;
+    }
+    const ds = datasets.find((d) => d.id === selectedDatasetId) as
+      | (typeof datasets)[number] & { architect_status?: any }
+      | undefined;
+    const suggested = ds?.architect_status?.suggested_nodes as
+      | string[]
+      | undefined;
+    if (suggested && suggested.length > 0) {
+      setHighlightedNodes(new Set(suggested));
+      setSelectedCategory("all");
+    }
+  }, [allNodes, datasets, selectedDatasetId]);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -822,8 +1057,16 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
           <div className="flex gap-1 p-1 rounded-lg bg-default-100">
             {(
               [
-                { key: "layers", label: "Layers", icon: <Layers className="w-3.5 h-3.5" /> },
-                { key: "data", label: "Data", icon: <Database className="w-3.5 h-3.5" /> },
+                {
+                  key: "layers",
+                  label: "Layers",
+                  icon: <Layers className="w-3.5 h-3.5" />,
+                },
+                {
+                  key: "data",
+                  label: "Data",
+                  icon: <Database className="w-3.5 h-3.5" />,
+                },
                 {
                   key: "agents",
                   label: "Agents",
@@ -855,74 +1098,87 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
           {/* ===== LAYERS TAB ===== */}
           {sidebarTab === "layers" && (
             <>
-          {/* Search */}
-          <div className="relative">
-            <Input
-              classNames={{
-                input: "text-sm",
-              }}
-              endContent={
-                (searchQuery ||
-                  selectedCategory !== "all" ||
-                  showOnlyFavorites) && (
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    onPress={clearSearch}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )
-              }
-              placeholder="Search nodes..."
-              startContent={<Search className="w-4 h-4 text-default-400" />}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Category Filter */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-1">
-              {displayedCategories.map((category) => (
-                <Chip
-                  key={category}
-                  className="cursor-pointer capitalize"
-                  color={selectedCategory === category ? "primary" : "default"}
-                  size="sm"
-                  variant={selectedCategory === category ? "solid" : "flat"}
-                  onClick={() => setSelectedCategory(category)}
+              {/* Search */}
+              <div className="relative flex gap-2">
+                <Input
+                  className="flex-1"
+                  classNames={{
+                    input: "text-sm",
+                  }}
+                  endContent={
+                    (searchQuery ||
+                      selectedCategory !== "all" ||
+                      showOnlyFavorites) && (
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={clearSearch}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )
+                  }
+                  placeholder="Search nodes..."
+                  startContent={<Search className="w-4 h-4 text-default-400" />}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Button
+                  isIconOnly
+                  color="secondary"
+                  variant="flat"
+                  isLoading={isSuggesting}
+                  onPress={handleAskAI}
+                  title="Ask AI to suggest architecture"
                 >
-                  {category === "all"
-                    ? "All"
-                    : category.replace(/([A-Z])/g, " $1").trim()}
-                </Chip>
-              ))}
-            </div>
+                  <Sparkles className="w-4 h-4" />
+                </Button>
+              </div>
 
-            {categories.length > 6 && (
-              <Button
-                className="h-6 text-xs"
-                size="sm"
-                startContent={
-                  showAllCategories ? (
-                    <ChevronUp className="w-3 h-3" />
-                  ) : (
-                    <ChevronDown className="w-3 h-3" />
-                  )
-                }
-                variant="light"
-                onPress={() => setShowAllCategories(!showAllCategories)}
-              >
-                {showAllCategories
-                  ? "Show Less"
-                  : `Show ${categories.length - 6} More`}
-              </Button>
-            )}
-          </div>
+              {/* Category Filter */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-1">
+                  {displayedCategories.map((category) => (
+                    <Chip
+                      key={category}
+                      className="cursor-pointer capitalize"
+                      color={
+                        selectedCategory === category ? "primary" : "default"
+                      }
+                      size="sm"
+                      variant={selectedCategory === category ? "solid" : "flat"}
+                      onClick={() => setSelectedCategory(category)}
+                    >
+                      {category === "all"
+                        ? "All"
+                        : category.replace(/([A-Z])/g, " $1").trim()}
+                    </Chip>
+                  ))}
+                </div>
 
-          {/* Recently Used
+                {categories.length > 6 && (
+                  <Button
+                    className="h-6 text-xs"
+                    size="sm"
+                    startContent={
+                      showAllCategories ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )
+                    }
+                    variant="light"
+                    onPress={() => setShowAllCategories(!showAllCategories)}
+                  >
+                    {showAllCategories
+                      ? "Show Less"
+                      : `Show ${categories.length - 6} More`}
+                  </Button>
+                )}
+              </div>
+
+              {/* Recently Used
           {recentlyUsed.length > 0 && !searchQuery && selectedCategory === "all" && (
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -952,79 +1208,74 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
             </div>
           )} */}
 
-          {/* Nodes List */}
-          <div className="space-y-4 overflow-y-auto max-h-fit">
-            {Object.entries(groupedFilteredNodes).map(([category, nodes]) => (
-              <div key={category} className="space-y-2">
-                <div className="text-xs font-bold text-default-500 uppercase tracking-wide">
-                  {category}
-                </div>
-                <div className="space-y-1">
-                  {nodes.map((node) => (
-                    <div key={node.type} className="flex items-center gap-2">
-                      <Button
-                        draggable
-                        className="justify-start flex-1 h-auto py-2"
-                        variant="flat"
-                        onDragStart={(event) => onDragStart(event, node)}
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          <Icon
-                            className="w-4 h-4 flex-shrink-0"
-                            icon={node.icon}
-                          />
-                          <div className="flex-1 text-left">
-                            <div className="text-sm font-medium">
-                              {node.label}
-                            </div>
-                            <div className="text-xs text-default-500 truncate">
-                              {node.details}
-                            </div>
+              {/* Nodes List */}
+              <div className="space-y-4 overflow-y-auto max-h-fit">
+                {Object.entries(groupedFilteredNodes).map(
+                  ([category, nodes]) => (
+                    <div key={category} className="space-y-2">
+                      <div className="text-xs font-bold text-default-500 uppercase tracking-wide">
+                        {category}
+                      </div>
+                      <div className="space-y-1">
+                        {nodes.map((node) => {
+                          const isHighlighted = highlightedNodes.has(node.type);
+                          return (
+                          <div
+                            key={node.type}
+                            className="flex items-center gap-2"
+                          >
+                            <Button
+                              draggable
+                              className="justify-start flex-1 h-auto py-2"
+                              variant={isHighlighted ? "solid" : "flat"}
+                              color={isHighlighted ? "secondary" : "default"}
+                              onDragStart={(event) => onDragStart(event, node)}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                <Icon
+                                  className="w-4 h-4 flex-shrink-0"
+                                  icon={node.icon}
+                                />
+                                <div className="flex-1 text-left">
+                                  <div className="text-sm font-medium">
+                                    {node.label}
+                                    {isHighlighted && <span className="ml-2 text-[10px] bg-secondary-900 text-white px-1.5 py-0.5 rounded-full">Suggested</span>}
+                                  </div>
+                                  <div className="text-xs truncate" style={{ color: isHighlighted ? 'rgba(255,255,255,0.7)' : 'var(--heroui-default-500)' }}>
+                                    {node.details}
+                                  </div>
+                                </div>
+                              </div>
+                            </Button>
                           </div>
-                        </div>
-                      </Button>
-                      {/* <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        onPress={() => toggleFavorite(node.type)}
-                      >
-                        {favorites.has(node.type) ? (
-                          <Star className="w-4 h-4 text-warning fill-warning" />
-                        ) : (
-                          <StarOff className="w-4 h-4 text-default-400" />
-                        )}
-                      </Button> */}
+                        )})}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+                  ),
+                )}
 
-            {filteredNodes.length === 0 && (
-              <div className="text-center py-8">
-                <Filter className="w-8 h-8 text-default-300 mx-auto mb-2" />
-                <p className="text-sm text-default-500">
-                  No nodes match your criteria.
-                </p>
-                <Button
-                  className="mt-2"
-                  size="sm"
-                  variant="flat"
-                  onPress={clearSearch}
-                >
-                  Clear filters
-                </Button>
+                {filteredNodes.length === 0 && (
+                  <div className="text-center py-8">
+                    <Filter className="w-8 h-8 text-default-300 mx-auto mb-2" />
+                    <p className="text-sm text-default-500">
+                      No nodes match your criteria.
+                    </p>
+                    <Button
+                      className="mt-2"
+                      size="sm"
+                      variant="flat"
+                      onPress={clearSearch}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
             </>
           )}
 
           {/* ===== DATA TAB ===== */}
-          {sidebarTab === "data" && (
-            <DatasetSidebarPanel />
-          )}
+          {sidebarTab === "data" && <DatasetSidebarPanel />}
 
           {/* ===== AGENTS TAB ===== */}
           {sidebarTab === "agents" && (
@@ -1073,18 +1324,20 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
                         <X className="w-3 h-3" />
                       </Button>
                     </div>
-                    <p className="text-default-600 leading-relaxed">{n.message}</p>
+                    <p className="text-default-600 leading-relaxed">
+                      {n.message}
+                    </p>
                     <div className="flex items-center justify-between">
                       <p className="text-default-400">
                         {new Date(n.timestamp).toLocaleTimeString()}
                       </p>
                       {n.type === "suggestion" && (
                         <Button
-                          size="sm"
-                          color="secondary"
-                          variant="flat"
                           className="h-6 text-[10px]"
+                          color="secondary"
+                          size="sm"
                           startContent={<Sparkles className="w-3 h-3" />}
+                          variant="flat"
                           onPress={() => {
                             dismissNotification(n.id);
                           }}

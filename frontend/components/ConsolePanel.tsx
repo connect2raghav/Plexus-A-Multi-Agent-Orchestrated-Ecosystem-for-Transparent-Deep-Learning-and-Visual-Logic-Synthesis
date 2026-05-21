@@ -8,6 +8,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Button, Chip } from "@heroui/react";
 import { Trash2, ChevronDown, ChevronUp, Terminal } from "lucide-react";
+
 import { usePlexusStore, LogEntry } from "@/store/plexusStore";
 
 const LEVEL_COLOURS: Record<LogEntry["level"], string> = {
@@ -43,9 +44,7 @@ const ConsolePanel: React.FC = () => {
   }, [logs, open]);
 
   const visible =
-    filter === "all"
-      ? logs
-      : logs.filter((l) => l.level === filter);
+    filter === "all" ? logs : logs.filter((l) => l.level === filter);
 
   const newErrors = logs.filter((l) => l.level === "error").length;
   const newWarnings = logs.filter((l) => l.level === "warning").length;

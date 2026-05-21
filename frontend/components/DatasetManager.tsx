@@ -68,16 +68,21 @@ interface DatasetManagerProps {
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+
   return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
 }
 
 function typeIcon(type: string) {
   if (type === "image_folder") return <Image className="w-4 h-4" />;
   if (type === "text") return <FileText className="w-4 h-4" />;
+
   return <Database className="w-4 h-4" />;
 }
 
-const SUGGESTION_COLORS: Record<string, "primary" | "secondary" | "warning" | "success" | "default"> = {
+const SUGGESTION_COLORS: Record<
+  string,
+  "primary" | "secondary" | "warning" | "success" | "default"
+> = {
   dropNulls: "warning",
   normalize: "primary",
   oneHotEncode: "secondary",
@@ -93,14 +98,23 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
   const [uploading, setUploading] = useState(false);
   const [agentRunning, setAgentRunning] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [previewDataset, setPreviewDataset] = useState<DatasetRecord | null>(null);
-  const [agentResult, setAgentResult] = useState<Record<string, unknown> | null>(null);
+  const [previewDataset, setPreviewDataset] = useState<DatasetRecord | null>(
+    null,
+  );
+  const [agentResult, setAgentResult] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [applyingPreprocess, setApplyingPreprocess] = useState<string | null>(null);
+  const [applyingPreprocess, setApplyingPreprocess] = useState<string | null>(
+    null,
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Refs to track active polling intervals per dataset id
-  const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>(
+    {},
+  );
 
   const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
   const selectDataset = usePlexusStore((s) => s.selectDataset);
@@ -136,7 +150,11 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
         try {
           const status = await getDatasetStatus(id);
           // Wait until BOTH profiling AND auto-cleaning (if applicable) are done
-          const isDone = status.done && (!status.cleaning_status || status.cleaning_status.status === "done" || status.cleaning_status.status === "error");
+          const isDone =
+            status.done &&
+            (!status.cleaning_status ||
+              status.cleaning_status.status === "done" ||
+              status.cleaning_status.status === "error");
 
           setDatasetProgress(id, {
             progress: status.progress,
@@ -160,10 +178,13 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                         status: "ready",
                         columns: status.columns,
                         row_count: status.row_count,
-                        preprocessing_suggestions: status.preprocessing_suggestions,
+                        preprocessing_suggestions:
+                          status.preprocessing_suggestions,
+                        cleaning_status: status.cleaning_status,
+                        architect_status: status.architect_status,
                       }
-                    : d
-                )
+                    : d,
+                ),
               );
               // Merge into the Zustand store (non-destructive patch)
               patchDataset(id, {
@@ -171,26 +192,32 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                 columns: status.columns,
                 row_count: status.row_count,
                 preprocessing_suggestions: status.preprocessing_suggestions,
+                cleaning_status: status.cleaning_status,
+                architect_status: status.architect_status,
               });
               addLog(
                 "success",
                 `Dataset profiling complete. ${status.columns.length} columns, ${status.row_count.toLocaleString()} rows, ${status.preprocessing_suggestions.length} suggestion(s).`,
-                "Dataset"
+                "Dataset",
               );
               if (status.preprocessing_suggestions.length > 0) {
                 addAgentNotification(
                   "Data Agent",
                   "suggestion",
                   `${status.preprocessing_suggestions.length} preprocessing suggestion(s) ready for dataset ${id}.`,
-                  status.preprocessing_suggestions
+                  status.preprocessing_suggestions,
                 );
               }
             } else if (status.error) {
               setDatasets((prev) =>
-                prev.map((d) => (d.id === id ? { ...d, status: "error" } : d))
+                prev.map((d) => (d.id === id ? { ...d, status: "error" } : d)),
               );
               patchDataset(id, { status: "error" });
-              addLog("error", `Dataset profiling failed: ${status.error}`, "Dataset");
+              addLog(
+                "error",
+                `Dataset profiling failed: ${status.error}`,
+                "Dataset",
+              );
             }
           }
         } catch {
@@ -198,7 +225,13 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
         }
       }, 900);
     },
-    [setDatasetProgress, stopPolling, patchDataset, addLog, addAgentNotification]
+    [
+      setDatasetProgress,
+      stopPolling,
+      patchDataset,
+      addLog,
+      addAgentNotification,
+    ],
   );
 
   const loadDatasets = useCallback(async () => {
@@ -206,6 +239,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
     setErrorMsg(null);
     try {
       const list = await listDatasets();
+
       setDatasets(list);
       list.forEach((d) => {
         addDataset(d);
@@ -216,6 +250,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+
       setErrorMsg(`Could not reach backend: ${msg}`);
     } finally {
       setLoading(false);
@@ -232,13 +267,17 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
       setErrorMsg(null);
       try {
         const record = await uploadDataset(file);
+
         // Backend returns stub with status:"profiling" immediately
         addDataset(record);
-        setDatasets((prev) => [...prev.filter((d) => d.id !== record.id), record]);
+        setDatasets((prev) => [
+          ...prev.filter((d) => d.id !== record.id),
+          record,
+        ]);
         addLog(
           "info",
           `Dataset "${record.name}" uploaded (${formatBytes(record.size_bytes)}). Profiling in background…`,
-          "Dataset"
+          "Dataset",
         );
         // Seed initial progress state
         setDatasetProgress(record.id, {
@@ -251,22 +290,24 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
         startPolling(record.id);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
+
         setErrorMsg(`Upload failed: ${msg}`);
         addLog("error", `Dataset upload failed: ${msg}`, "Dataset");
       } finally {
         setUploading(false);
       }
     },
-    [addDataset, addLog, setDatasetProgress, startPolling]
+    [addDataset, addLog, setDatasetProgress, startPolling],
   );
 
   const handleDrop = useCallback(
     (evt: React.DragEvent) => {
       evt.preventDefault();
       const file = evt.dataTransfer.files[0];
+
       if (file) handleFileUpload(file);
     },
-    [handleFileUpload]
+    [handleFileUpload],
   );
 
   const handleDelete = useCallback(
@@ -280,10 +321,11 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
         addLog("info", `Dataset ${id} deleted.`, "Dataset");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
+
         addLog("error", `Delete failed: ${msg}`, "Dataset");
       }
     },
-    [removeDatasetStore, addLog, stopPolling, clearDatasetProgress]
+    [removeDatasetStore, addLog, stopPolling, clearDatasetProgress],
   );
 
   const handleRunDataAgent = useCallback(
@@ -294,58 +336,66 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
       addLog("agent", "Running Data Agent…", "DataAgent");
       try {
         const result = await runDataAgent(datasetId);
+
         setAgentResult(result as unknown as Record<string, unknown>);
         addLog(
           "success",
           `Data Agent completed. ${result.steps.length} cleaning step(s) found.`,
-          "DataAgent"
+          "DataAgent",
         );
         addAgentNotification(
           "Data Agent",
           "suggestion",
           `${result.steps.length} preprocessing step(s) suggested for dataset ${datasetId}.`,
-          result
+          result,
         );
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
+
         addLog("error", `Data Agent failed: ${msg}`, "DataAgent");
         addAgentNotification("Data Agent", "error", msg);
       } finally {
         setAgentRunning(null);
       }
     },
-    [addLog, addAgentNotification]
+    [addLog, addAgentNotification],
   );
 
   const handleApplyPreprocessing = useCallback(
     async (datasetId: string) => {
       setApplyingPreprocess(datasetId);
-      addLog("info", `Applying generated cleaning code to dataset...`, "DataAgent");
+      addLog(
+        "info",
+        `Applying generated cleaning code to dataset...`,
+        "DataAgent",
+      );
       try {
         const newDataset = await applyPreprocessing(datasetId);
+
         addDataset(newDataset);
         setDatasets((prev) => [newDataset, ...prev]);
         addLog(
           "success",
           `Preprocessing applied. New dataset created: ${newDataset.name}`,
-          "DataAgent"
+          "DataAgent",
         );
         // Start polling the new dataset if it needs profiling
         if (newDataset.status === "profiling") {
-            startPolling(newDataset.id);
+          startPolling(newDataset.id);
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
+
         addLog("error", `Failed to apply preprocessing: ${msg}`, "DataAgent");
       } finally {
         setApplyingPreprocess(null);
       }
     },
-    [addLog, addDataset, startPolling]
+    [addLog, addDataset, startPolling],
   );
 
   const filtered = datasets.filter(
-    (d) => !search || d.name.toLowerCase().includes(search.toLowerCase())
+    (d) => !search || d.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   // ---- Dataset card renderer ----
@@ -356,11 +406,18 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
     const profilingError = progress?.error;
     const isReady = !isProfiling && !profilingError;
     const suggestions: PreprocessingSuggestion[] =
-      (d as DatasetRecord & { preprocessing_suggestions?: PreprocessingSuggestion[] })
-        .preprocessing_suggestions ?? progress?.preprocessing_suggestions ?? [];
-    
+      (
+        d as DatasetRecord & {
+          preprocessing_suggestions?: PreprocessingSuggestion[];
+        }
+      ).preprocessing_suggestions ??
+      progress?.preprocessing_suggestions ??
+      [];
+
     const cleaningStatus = progress?.cleaning_status;
-    const isAutoCleaning = cleaningStatus?.status === "running" || cleaningStatus?.status === "pending";
+    const isAutoCleaning =
+      cleaningStatus?.status === "running" ||
+      cleaningStatus?.status === "pending";
     const autoCleanDone = cleaningStatus?.status === "done";
 
     return (
@@ -370,8 +427,8 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
           isSelected
             ? "border-primary bg-primary-50 dark:bg-primary-900/20"
             : profilingError
-            ? "border-danger-200"
-            : "border-default-200"
+              ? "border-danger-200"
+              : "border-default-200"
         }`}
       >
         <CardBody className="p-3 space-y-2">
@@ -389,7 +446,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   </Chip>
                 )}
                 {isProfiling && (
-                  <Chip color="warning" size="sm" variant="flat" startContent={<Clock className="w-3 h-3" />}>
+                  <Chip
+                    color="warning"
+                    size="sm"
+                    startContent={<Clock className="w-3 h-3" />}
+                    variant="flat"
+                  >
                     profiling
                   </Chip>
                 )}
@@ -399,7 +461,12 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   </Chip>
                 )}
                 {d.is_cleaned_duplicate && (
-                  <Chip color="success" size="sm" variant="flat" startContent={<Sparkles className="w-3 h-3" />}>
+                  <Chip
+                    color="success"
+                    size="sm"
+                    startContent={<Sparkles className="w-3 h-3" />}
+                    variant="flat"
+                  >
                     cleaned
                   </Chip>
                 )}
@@ -410,15 +477,25 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                 <div className="space-y-1">
                   <Progress
                     aria-label="Processing progress"
-                    color={isAutoCleaning && progress.progress === 100 ? "secondary" : "warning"}
-                    size="sm"
-                    value={isAutoCleaning && progress.progress === 100 ? undefined : progress.progress} // Indeterminate during auto-clean
-                    isIndeterminate={isAutoCleaning && progress.progress === 100}
                     className="max-w-full"
+                    color={
+                      isAutoCleaning && progress.progress === 100
+                        ? "secondary"
+                        : "warning"
+                    }
+                    isIndeterminate={
+                      isAutoCleaning && progress.progress === 100
+                    }
+                    size="sm"
+                    value={
+                      isAutoCleaning && progress.progress === 100
+                        ? undefined
+                        : progress.progress
+                    } // Indeterminate during auto-clean
                   />
                   <p className="text-xs text-default-500">
-                    {isAutoCleaning && progress.progress === 100 
-                      ? "Generating AI cleaning script…" 
+                    {isAutoCleaning && progress.progress === 100
+                      ? "Generating AI cleaning script…"
                       : progress.message}
                   </p>
                 </div>
@@ -436,9 +513,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   {d.row_count > 0 && (
                     <span>{d.row_count.toLocaleString()} rows</span>
                   )}
-                  {d.columns.length > 0 && (
-                    <span>{d.columns.length} cols</span>
-                  )}
+                  {d.columns.length > 0 && <span>{d.columns.length} cols</span>}
                   <span>{new Date(d.uploaded_at).toLocaleDateString()}</span>
                 </div>
               )}
@@ -450,9 +525,9 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   {suggestions.map((s, i) => (
                     <Tooltip key={i} content={s.reason} size="sm">
                       <Chip
+                        color={SUGGESTION_COLORS[s.node_type] ?? "default"}
                         size="sm"
                         variant="flat"
-                        color={SUGGESTION_COLORS[s.node_type] ?? "default"}
                       >
                         {s.node_type}
                       </Chip>
@@ -462,51 +537,65 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
               )}
 
               {/* Manual preprocessing fallback — shown when AI cleaning fails */}
-              {isReady && cleaningStatus?.status === "error" && d.type === "csv" && (
-                <div className="mt-2 p-2 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <AlertCircle className="w-3 h-3 text-warning" />
-                    <span className="text-xs font-medium text-warning-700 dark:text-warning-400">
-                      AI preprocessing failed — try manual options:
-                    </span>
+              {isReady &&
+                cleaningStatus?.status === "error" &&
+                d.type === "csv" && (
+                  <div className="mt-2 p-2 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <AlertCircle className="w-3 h-3 text-warning" />
+                      <span className="text-xs font-medium text-warning-700 dark:text-warning-400">
+                        AI preprocessing failed — try manual options:
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <Chip
+                        className="cursor-pointer hover:opacity-80"
+                        color="warning"
+                        size="sm"
+                        variant="flat"
+                        onClick={() => {
+                          addLog(
+                            "info",
+                            "Applying manual: Drop NaN rows",
+                            "Manual",
+                          );
+                        }}
+                      >
+                        Drop NaN
+                      </Chip>
+                      <Chip
+                        className="cursor-pointer hover:opacity-80"
+                        color="secondary"
+                        size="sm"
+                        variant="flat"
+                        onClick={() => {
+                          addLog(
+                            "info",
+                            "Applying manual: One-Hot Encode",
+                            "Manual",
+                          );
+                        }}
+                      >
+                        One-Hot Encode
+                      </Chip>
+                      <Chip
+                        className="cursor-pointer hover:opacity-80"
+                        color="success"
+                        size="sm"
+                        variant="flat"
+                        onClick={() => {
+                          addLog(
+                            "info",
+                            "Applying manual: Standard Scale",
+                            "Manual",
+                          );
+                        }}
+                      >
+                        Standard Scale
+                      </Chip>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <Chip
-                      size="sm"
-                      variant="flat"
-                      color="warning"
-                      className="cursor-pointer hover:opacity-80"
-                      onClick={() => {
-                        addLog("info", "Applying manual: Drop NaN rows", "Manual");
-                      }}
-                    >
-                      Drop NaN
-                    </Chip>
-                    <Chip
-                      size="sm"
-                      variant="flat"
-                      color="secondary"
-                      className="cursor-pointer hover:opacity-80"
-                      onClick={() => {
-                        addLog("info", "Applying manual: One-Hot Encode", "Manual");
-                      }}
-                    >
-                      One-Hot Encode
-                    </Chip>
-                    <Chip
-                      size="sm"
-                      variant="flat"
-                      color="success"
-                      className="cursor-pointer hover:opacity-80"
-                      onClick={() => {
-                        addLog("info", "Applying manual: Standard Scale", "Manual");
-                      }}
-                    >
-                      Standard Scale
-                    </Chip>
-                  </div>
-                </div>
-              )}
+                )}
             </div>
 
             {/* Action buttons */}
@@ -524,11 +613,15 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
               )}
               {isReady && autoCleanDone && (
                 <Button
+                  color="secondary"
                   isLoading={applyingPreprocess === d.id}
                   size="sm"
-                  color="secondary"
+                  startContent={
+                    applyingPreprocess === d.id ? undefined : (
+                      <Sparkles className="w-4 h-4" />
+                    )
+                  }
                   variant="flat"
-                  startContent={applyingPreprocess === d.id ? undefined : <Sparkles className="w-4 h-4" />}
                   onPress={() => handleApplyPreprocessing(d.id)}
                 >
                   AI Preprocess
@@ -546,10 +639,15 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   <Bot className="w-4 h-4" />
                 </Button>
               )}
-              <Tooltip content={isProfiling ? "Dataset is still profiling…" : undefined} isDisabled={!isProfiling}>
+              <Tooltip
+                content={
+                  isProfiling ? "Dataset is still profiling…" : undefined
+                }
+                isDisabled={!isProfiling}
+              >
                 <Button
-                  isDisabled={isProfiling || !!profilingError}
                   color={isSelected ? "primary" : "default"}
+                  isDisabled={isProfiling || !!profilingError}
                   size="sm"
                   variant={isSelected ? "solid" : "flat"}
                   onPress={() => selectDataset(isSelected ? null : d.id)}
@@ -592,9 +690,9 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                 {/* Upload drop zone */}
                 <div
                   className="border-2 border-dashed border-default-300 rounded-xl p-6 text-center transition-colors hover:border-primary cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
                 >
                   <input
                     ref={fileInputRef}
@@ -603,6 +701,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                     type="file"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
+
                       if (f) handleFileUpload(f);
                       e.target.value = "";
                     }}
@@ -698,21 +797,27 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                               <Card key={i}>
                                 <CardBody className="p-3">
                                   <div className="flex items-start gap-2">
-                                    <Chip color="primary" size="sm" variant="flat">
+                                    <Chip
+                                      color="primary"
+                                      size="sm"
+                                      variant="flat"
+                                    >
                                       {step.type as string}
                                     </Chip>
                                     <div className="text-xs">
                                       {(step.columns as string[])?.join(", ")}
-                                      {typeof step.method === "string" && step.method && (
-                                        <span className="text-default-500">
-                                          {" "}· {step.method}
-                                        </span>
-                                      )}
+                                      {typeof step.method === "string" &&
+                                        step.method && (
+                                          <span className="text-default-500">
+                                            {" "}
+                                            · {step.method}
+                                          </span>
+                                        )}
                                     </div>
                                   </div>
                                 </CardBody>
                               </Card>
-                            )
+                            ),
                           )}
                         </div>
                       </div>
@@ -876,6 +981,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                           {Object.entries(previewDataset.stats).map(
                             ([col, s]) => {
                               const stat = s as Record<string, unknown>;
+
                               return (
                                 <tr key={col}>
                                   <td className="border border-default-100 px-2 py-1 font-medium">
@@ -911,7 +1017,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                                   </td>
                                 </tr>
                               );
-                            }
+                            },
                           )}
                         </tbody>
                       </table>

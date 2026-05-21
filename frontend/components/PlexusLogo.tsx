@@ -20,7 +20,7 @@ const textSizeMap = {
   xl: "text-3xl",
 };
 
-export const NeoDLogo: React.FC<LogoProps> = ({
+export const PlexusLogo: React.FC<LogoProps> = ({
   size = "md",
   showText = true,
   className = "",
@@ -37,4 +37,4 @@ export const NeoDLogo: React.FC<LogoProps> = ({
   );
 };
 
-export default NeoDLogo;
+export default PlexusLogo;

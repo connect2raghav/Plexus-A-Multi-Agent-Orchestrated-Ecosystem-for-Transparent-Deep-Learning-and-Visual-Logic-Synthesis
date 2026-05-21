@@ -31,7 +31,7 @@ import {
 import DefaultLayout from "@/layouts/default";
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
 import SettingsModal from "@/components/SettingsModal";
-import { NeoDLogo } from "@/components/NeoDLogo";
+import { PlexusLogo } from "@/components/PlexusLogo";
 
 interface ProjectStats {
   totalProjects: number;
@@ -596,7 +596,7 @@ const DashboardPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <NeoDLogo showText={false} size="lg" />
+            <PlexusLogo showText={false} size="lg" />
             <div>
               <h1 className="text-3xl font-bold">Plexus Dashboard</h1>
               <p className="text-default-500 mt-1">

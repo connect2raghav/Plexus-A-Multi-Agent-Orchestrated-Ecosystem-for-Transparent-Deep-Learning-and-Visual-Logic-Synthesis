@@ -7,7 +7,7 @@ export default function Document() {
   return (
     // suppressHydrationWarning prevents next-themes localStorage read from
     // causing a "Suspense boundary received update before hydrating" error.
-    <Html lang="en" suppressHydrationWarning>
+    <Html suppressHydrationWarning lang="en">
       <Head />
       <body
         suppressHydrationWarning

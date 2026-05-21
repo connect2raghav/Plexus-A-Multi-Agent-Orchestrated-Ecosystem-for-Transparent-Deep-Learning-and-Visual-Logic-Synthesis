@@ -5,8 +5,14 @@
  * Manages: datasets, training job state, console logs, agent results.
  */
 
+import type {
+  DatasetRecord,
+  ResourceResult,
+  PreprocessingSuggestion,
+  CleaningStatus,
+} from "@/lib/api";
+
 import { create } from "zustand";
-import type { DatasetRecord, ResourceResult, PreprocessingSuggestion, CleaningStatus } from "@/lib/api";
 
 // ---- Log entry ----
 export interface LogEntry {
@@ -27,7 +33,7 @@ export interface TrainingMetrics {
 
 export interface TrainingState {
   jobId: string | null;
-  status: "idle" | "queued" | "running" | "completed" | "error";
+  status: "idle" | "queued" | "running" | "paused" | "stopped" | "completed" | "error";
   progress: number;
   epoch: number;
   epochs: number;
@@ -40,7 +46,7 @@ export interface TrainingState {
 
 // ---- Dataset profiling progress ----
 export interface DatasetProfilingState {
-  progress: number;          // 0-100
+  progress: number; // 0-100
   message: string;
   done: boolean;
   error: string | null;
@@ -96,7 +102,7 @@ export interface PlexusStore {
     agentName: string,
     type: AgentNotification["type"],
     message: string,
-    details?: unknown
+    details?: unknown,
   ) => void;
   dismissNotification: (id: string) => void;
   clearNotifications: () => void;
@@ -147,7 +153,9 @@ export const usePlexusStore = create<PlexusStore>((set) => ({
     })),
   patchDataset: (id, patch) =>
     set((state) => ({
-      datasets: state.datasets.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+      datasets: state.datasets.map((d) =>
+        d.id === id ? { ...d, ...patch } : d,
+      ),
     })),
   selectedDatasetId: null,
   selectDataset: (id) => set({ selectedDatasetId: id }),
@@ -161,7 +169,9 @@ export const usePlexusStore = create<PlexusStore>((set) => ({
   clearDatasetProgress: (id) =>
     set((state) => {
       const next = { ...state.datasetProgress };
+
       delete next[id];
+
       return { datasetProgress: next };
     }),
 
@@ -218,7 +228,7 @@ export const usePlexusStore = create<PlexusStore>((set) => ({
   dismissNotification: (id) =>
     set((state) => ({
       agentNotifications: state.agentNotifications.map((n) =>
-        n.id === id ? { ...n, dismissed: true } : n
+        n.id === id ? { ...n, dismissed: true } : n,
       ),
     })),
   clearNotifications: () => set({ agentNotifications: [] }),

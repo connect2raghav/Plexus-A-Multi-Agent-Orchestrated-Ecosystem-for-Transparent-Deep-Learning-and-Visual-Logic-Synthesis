@@ -64,6 +64,7 @@ export default function NeuralNetworkPage() {
   const router = useRouter();
 
   const [isMounted, setIsMounted] = useState(false);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -84,8 +85,11 @@ export default function NeuralNetworkPage() {
   const agentNotifications = usePlexusStore((s) => s.agentNotifications);
 
   const unreadErrors = logs.filter((l) => l.level === "error").length;
-  const pendingNotifications = agentNotifications.filter((n) => !n.dismissed).length;
-  const isTraining = trainingStatus === "running" || trainingStatus === "queued";
+  const pendingNotifications = agentNotifications.filter(
+    (n) => !n.dismissed,
+  ).length;
+  const isTraining =
+    trainingStatus === "running" || trainingStatus === "queued";
 
   // Parse URL query on mount
   useEffect(() => {
@@ -100,6 +104,7 @@ export default function NeuralNetworkPage() {
       const ok = await checkHealth()
         .then(() => true)
         .catch(() => false);
+
       if (!mounted) return;
       setBackendOnline(ok);
       if (ok) {
@@ -115,8 +120,10 @@ export default function NeuralNetworkPage() {
           .catch(() => {});
       }
     };
+
     check();
     const interval = setInterval(check, 10_000);
+
     return () => {
       mounted = false;
       clearInterval(interval);
@@ -127,15 +134,22 @@ export default function NeuralNetworkPage() {
   const handleTrain = useCallback(async () => {
     if (!backendOnline) {
       addLog("error", "Backend is offline. Cannot start training.", "Training");
+
       return;
     }
     if (!selectedDatasetId) {
       addLog("warning", "Select a dataset first.", "Training");
       setDatasetModalOpen(true);
+
       return;
     }
     if (canvasNodes.length < 2) {
-      addLog("warning", "Add at least 2 nodes to the canvas before training.", "Training");
+      addLog(
+        "warning",
+        "Add at least 2 nodes to the canvas before training.",
+        "Training",
+      );
+
       return;
     }
     try {
@@ -147,13 +161,26 @@ export default function NeuralNetworkPage() {
         epochs: 20,
         batchSize: 32,
       });
+
       startJob(job.job_id, 20);
-      addLog("success", `Training job started (ID: ${job.job_id}).`, "Training");
+      addLog(
+        "success",
+        `Training job started (ID: ${job.job_id}).`,
+        "Training",
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+
       addLog("error", `Failed to start training: ${msg}`, "Training");
     }
-  }, [backendOnline, selectedDatasetId, canvasNodes, canvasEdges, addLog, startJob]);
+  }, [
+    backendOnline,
+    selectedDatasetId,
+    canvasNodes,
+    canvasEdges,
+    addLog,
+    startJob,
+  ]);
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -165,7 +192,9 @@ export default function NeuralNetworkPage() {
         {/* Top status bar */}
         <div className="flex items-center justify-between px-4 py-1.5 border-b border-default-100 bg-background/80 backdrop-blur-sm text-xs shrink-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-default-700">Plexus Studio</span>
+            <span className="font-semibold text-default-700">
+              Plexus Studio
+            </span>
             {backendOnline ? (
               <div className="flex items-center gap-1 text-success-600">
                 <CheckCircle2 className="w-3 h-3" />
@@ -205,7 +234,11 @@ export default function NeuralNetworkPage() {
             {/* Agent notifications badge */}
             {pendingNotifications > 0 && (
               <Tooltip content={`${pendingNotifications} agent suggestion(s)`}>
-                <Badge color="secondary" content={pendingNotifications} size="sm">
+                <Badge
+                  color="secondary"
+                  content={pendingNotifications}
+                  size="sm"
+                >
                   <Button isIconOnly size="sm" variant="light">
                     <AlertCircle className="w-4 h-4 text-secondary" />
                   </Button>
@@ -216,8 +249,8 @@ export default function NeuralNetworkPage() {
             {/* Training panel toggle */}
             <Tooltip content="Training panel">
               <Button
-                color={trainingPanelOpen ? "primary" : "default"}
                 isIconOnly
+                color={trainingPanelOpen ? "primary" : "default"}
                 size="sm"
                 variant={trainingPanelOpen ? "flat" : "light"}
                 onPress={() => setTrainingPanelOpen(!trainingPanelOpen)}
@@ -235,8 +268,8 @@ export default function NeuralNetworkPage() {
                 size="sm"
               >
                 <Button
-                  color={consolePanelOpen ? "primary" : "default"}
                   isIconOnly
+                  color={consolePanelOpen ? "primary" : "default"}
                   size="sm"
                   variant={consolePanelOpen ? "flat" : "light"}
                   onPress={() => setConsolePanelOpen(!consolePanelOpen)}
@@ -252,7 +285,9 @@ export default function NeuralNetworkPage() {
               isDisabled={!backendOnline || isTraining}
               isLoading={isTraining}
               size="sm"
-              startContent={!isTraining ? <PlayCircle className="w-4 h-4" /> : undefined}
+              startContent={
+                !isTraining ? <PlayCircle className="w-4 h-4" /> : undefined
+              }
               onPress={handleTrain}
             >
               {isTraining ? "Training…" : "Train"}

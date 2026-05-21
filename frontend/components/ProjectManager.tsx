@@ -234,7 +234,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     const dataUri =
       "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
 
-    const exportFileDefaultName = `${project.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.neod.json`;
+    const exportFileDefaultName = `${project.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.plexus.json`;
 
     const linkElement = document.createElement("a");
 
