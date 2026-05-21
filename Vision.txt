@@ -258,3 +258,20 @@ Implement **exactly** as described. Prioritise: (1) empty canvas + drag‑and‑
 - Hyperparameter grid search UI.
 - Model template expansion (ResNet-18, LSTM templates that expand into connected node groups when dragged).
 
+
+---
+
+## 14. Implementation Update - 2026-05-21 (Pass 3)
+
+**Implemented in this pass:**
+- **Database Caching for AI Agents**: Implemented robust backend API routes (PATCH /api/datasets/{dataset_id}) and frontend integration to persist AI agent results (like Architect suggestions and Data cleaning status) directly into the database. When a dataset is reloaded, its intelligence is retrieved from the cache instead of querying the LLM again, effectively conserving API tokens.
+- **Interactive Canvas UI (No Typing)**: Enhanced classical ML blocks (Random Forest, SVM, KNN) with intuitive sliders, toggles, and dropdowns for hyperparameter tuning. Removed reliance on manual text input boxes.
+- **Ghost Nodes for AI Suggestions**: The Architect agent's suggested models now appear as faint 'ghost nodes' on the canvas. Clicking a ghost node instantly materializes it into a real, functional block.
+- **Graph Restructuring Tools**: Added intuitive 'Trash' (delete) icons to nodes and 'Scissors' (cut) buttons to edge connectors so users can easily reconstruct their graph flow.
+- **Frontend Environment Stability**: Purged Next.js 	urbopack incompatibilities and corrupt .next cache files that were causing 500 Internal Server Errors and chunk load failures. Implemented pipeline logging for the frontend dev server in start.bat.
+- **Backend Dependency Fixes**: Diagnosed and fixed the backend crash on startup (ModuleNotFoundError: No module named 'database') by automatically injecting and installing the missing sqlalchemy>=2.0.0 dependency into the virtual environment.
+
+**Still remaining after this pass:**
+- **Graph Execution and Hyperparameter Binding**: The backend training engine (	rainer.py) currently ignores dynamic hyperparameters from the canvas nodes and evaluates models in isolation. Needs a complete overhaul to build real sklearn.pipeline.Pipeline objects that strictly follow the graph paths (e.g., Dataset -> Normalizer -> SVM).
+- **True Classical ML Epoch Simulation**: The backend currently treats evaluated models as 'epochs'. Needs to be fixed to smoothly stream progress percentage to 100% without stopping at exactly 3 epochs.
+
