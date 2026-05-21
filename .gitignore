@@ -19,6 +19,8 @@ __pycache__/
 backend/uploads/
 backend/dataset_registry.json
 backend/jobs_registry.json
+backend/uploads
+backend/models
 
 # OS files
 .DS_Store
