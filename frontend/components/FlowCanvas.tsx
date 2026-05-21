@@ -27,7 +27,7 @@ import SaveProjectModal from "./SaveProjectModal";
 import { useToast } from "./ToastProvider";
 
 import ProjectStorage, { SavedProject } from "@/utils/projectStorage";
-import { startTraining } from "@/lib/api";
+import { startTraining, validateGraphNodes, runGraphPreprocessing } from "@/lib/api";
 import { usePlexusStore } from "@/store/plexusStore";
 import { useTrainingSocket } from "@/hooks/useTrainingSocket";
 import { useGraphValidation } from "@/hooks/useGraphValidation";
@@ -121,7 +121,31 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const startJob = usePlexusStore((s) => s.startJob);
   const setTrainingPanelOpen = usePlexusStore((s) => s.setTrainingPanelOpen);
   const addLog = usePlexusStore((s) => s.addLog);
+  const setGraphWarnings = usePlexusStore((s) => s.setGraphWarnings);
+  const graphWarnings = usePlexusStore((s) => s.graphWarnings);
   const [isStartingTraining, setIsStartingTraining] = useState(false);
+
+  // Validate canvas nodes against dataset intelligence whenever nodes or dataset changes
+  useEffect(() => {
+    if (!selectedDatasetId || nodes.length === 0) {
+      setGraphWarnings([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const result = await validateGraphNodes(selectedDatasetId, nodes as unknown[]);
+        setGraphWarnings(result.warnings);
+        result.warnings
+          .filter((w) => w.severity === "error")
+          .forEach((w) => {
+            addLog("warning", `Node '${w.node_type}' incompatible: ${w.message}`, "GraphValidator");
+          });
+      } catch {
+        // Validation is best-effort; don't block the user
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [nodes, selectedDatasetId, setGraphWarnings, addLog]);
 
   const spawnedGhostsRef = useRef<Set<string>>(new Set());
 
@@ -176,16 +200,32 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const handleStartTraining = async () => {
     if (!selectedDatasetId) {
       showError("No dataset selected. Upload and select a dataset first.");
-
       return;
     }
     if (!backendOnline) {
       showError("Backend is offline. Start the FastAPI server first.");
-
       return;
     }
+
     setIsStartingTraining(true);
     try {
+      // ── User-driven path: apply canvas preprocessing nodes first ──────
+      const hasPreprocessing = nodes.some((n) =>
+        ["normalize", "scale", "dropNulls", "oneHotEncode", "embedEncode"].includes(n.type || "")
+      );
+      let activeDatasetId = selectedDatasetId;
+      if (hasPreprocessing) {
+        try {
+          addLog("info", "Applying canvas preprocessing nodes to dataset…", "FlowCanvas");
+          const gpResult = await runGraphPreprocessing(selectedDatasetId, nodes as unknown[], edges as unknown[]);
+          if (gpResult.processed_dataset_id !== selectedDatasetId) {
+            activeDatasetId = gpResult.processed_dataset_id;
+            addLog("success", `Graph preprocessing applied (${gpResult.steps.length} steps). Training on processed dataset.`, "FlowCanvas");
+          }
+        } catch (gpErr) {
+          addLog("warning", `Graph preprocessing failed, training on raw dataset: ${gpErr}`, "FlowCanvas");
+        }
+      }
       const trainingConfigNode = nodes.find((n) => n.type === "training_config");
       const trainingConfig = (trainingConfigNode?.data?.config || {}) as {
         epochs?: number;
@@ -202,7 +242,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
       const job = await startTraining({
         nodes: nodes as unknown[],
         edges: edges as unknown[],
-        datasetId: selectedDatasetId,
+        datasetId: activeDatasetId,
         framework,
         epochs: selectedEpochs,
         batchSize: selectedBatchSize,
@@ -887,35 +927,32 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         fitViewOptions={{ padding: 0.2 }}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        nodes={nodes.map((node) => ({
-          ...node,
-          style: {
-            ...node.style,
-            ...(selectedNodeId === node.id
-              ? {
-                  boxShadow: "0 0 0 3px #3b82f6",
-                  border: "2px solid #3b82f6",
-                }
-              : validation.errorNodeIds.has(node.id)
-                ? {
-                    boxShadow: "0 0 0 2px #ef4444",
-                    border: "2px solid #ef4444",
-                    borderRadius: "0.75rem",
-                  }
-                : validation.warningNodeIds.has(node.id)
-                  ? {
-                      boxShadow: "0 0 0 2px #f59e0b",
-                      border: "2px solid #f59e0b",
-                      borderRadius: "0.75rem",
-                    }
-                  : {}),
-          },
-          // Inject validation messages so node components can render tooltips
-          data: {
-            ...node.data,
-            _validationMessages: validation.nodeMessages[node.id] ?? [],
-          },
-        }))}
+        nodes={nodes.map((node) => {
+          const warning = graphWarnings.find((w) => w.node_id === node.id);
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              ...(selectedNodeId === node.id
+                ? { boxShadow: "0 0 0 3px #3b82f6", border: "2px solid #3b82f6" }
+                : warning?.severity === "error"
+                  ? { boxShadow: "0 0 0 3px #ef4444", border: "2px solid #ef4444", borderRadius: "0.75rem" }
+                  : warning?.severity === "warning"
+                    ? { boxShadow: "0 0 0 2px #f59e0b", border: "2px solid #f59e0b", borderRadius: "0.75rem" }
+                    : validation.errorNodeIds.has(node.id)
+                      ? { boxShadow: "0 0 0 2px #ef4444", border: "2px solid #ef4444", borderRadius: "0.75rem" }
+                      : validation.warningNodeIds.has(node.id)
+                        ? { boxShadow: "0 0 0 2px #f59e0b", border: "2px solid #f59e0b", borderRadius: "0.75rem" }
+                        : {}),
+            },
+            data: {
+              ...node.data,
+              _validationMessages: validation.nodeMessages[node.id] ?? [],
+              _incompatibleWarning: warning ? warning.message : null,
+              _suggestDelete: warning?.suggest_delete ?? false,
+            },
+          };
+        })}
         selectNodesOnDrag={false}
         onConnect={onConnect}
         onDragOver={onDragOver}

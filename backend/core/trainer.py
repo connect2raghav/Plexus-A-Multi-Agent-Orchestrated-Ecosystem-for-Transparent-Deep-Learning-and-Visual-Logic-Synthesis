@@ -103,7 +103,47 @@ def run_training(
     if dataset_record.get("type") != "csv":
         raise ValueError("Real local training currently supports CSV/tabular datasets.")
 
-    split = _load_dataset_split(dataset_record)
+    # ── Apply canvas preprocessing nodes before splitting ────────────────
+    from .graph_preprocessor import extract_preprocessing_pipeline, apply_graph_preprocessing
+    preprocessing_nodes, _ = extract_preprocessing_pipeline(nodes, edges)
+    graph_preprocessing_steps: List[Dict[str, Any]] = []
+    if preprocessing_nodes:
+        try:
+            raw_df = _read_csv(dataset_record["path"])
+            target_col = dataset_record.get("target_column") or raw_df.columns[-1]
+            processed_df, graph_preprocessing_steps = apply_graph_preprocessing(
+                raw_df, preprocessing_nodes, target_column=target_col
+            )
+            # Write processed data to a temp path so _load_dataset_split can use it
+            import tempfile, os
+            tmp = tempfile.NamedTemporaryFile(
+                suffix=".csv", delete=False, dir=Path(dataset_record["path"]).parent
+            )
+            processed_df.to_csv(tmp.name, index=False)
+            tmp.close()
+            # Temporarily override path for this training run
+            dataset_record = {**dataset_record, "path": tmp.name}
+            _tmp_path = tmp.name
+        except Exception as exc:
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                "Graph preprocessing failed, using raw dataset: %s", exc
+            )
+            _tmp_path = None
+    else:
+        _tmp_path = None
+
+    try:
+        split = _load_dataset_split(dataset_record)
+    finally:
+        # Clean up temp file
+        if _tmp_path:
+            try:
+                import os
+                os.unlink(_tmp_path)
+            except OSError:
+                pass
+
     deep_present = _has_deep_graph(nodes)
     model_nodes = _select_model_nodes(nodes, split.task_type, allow_fallback=not deep_present)
     artifact_path = Path(artifact_dir) if artifact_dir else None

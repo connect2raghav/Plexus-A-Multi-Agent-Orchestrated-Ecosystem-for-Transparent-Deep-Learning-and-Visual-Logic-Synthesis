@@ -275,3 +275,64 @@ Implement **exactly** as described. Prioritise: (1) empty canvas + drag‑and‑
 - **Graph Execution and Hyperparameter Binding**: The backend training engine (	rainer.py) currently ignores dynamic hyperparameters from the canvas nodes and evaluates models in isolation. Needs a complete overhaul to build real sklearn.pipeline.Pipeline objects that strictly follow the graph paths (e.g., Dataset -> Normalizer -> SVM).
 - **True Classical ML Epoch Simulation**: The backend currently treats evaluated models as 'epochs'. Needs to be fixed to smoothly stream progress percentage to 100% without stopping at exactly 3 epochs.
 
+
+---
+
+## 15. Implementation Update — Agent Orchestration & Semantic Intelligence Pass
+
+**Implemented in this pass:**
+
+### 1. Semantic Intelligence Layer (`backend/agents/semantic_agent.py`)
+- New `SemanticAgent` reads **100 random rows** from any uploaded CSV.
+- Calls the LLM (Gemini/OpenAI) with a structured prompt to produce a semantic JSON profile containing:
+  - `domain` (healthcare, finance, e-commerce, generic, etc.)
+  - `description` (plain-English dataset summary)
+  - `task_type` (classification / regression / clustering)
+  - `recommended_target` (best column to predict)
+  - Per-column `role` (target / feature / id / datetime / text) and `meaning`
+  - Per-column `data_quality` (good / has_missing / high_cardinality / constant)
+- Full deterministic fallback when LLM is unavailable — no blocking.
+- Cache-first: if `semantic_profile` already exists in the dataset registry, returns instantly with zero LLM calls.
+
+### 2. Agent Orchestrator (`backend/agents/orchestrator.py`)
+- New `AgentOrchestrator` chains all three intelligence agents in sequence:
+  - **Stage 1** — `SemanticAgent` (100-row semantic profile)
+  - **Stage 2** — `DataAgent` (cleaning script generation)
+  - **Stage 3** — `ArchitectAgent` (model suggestions)
+  - **Stage 4** — `ScriptBuilder` (generates `preprocessing.py` + `train.py`)
+- Each stage checks the dataset registry for a cached result **before** calling the LLM.
+- If all three stages are cached (same dataset re-uploaded), the orchestrator returns in milliseconds with **zero LLM calls**.
+- All stages log structured CLI events (`queued → started → completed/failed`) via the existing `_agent_log` pipeline.
+- Generated scripts are dataset-aware: target column, task type, domain, and best model are all derived from the semantic profile — no hardcoding.
+
+### 3. Script Runner (`backend/core/script_runner.py`)
+- New `ScriptRunner` executes auto-generated Python scripts in an **isolated subprocess** using the same venv Python.
+- Streams stdout/stderr line-by-line with `asyncio.create_subprocess_exec`.
+- Configurable timeout (default 300s); kills the process on timeout.
+- Returns `{stdout, stderr, returncode, success, error}`.
+- No Selenium dependency — pure subprocess execution, works on any OS.
+
+### 4. API Wiring (`backend/api.py`)
+- Replaced the two separate `_run_data_agent_bg` + `_run_architect_agent_bg` background tasks with a single `_run_orchestrator_bg` call that runs the full chain.
+- Three new endpoints added:
+  - `GET /api/datasets/{id}/semantic` — returns cached semantic profile
+  - `GET /api/datasets/{id}/scripts` — returns generated `preprocessing.py` and `train.py`
+  - `POST /api/datasets/{id}/run-script` — executes a named script in subprocess, returns stdout/stderr
+- All results (semantic profile, cleaning status, architect suggestions, generated scripts) are persisted to the dataset registry and SQLite DB.
+
+### 5. Dataset Analyzer (`backend/core/dataset_analyzer.py`)
+- Added `get_random_sample(n=100)` method for proper random sampling used by SemanticAgent.
+
+**Cache behaviour (the key improvement):**
+- First upload of a dataset: all 3 LLM stages run, results saved to DB.
+- Same dataset re-uploaded (or backend restarted): all stages served from DB cache, zero LLM calls, instant response.
+- Partial cache: if only semantic is cached but cleaning failed, only DataAgent + ArchitectAgent re-run.
+
+**Verified:**
+- `python -m py_compile agents/semantic_agent.py agents/orchestrator.py core/script_runner.py core/dataset_analyzer.py api.py` → ALL_OK
+
+**Still remaining:**
+- Frontend UI for semantic profile display (domain badge, column role tooltips on Dataset Node).
+- Frontend "Run Script" button on Dataset Node to trigger `POST /run-script` and show output in Console Panel.
+- Per-model live streaming events as each parallel model finishes training.
+- Deep-learning checkpoint-based pause/resume and deployment ZIP export.

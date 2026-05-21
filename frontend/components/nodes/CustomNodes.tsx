@@ -29,6 +29,8 @@ import { usePlexusStore } from "@/store/plexusStore";
 import {
   applyPreprocessing,
   downloadDeploymentZip,
+  downloadDatasetUrl,
+  previewNodeEffect,
   getDatasetStatus,
   predictModel,
   updateJobStatus,
@@ -1533,13 +1535,13 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
     ?.architect_status;
 
   const [isApplying, setIsApplying] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const reactFlowInstance = useReactFlow();
 
+  // Poll backend status
   useEffect(() => {
     if (!data.datasetId) return;
-    if (isCleaningDone && !isProfiling && architectStatus?.status === "done") {
-      return;
-    }
+    if (isCleaningDone && !isProfiling && architectStatus?.status === "done") return;
 
     let active = true;
     const poll = async () => {
@@ -1551,7 +1553,6 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
           (!status.cleaning_status ||
             status.cleaning_status.status === "done" ||
             status.cleaning_status.status === "error");
-
         setDatasetProgress(data.datasetId, {
           progress: status.progress,
           message: status.message,
@@ -1560,7 +1561,6 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
           preprocessing_suggestions: status.preprocessing_suggestions,
           cleaning_status: status.cleaning_status,
         });
-
         patchDataset(data.datasetId, {
           status: status.dataset_status,
           columns: status.columns,
@@ -1569,34 +1569,25 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
           cleaning_status: status.cleaning_status,
           architect_status: status.architect_status,
         });
-      } catch {
-        // Ignore transient errors; next poll will retry
-      }
+      } catch { /* ignore transient errors */ }
     };
-
     poll();
     const interval = setInterval(poll, 1500);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
+    return () => { active = false; clearInterval(interval); };
   }, [data.datasetId, isCleaningDone, isProfiling, patchDataset, setDatasetProgress]);
 
   const handleAIPreprocess = async () => {
     if (!data.datasetId || isApplying) return;
     setIsApplying(true);
     try {
-      // Call the backend to apply standard cleaning script
       const cleanedDataset = await applyPreprocessing(data.datasetId);
-
       addDataset(cleanedDataset);
-      // Automatically place the new cleaned dataset node next to this one
       const currentNode = reactFlowInstance.getNode(id);
-      const nodeX = (currentNode?.position.x || 100) + 300;
+      const nodeX = (currentNode?.position.x || 100) + 320;
       const nodeY = currentNode?.position.y || 100;
-
-      const newNode = {
-        id: `dataset-cleaned-${cleanedDataset.id}`,
+      const newNodeId = `dataset-cleaned-${cleanedDataset.id}`;
+      reactFlowInstance.addNodes({
+        id: newNodeId,
         type: "dataset",
         position: { x: nodeX, y: nodeY },
         data: {
@@ -1607,100 +1598,129 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
           rowCount: cleanedDataset.row_count,
           columns: cleanedDataset.columns,
           isCleaned: true,
+          cleaningMethod: (cleanedDataset as any).cleaning_method,
         },
-      };
-
-      reactFlowInstance.addNodes(newNode);
-
-      // Auto-connect original dataset to cleaned dataset
+      });
       setTimeout(() => {
         reactFlowInstance.addEdges({
-          id: `e-${id}-cleaned-${cleanedDataset.id}`,
+          id: `e-${id}-${newNodeId}`,
           source: id,
-          target: newNode.id,
+          target: newNodeId,
           animated: true,
           style: { stroke: "#10b981", strokeWidth: 2 },
         });
       }, 100);
     } catch (err) {
-      console.error("Failed to apply cleaning script:", err);
+      console.error("Failed to apply preprocessing:", err);
     } finally {
       setIsApplying(false);
     }
   };
 
+  const handleDownload = () => {
+    if (!data.datasetId) return;
+    const url = downloadDatasetUrl(data.datasetId);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = data.datasetName || "dataset.csv";
+    a.click();
+  };
+
+  // Preview: first 4 rows from the record
+  const previewRows = (datasetRecord?.preview as Record<string, unknown>[] | undefined) || [];
+  const previewCols = datasetRecord?.columns || data.columns || [];
+
   return (
     <div
       className={clsx(
-        "min-w-[200px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-md p-3 transition-all",
-        selected
-          ? "border-primary ring-2 ring-primary/30"
-          : "border-cyan-400 dark:border-cyan-600",
+        "min-w-[220px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-md p-3 transition-all",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-cyan-400 dark:border-cyan-600",
         isError && "border-danger",
-        data.isCleaned &&
-          "border-green-500 from-green-50 to-emerald-50 bg-gradient-to-br",
+        data.isCleaned && "border-green-500 from-green-50 to-emerald-50 bg-gradient-to-br",
       )}
     >
-      {/* Only output handle — dataset is the source */}
-      <Handle
-        className={nodeStyles.handle}
-        isConnectable={isConnectable}
-        position={Position.Right}
-        type="source"
-      />
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Right} type="source" />
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">🗄️</span>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm truncate flex items-center gap-2">
+          <div className="font-semibold text-sm truncate flex items-center gap-1">
             {data.datasetName || data.label || "Dataset"}
-            {data.isCleaned && (
-              <Icon
-                className="text-green-500 w-4 h-4 ml-1"
-                icon="mdi:check-circle"
-              />
-            )}
+            {data.isCleaned && <Icon className="text-green-500 w-3 h-3" icon="mdi:check-circle" />}
           </div>
-          <div className="text-xs text-default-500">
-            {data.datasetType || "csv"}
-          </div>
+          <div className="text-xs text-default-500">{data.datasetType || "csv"}</div>
         </div>
-        {isProfiling && (
-          <Chip color="warning" size="sm" variant="flat">
-            profiling
-          </Chip>
-        )}
-        {isError && (
-          <Chip color="danger" size="sm" variant="flat">
-            error
-          </Chip>
-        )}
-        {!isProfiling && !isError && data.datasetId && (
-          <Chip color="success" size="sm" variant="flat">
-            ready
-          </Chip>
-        )}
+        {isProfiling && <Chip color="warning" size="sm" variant="flat">profiling</Chip>}
+        {isError && <Chip color="danger" size="sm" variant="flat">error</Chip>}
+        {!isProfiling && !isError && data.datasetId && <Chip color="success" size="sm" variant="flat">ready</Chip>}
       </div>
 
-      {/* Profiling progress bar */}
+      {/* Profiling progress */}
       {isProfiling && (
         <div className="space-y-1 mb-2">
-          <Progress
-            aria-label="Profiling"
-            color="warning"
-            size="sm"
-            value={progress.progress}
-          />
+          <Progress aria-label="Profiling" color="warning" size="sm" value={progress.progress} />
           <p className="text-xs text-default-500">{progress.message}</p>
         </div>
       )}
 
-      {/* AI Preprocess Button */}
-      {isCleaningDone && !data.isCleaned && (
-        <div className="mt-2 mb-2">
+      {/* Metadata */}
+      {!isProfiling && !isError && (
+        <div className="text-xs text-default-500 space-y-0.5 mb-2">
+          {data.rowCount > 0 && (
+            <div>{data.rowCount.toLocaleString()} rows · {(data.columns || []).length} cols</div>
+          )}
+          {data.columns && data.columns.length > 0 && (
+            <div className="truncate text-default-400">
+              {data.columns.slice(0, 4).join(", ")}{data.columns.length > 4 && ` +${data.columns.length - 4} more`}
+            </div>
+          )}
+          {data.isCleaned && data.cleaningMethod && (
+            <div className="text-green-600 text-xs">✓ {data.cleaningMethod.replace(/_/g, " ")}</div>
+          )}
+        </div>
+      )}
+
+      {/* Hover preview toggle */}
+      {!isProfiling && !isError && previewRows.length > 0 && (
+        <button
+          className="text-xs text-default-400 hover:text-primary underline mb-1 block"
+          onClick={() => setShowPreview(!showPreview)}
+        >
+          {showPreview ? "Hide preview" : "Peek data (4 rows)"}
+        </button>
+      )}
+      {showPreview && previewRows.length > 0 && (
+        <div className="overflow-x-auto mb-2 rounded border border-default-200">
+          <table className="text-[9px] border-collapse w-full">
+            <thead>
+              <tr>
+                {previewCols.slice(0, 5).map((c) => (
+                  <th key={c} className="border border-default-200 bg-default-50 px-1 py-0.5 text-left font-medium truncate max-w-[60px]">{c}</th>
+                ))}
+                {previewCols.length > 5 && <th className="border border-default-200 bg-default-50 px-1 py-0.5 text-default-400">…</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {previewRows.slice(0, 4).map((row, i) => (
+                <tr key={i}>
+                  {previewCols.slice(0, 5).map((c) => (
+                    <td key={c} className="border border-default-100 px-1 py-0.5 truncate max-w-[60px]">{String(row[c] ?? "")}</td>
+                  ))}
+                  {previewCols.length > 5 && <td className="border border-default-100 px-1 py-0.5 text-default-400">…</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex gap-1 flex-wrap">
+        {/* AI Preprocess — available for ALL ready CSV datasets */}
+        {!isProfiling && !isError && data.datasetId && !data.isCleaned && (
           <Button
-            className="w-full font-medium"
+            className="flex-1 font-medium"
             color="primary"
             isLoading={isApplying}
             size="sm"
@@ -1710,41 +1730,21 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
           >
             AI Preprocess
           </Button>
-        </div>
-      )}
-
-      {/* Metadata */}
-      {isProfiling && (
-        <div className="space-y-1 mb-2">
-          <Progress
-            aria-label="Profiling"
-            color="warning"
+        )}
+        {/* Download */}
+        {!isProfiling && !isError && data.datasetId && (
+          <Button
+            isIconOnly
             size="sm"
-            value={progress.progress}
-          />
-          <p className="text-xs text-default-500">{progress.message}</p>
-        </div>
-      )}
+            title="Download CSV"
+            variant="light"
+            onPress={handleDownload}
+          >
+            <Icon className="w-4 h-4" icon="lucide:download" />
+          </Button>
+        )}
+      </div>
 
-      {/* Metadata */}
-      {!isProfiling && !isError && (
-        <div className="text-xs text-default-500 space-y-0.5">
-          {data.rowCount > 0 && (
-            <div>
-              {data.rowCount.toLocaleString()} rows ·{" "}
-              {(data.columns || []).length} cols
-            </div>
-          )}
-          {data.columns && data.columns.length > 0 && (
-            <div className="truncate text-default-400">
-              {data.columns.slice(0, 4).join(", ")}
-              {data.columns.length > 4 && ` +${data.columns.length - 4} more`}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Error message */}
       {isError && <p className="text-xs text-danger mt-1">{isError}</p>}
     </div>
   );
@@ -1785,6 +1785,7 @@ const PREPROCESS_META: Record<
 };
 
 const PreprocessingNode = ({
+  id,
   data,
   type,
   selected,
@@ -1796,19 +1797,56 @@ const PreprocessingNode = ({
     color: "border-default-400",
   };
 
+  const datasets = usePlexusStore((s) => s.datasets);
+  const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
+  const { setNodes } = useReactFlow();
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [preview, setPreview] = useState<{
+    before: Record<string, unknown>[];
+    after: Record<string, unknown>[];
+    changed_columns: string[];
+  } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const onDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNodes((nds) => nds.filter((n) => n.id !== id));
+  };
+
+  const handleTogglePreview = async () => {
+    if (showPreview) { setShowPreview(false); return; }
+    if (preview) { setShowPreview(true); return; }
+    if (!selectedDatasetId) return;
+    setLoadingPreview(true);
+    try {
+      const result = await previewNodeEffect(
+        selectedDatasetId, type, data.columns || [], 4
+      );
+      setPreview(result);
+      setShowPreview(true);
+    } catch { /* ignore */ }
+    finally { setLoadingPreview(false); }
+  };
+
   return (
     <div
       className={clsx(
-        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all",
+        "min-w-[160px] rounded-xl border-2 bg-white dark:bg-default-100 shadow-sm p-3 transition-all relative group",
         selected ? "border-primary ring-2 ring-primary/30" : meta.color,
+        data._suggestDelete && "border-red-500 ring-2 ring-red-300",
       )}
     >
-      <Handle
-        className={nodeStyles.handle}
-        isConnectable={isConnectable}
-        position={Position.Left}
-        type="target"
-      />
+      {/* Delete button */}
+      <button
+        onClick={onDelete}
+        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow"
+      >
+        <Icon icon="lucide:x" className="w-3 h-3" />
+      </button>
+
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Left} type="target" />
+
       <div className="flex items-center gap-2">
         <Icon className="w-5 h-5 text-default-600" icon={meta.icon} />
         <div className="flex-1 min-w-0">
@@ -1818,14 +1856,59 @@ const PreprocessingNode = ({
               {(data.columns as string[]).slice(0, 3).join(", ")}
             </div>
           )}
+          {data._incompatibleWarning && (
+            <div className="text-xs text-red-500 mt-0.5">⚠ {data._incompatibleWarning}</div>
+          )}
         </div>
       </div>
-      <Handle
-        className={nodeStyles.handle}
-        isConnectable={isConnectable}
-        position={Position.Right}
-        type="source"
-      />
+
+      {/* Peek preview button */}
+      {selectedDatasetId && (
+        <button
+          className="mt-1 text-[10px] text-default-400 hover:text-primary underline block"
+          onClick={handleTogglePreview}
+        >
+          {loadingPreview ? "Loading…" : showPreview ? "Hide preview" : "Peek effect (4 rows)"}
+        </button>
+      )}
+
+      {/* Before/After preview table */}
+      {showPreview && preview && (
+        <div className="mt-2 space-y-1">
+          {["before", "after"].map((phase) => {
+            const rows = preview[phase as "before" | "after"];
+            const cols = preview.changed_columns.slice(0, 4);
+            if (!cols.length || !rows.length) return null;
+            return (
+              <div key={phase}>
+                <div className="text-[9px] font-semibold text-default-500 uppercase mb-0.5">{phase}</div>
+                <div className="overflow-x-auto rounded border border-default-200">
+                  <table className="text-[9px] border-collapse w-full">
+                    <thead>
+                      <tr>
+                        {cols.map((c) => (
+                          <th key={c} className="border border-default-200 bg-default-50 px-1 py-0.5 text-left truncate max-w-[50px]">{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.slice(0, 4).map((row, i) => (
+                        <tr key={i}>
+                          {cols.map((c) => (
+                            <td key={c} className="border border-default-100 px-1 py-0.5 truncate max-w-[50px]">{String(row[c] ?? "")}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Right} type="source" />
     </div>
   );
 };

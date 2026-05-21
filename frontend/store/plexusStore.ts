@@ -10,6 +10,8 @@ import type {
   ResourceResult,
   PreprocessingSuggestion,
   CleaningStatus,
+  DatasetIntelligence,
+  GraphValidationWarning,
 } from "@/lib/api";
 
 import { create } from "zustand";
@@ -106,6 +108,15 @@ export interface PlexusStore {
   ) => void;
   dismissNotification: (id: string) => void;
   clearNotifications: () => void;
+
+  // Dataset intelligence (compatibility map from SemanticAgent)
+  datasetIntelligence: Record<string, DatasetIntelligence>;
+  setDatasetIntelligence: (id: string, intel: DatasetIntelligence) => void;
+
+  // Graph validation warnings from backend
+  graphWarnings: GraphValidationWarning[];
+  setGraphWarnings: (warnings: GraphValidationWarning[]) => void;
+  clearGraphWarnings: () => void;
 
   // Resource estimates (live as graph changes)
   resourceEstimate: ResourceResult | null;
@@ -232,6 +243,18 @@ export const usePlexusStore = create<PlexusStore>((set) => ({
       ),
     })),
   clearNotifications: () => set({ agentNotifications: [] }),
+
+  // Dataset intelligence
+  datasetIntelligence: {},
+  setDatasetIntelligence: (id, intel) =>
+    set((state) => ({
+      datasetIntelligence: { ...state.datasetIntelligence, [id]: intel },
+    })),
+
+  // Graph validation warnings
+  graphWarnings: [],
+  setGraphWarnings: (warnings) => set({ graphWarnings: warnings }),
+  clearGraphWarnings: () => set({ graphWarnings: [] }),
 
   // Resource estimate
   resourceEstimate: null,

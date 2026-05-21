@@ -127,6 +127,7 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
   const setDatasetProgress = usePlexusStore((s) => s.setDatasetProgress);
   const clearDatasetProgress = usePlexusStore((s) => s.clearDatasetProgress);
   const patchDataset = usePlexusStore((s) => s.patchDataset);
+  const setDatasetIntelligence = usePlexusStore((s) => s.setDatasetIntelligence);
 
   // Stop all polling on unmount
   useEffect(() => {
@@ -195,11 +196,17 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                 preprocessing_suggestions: status.preprocessing_suggestions,
                 cleaning_status: status.cleaning_status,
                 architect_status: status.architect_status,
+                dataset_intelligence: status.dataset_intelligence,
               };
-              
+
+              // Store intelligence in dedicated map for canvas validation
+              if (status.dataset_intelligence) {
+                setDatasetIntelligence(id, status.dataset_intelligence);
+              }
+
               // Persist to backend database
               updateDatasetAPI(id, patch).catch((e) => console.error("Failed to persist dataset status:", e));
-              
+
               patchDataset(id, patch);
               addLog(
                 "success",
@@ -467,14 +474,19 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                   </Chip>
                 )}
                 {d.is_cleaned_duplicate && (
-                  <Chip
-                    color="success"
-                    size="sm"
-                    startContent={<Sparkles className="w-3 h-3" />}
-                    variant="flat"
-                  >
+                  <Chip color="success" size="sm" startContent={<Sparkles className="w-3 h-3" />} variant="flat">
                     cleaned
                   </Chip>
+                )}
+                {d.is_graph_processed && (
+                  <Chip color="primary" size="sm" startContent={<Sparkles className="w-3 h-3" />} variant="flat">
+                    graph-processed
+                  </Chip>
+                )}
+                {d.dataset_intelligence && (
+                  <Tooltip content={`Domain: ${d.dataset_intelligence.domain} | Task: ${d.dataset_intelligence.task_type}`} size="sm">
+                    <Chip color="secondary" size="sm" variant="dot">AI ✓</Chip>
+                  </Tooltip>
                 )}
               </div>
 

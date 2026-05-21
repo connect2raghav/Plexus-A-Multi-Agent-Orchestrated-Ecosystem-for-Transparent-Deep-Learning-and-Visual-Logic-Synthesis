@@ -57,9 +57,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger("plexus.api")
+
+# ── Structured step logger ────────────────────────────────────────────────────
+def _step(tag: str, msg: str, **kw: Any) -> None:
+    """Print a clearly formatted step to the backend CLI."""
+    detail = "  ".join(f"{k}={v}" for k, v in kw.items())
+    logger.info("[%s] %s%s", tag.upper().ljust(20), msg, f"  ({detail})" if detail else "")
 
 import pydantic.json
 
@@ -111,6 +120,17 @@ def _load_registry() -> None:
         _dataset_registry = {
             record["id"]: record for record in state_records if isinstance(record, dict) and record.get("id")
         }
+        # Warm intelligence cache from disk files for any record missing it
+        for ds_id, rec in _dataset_registry.items():
+            if not rec.get("dataset_intelligence"):
+                intel_path = UPLOADS_DIR / ds_id / "dataset_intelligence.json"
+                if intel_path.exists():
+                    try:
+                        rec["dataset_intelligence"] = json.loads(
+                            intel_path.read_text(encoding="utf-8")
+                        )
+                    except Exception:
+                        pass
         return
 
     db = SessionLocal()
@@ -534,20 +554,26 @@ async def _profile_dataset_bg(
 
     try:
         _set_progress(10, "Reading file…")
+        _step("PROFILING", "Reading file", dataset=dataset_id, file=str(dest_path.name))
         await asyncio.sleep(0)   # yield so the response can be sent first
 
         loop = asyncio.get_event_loop()
 
         if ext == ".csv":
             _set_progress(20, "Parsing CSV…")
+            _step("PROFILING", "Parsing CSV columns and stats", dataset=dataset_id)
             update = await loop.run_in_executor(None, lambda: _csv_preview(dest_path))
             _set_progress(60, "Generating preprocessing suggestions…")
+            _step("PROFILING", "Inferring preprocessing suggestions", dataset=dataset_id,
+                  columns=len(update.get("columns", [])))
             await asyncio.sleep(0)
             suggestions = await loop.run_in_executor(
                 None, lambda: _infer_preprocessing_suggestions(update)
             )
             update["preprocessing_suggestions"] = suggestions
             _set_progress(90, "Finalising…")
+            _step("PROFILING", "Finalising CSV profile", dataset=dataset_id,
+                  rows=update.get("row_count"), suggestions=len(suggestions))
 
         elif ext == ".zip":
             _set_progress(30, "Extracting archive…")
@@ -590,10 +616,9 @@ async def _profile_dataset_bg(
             },
         )
 
-        # Kick off auto-cleaning agent if it's a CSV
+        # Kick off full orchestrator pipeline for CSV datasets
         if ext == ".csv":
-            asyncio.create_task(_run_data_agent_bg(dataset_id))
-            asyncio.create_task(_run_architect_agent_bg(dataset_id))
+            asyncio.create_task(_run_orchestrator_bg(dataset_id))
 
     except Exception as exc:
         logger.exception("Profiling failed for dataset %s", dataset_id)
@@ -616,130 +641,138 @@ async def _profile_dataset_bg(
         
 
 
-async def _run_data_agent_bg(dataset_id: str) -> None:
-    """Background task: run Data Agent on newly profiled dataset."""
-    _agent_log("data_agent", "started", "generate cleaning script", dataset_id=dataset_id)
-    _profiling_status[dataset_id]["cleaning_status"] = {"status": "running"}
-    if dataset_id in _dataset_registry:
-        _dataset_registry[dataset_id]["cleaning_status"] = {"status": "running"}
-        _save_registry()
-    try:
-        agent = _get_data_agent()
-        record = _dataset_registry[dataset_id]
-        result = await agent.run({"csv_path": record["path"], "target_col": None})
-        
-        if not result.success:
-            status = {"status": "error", "error": result.error}
-            _profiling_status[dataset_id]["cleaning_status"] = status
-            _dataset_registry[dataset_id]["cleaning_status"] = status
-            _save_registry()
-            _agent_log(
-                "data_agent",
-                "failed",
-                "generate cleaning script",
-                dataset_id=dataset_id,
-                details={"error": result.error},
-            )
-            return
-            
-        data = result.data.copy()
-        status = {
-            "status": "done",
-            "code": data.get("code"),
-            "steps": data.get("steps"),
-            "validation": data.get("validation")
-        }
-        _profiling_status[dataset_id]["cleaning_status"] = status
-        _dataset_registry[dataset_id]["cleaning_status"] = status
-        _save_registry()
-        _agent_log(
-            "data_agent",
-            "completed",
-            "generate cleaning script",
-            dataset_id=dataset_id,
-            details={
-                "steps": len(data.get("steps") or []),
-                "validation": data.get("validation"),
-                "mode": result.metadata.get("mode"),
-            },
-        )
-        logger.info("Dataset %s auto-cleaning generation complete.", dataset_id)
-    except Exception as exc:
-        logger.exception("Auto data agent failed for dataset %s", dataset_id)
-        status = {"status": "error", "error": str(exc)}
-        _profiling_status[dataset_id]["cleaning_status"] = status
-        if dataset_id in _dataset_registry:
-            _dataset_registry[dataset_id]["cleaning_status"] = status
-            _save_registry()
-        _agent_log(
-            "data_agent",
-            "failed",
-            "generate cleaning script",
-            dataset_id=dataset_id,
-            details={"error": str(exc)},
-        )
+async def _run_orchestrator_bg(dataset_id: str) -> None:
+    """
+    Background task: run the full AgentOrchestrator pipeline.
+    Chains SemanticAgent → DataAgent → ArchitectAgent with DB cache.
+    Saves all results back to the dataset registry.
+    """
+    if dataset_id not in _dataset_registry:
+        return
 
+    record = _dataset_registry[dataset_id]
+    _agent_log("orchestrator", "started", "full intelligence pipeline", dataset_id=dataset_id)
+    _step("ORCHESTRATOR", "Starting full intelligence pipeline", dataset=dataset_id)
 
-async def _run_architect_agent_bg(dataset_id: str) -> None:
-    """Prepare model suggestions as soon as a CSV dataset is profiled."""
-    _agent_log("architect_agent", "started", "prepare model suggestions", dataset_id=dataset_id)
+    # Mark cleaning as running so the frontend spinner shows
+    _profiling_status.setdefault(dataset_id, {})["cleaning_status"] = {"status": "running"}
+    record["cleaning_status"] = {"status": "running"}
+    _save_registry()
+
     try:
-        record = _dataset_registry[dataset_id]
-        agent = _get_architect_agent()
-        result = await agent.run(
-            {
-                "dataset_id": dataset_id,
-                "dataset_info": record,
-                "task_type": "classification",
-                "graph_context": {"source": "auto_after_profile"},
-            }
-        )
+        from backend.agents.orchestrator import AgentOrchestrator
+        orch = AgentOrchestrator()
+        result = await orch.run({
+            "dataset_id": dataset_id,
+            "csv_path": record["path"],
+            "record": record,
+            "log_fn": _agent_log,
+        })
+
         if not result.success:
-            _dataset_registry[dataset_id]["architect_status"] = {
-                "status": "error",
-                "error": result.error,
-            }
+            _agent_log("orchestrator", "failed", "full intelligence pipeline",
+                       dataset_id=dataset_id, details={"error": result.error})
+            record["cleaning_status"] = {"status": "error", "error": result.error}
             _save_registry()
-            _agent_log(
-                "architect_agent",
-                "failed",
-                "prepare model suggestions",
-                dataset_id=dataset_id,
-                details={"error": result.error},
-            )
             return
 
-        _dataset_registry[dataset_id]["architect_status"] = {
-            "status": "done",
-            "suggested_nodes": result.data.get("suggested_nodes", []),
-            "description": result.data.get("description"),
+        data = result.data
+
+        _step("ORCHESTRATOR", "Saving intelligence JSON to dataset folder", dataset=dataset_id)
+        # Persist semantic profile + full intelligence JSON
+        semantic = data["semantic"]
+        record["semantic_profile"] = semantic
+        # dataset_intelligence is the full compatibility map used by frontend
+        intel = {
+            "domain": semantic.get("domain"),
+            "description": semantic.get("description"),
+            "task_type": semantic.get("task_type"),
+            "recommended_target": semantic.get("recommended_target"),
+            "columns": semantic.get("columns", {}),
+            "compatible_preprocessing": semantic.get("compatible_preprocessing", []),
+            "compatible_models": semantic.get("compatible_models", []),
+            "compatible_optimizers": semantic.get("compatible_optimizers", []),
+            "compatible_losses": semantic.get("compatible_losses", []),
+            "compatible_visualizations": semantic.get("compatible_visualizations", []),
+            "incompatible_nodes": semantic.get("incompatible_nodes", {}),
         }
+        record["dataset_intelligence"] = intel
+
+        # ── Save dedicated JSON file per dataset ─────────────────────────
+        dataset_dir = UPLOADS_DIR / dataset_id
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        intel_path = dataset_dir / "dataset_intelligence.json"
+        intel_path.write_text(
+            json.dumps(intel, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        record["intelligence_path"] = str(intel_path)
+        _step("ORCHESTRATOR", "dataset_intelligence.json saved", dataset=dataset_id,
+              path=str(intel_path), domain=intel.get("domain"), task=intel.get("task_type"))
+
+        # Persist cleaning status
+        cleaning_status = {
+            "status": "done",
+            "code": data["cleaning_code"],
+            "steps": data["cleaning_steps"],
+        }
+        record["cleaning_status"] = cleaning_status
+        _profiling_status[dataset_id]["cleaning_status"] = cleaning_status
+
+        # Persist architect suggestions
+        record["architect_status"] = {
+            "status": "done",
+            "suggested_nodes": data["suggested_nodes"],
+            "description": data["architect_desc"],
+        }
+
+        # Persist generated scripts + save as files
+        record["generated_scripts"] = data["scripts"]
+        for script_name, script_code in data["scripts"].items():
+            script_path = dataset_dir / script_name
+            script_path.write_text(script_code, encoding="utf-8")
+        _step("ORCHESTRATOR", "Generated scripts saved", dataset=dataset_id,
+              scripts=list(data["scripts"].keys()), folder=str(dataset_dir))
+
+        # Save manifest.json summarising everything in the folder
+        manifest = {
+            "dataset_id": dataset_id,
+            "name": record.get("name"),
+            "task_type": intel.get("task_type"),
+            "domain": intel.get("domain"),
+            "recommended_target": intel.get("recommended_target"),
+            "suggested_nodes": data["suggested_nodes"],
+            "cleaning_steps": len(data["cleaning_steps"]),
+            "scripts": list(data["scripts"].keys()),
+            "intelligence_file": "dataset_intelligence.json",
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+        (dataset_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        _step("ORCHESTRATOR", "manifest.json saved", dataset=dataset_id)
+
         _save_registry()
         _agent_log(
-            "architect_agent",
-            "completed",
-            "prepare model suggestions",
+            "orchestrator", "completed", "full intelligence pipeline",
             dataset_id=dataset_id,
             details={
-                "suggested_nodes": result.data.get("suggested_nodes", []),
-                "description": result.data.get("description"),
+                "stages_cached": data["stages_cached"],
+                "suggested_nodes": data["suggested_nodes"],
+                "domain": data["semantic"].get("domain"),
+                "task_type": data["semantic"].get("task_type"),
+                "scripts": list(data["scripts"].keys()),
             },
         )
+
     except Exception as exc:
-        logger.exception("Auto architect agent failed for dataset %s", dataset_id)
-        if dataset_id in _dataset_registry:
-            _dataset_registry[dataset_id]["architect_status"] = {
-                "status": "error",
-                "error": str(exc),
-            }
-            _save_registry()
-        _agent_log(
-            "architect_agent",
-            "failed",
-            "prepare model suggestions",
-            dataset_id=dataset_id,
-            details={"error": str(exc)},
-        )
+        logger.exception("Orchestrator pipeline failed for dataset %s", dataset_id)
+        record["cleaning_status"] = {"status": "error", "error": str(exc)}
+        _profiling_status.setdefault(dataset_id, {})["cleaning_status"] = {
+            "status": "error", "error": str(exc)
+        }
+        _save_registry()
+        _agent_log("orchestrator", "failed", "full intelligence pipeline",
+                   dataset_id=dataset_id, details={"error": str(exc)})
 
 def _infer_preprocessing_suggestions(csv_update: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
@@ -832,6 +865,7 @@ async def get_dataset_status(dataset_id: str):
         "row_count": record.get("row_count", 0),
         "preprocessing_suggestions": record.get("preprocessing_suggestions", []),
         "architect_status": record.get("architect_status"),
+        "dataset_intelligence": record.get("dataset_intelligence"),
     }
 
 
@@ -968,72 +1002,236 @@ async def patch_dataset_route(dataset_id: str, payload: Dict[str, Any] = Body(..
     return record
 
 
-@app.post("/api/datasets/{dataset_id}/apply-preprocessing")
-async def apply_preprocessing(dataset_id: str):
+@app.get("/api/datasets/{dataset_id}/intelligence")
+async def get_dataset_intelligence(dataset_id: str):
     """
-    Apply the LLM-generated cleaning code to the full dataset,
-    saving it as a new dataset in the registry to avoid mutating the original.
+    Return the full dataset intelligence JSON.
+    Tries registry first, then falls back to the dedicated JSON file on disk.
     """
     record = _dataset_registry.get(dataset_id)
     if not record:
         raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
-    
-    status_info = _profiling_status.get(dataset_id, {})
-    cleaning_status = status_info.get("cleaning_status") or record.get("cleaning_status", {})
-    code = cleaning_status.get("code")
-    
-    if cleaning_status.get("status") != "done" or not code:
-        raise HTTPException(400, "Cleaning code is not ready or failed.")
-        
+
+    intel = record.get("dataset_intelligence") or record.get("semantic_profile")
+
+    # Fallback: load from dedicated file if not in registry
+    if not intel:
+        intel_path = UPLOADS_DIR / dataset_id / "dataset_intelligence.json"
+        if intel_path.exists():
+            try:
+                intel = json.loads(intel_path.read_text(encoding="utf-8"))
+                record["dataset_intelligence"] = intel  # warm the cache
+            except Exception:
+                pass
+
+    if not intel:
+        raise HTTPException(
+            404,
+            "Intelligence not yet generated. Wait for dataset profiling to complete."
+        )
+    return {"dataset_id": dataset_id, "intelligence": intel}
+
+
+class ValidateGraphRequest(BaseModel):
+    dataset_id: str
+    nodes: List[Dict[str, Any]]
+
+
+@app.post("/api/datasets/validate-graph")
+async def validate_graph_nodes(req: ValidateGraphRequest):
+    """
+    Check every node in the canvas against the dataset intelligence.
+    Returns a list of warnings for incompatible nodes so the frontend
+    can show 'suggest delete' overlays.
+    """
+    record = _dataset_registry.get(req.dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{req.dataset_id}' not found.")
+
+    intel = record.get("dataset_intelligence") or record.get("semantic_profile") or {}
+    incompatible: Dict[str, str] = intel.get("incompatible_nodes", {})
+    compatible_all = (
+        intel.get("compatible_preprocessing", []) +
+        intel.get("compatible_models", []) +
+        intel.get("compatible_optimizers", []) +
+        intel.get("compatible_losses", []) +
+        intel.get("compatible_visualizations", [])
+    )
+
+    # Node types that are always allowed regardless of intelligence
+    always_allowed = {
+        "dataset", "training_config", "metrics", "exportCode", "apiDeploy",
+        "lossCurve", "gradientFlow", "confMatrix", "predTable",
+        "modelComparison", "evaluationResults", "activationHeatmap",
+        "testModel", "ghost",
+    }
+
+    warnings = []
+    for node in req.nodes:
+        ntype = node.get("type", "")
+        if ntype in always_allowed:
+            continue
+        if ntype in incompatible:
+            warnings.append({
+                "node_id": node.get("id"),
+                "node_type": ntype,
+                "severity": "error",
+                "message": incompatible[ntype],
+                "suggest_delete": True,
+            })
+        elif compatible_all and ntype not in compatible_all:
+            warnings.append({
+                "node_id": node.get("id"),
+                "node_type": ntype,
+                "severity": "warning",
+                "message": f"Node '{ntype}' is not in the AI-recommended list for this dataset. Consider removing it.",
+                "suggest_delete": True,
+            })
+
+    return {
+        "dataset_id": req.dataset_id,
+        "warnings": warnings,
+        "compatible_nodes": compatible_all,
+        "task_type": intel.get("task_type"),
+    }
+
+
+@app.get("/api/datasets/{dataset_id}/semantic")
+async def get_semantic_profile(dataset_id: str):
+    """Return the cached semantic profile for a dataset."""
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    semantic = record.get("semantic_profile")
+    if not semantic:
+        raise HTTPException(404, "Semantic profile not yet generated. Upload a CSV and wait for profiling.")
+    return {"dataset_id": dataset_id, "semantic": semantic}
+
+
+@app.get("/api/datasets/{dataset_id}/scripts")
+async def get_generated_scripts(dataset_id: str):
+    """Return the auto-generated preprocessing and training scripts."""
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    scripts = record.get("generated_scripts")
+    if not scripts:
+        raise HTTPException(404, "Scripts not yet generated. Upload a CSV and wait for profiling.")
+    return {"dataset_id": dataset_id, "scripts": scripts}
+
+
+class RunScriptRequest(BaseModel):
+    script_name: str  # "preprocessing.py" or "train.py"
+    timeout: int = 120
+
+
+@app.post("/api/datasets/{dataset_id}/run-script")
+async def run_dataset_script(dataset_id: str, req: RunScriptRequest):
+    """
+    Execute one of the auto-generated scripts for a dataset in a subprocess.
+    Streams stdout/stderr back in the response.
+    """
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    scripts = record.get("generated_scripts", {})
+    script_code = scripts.get(req.script_name)
+    if not script_code:
+        raise HTTPException(404, f"Script '{req.script_name}' not found. Available: {list(scripts.keys())}")
+
+    _agent_log(
+        "script_runner", "started", f"execute {req.script_name}",
+        dataset_id=dataset_id,
+        details={"script": req.script_name, "timeout": req.timeout},
+    )
     try:
+        from backend.core.script_runner import ScriptRunner
+        runner = ScriptRunner()
+        result = await runner.run_script(script_code, timeout=req.timeout)
         _agent_log(
-            "data_agent",
-            "started",
-            "apply cleaning script",
+            "script_runner",
+            "completed" if result["success"] else "failed",
+            f"execute {req.script_name}",
             dataset_id=dataset_id,
-            details={"source_dataset": record.get("name")},
+            details={
+                "returncode": result["returncode"],
+                "stdout_lines": len(result["stdout"].splitlines()),
+            },
+        )
+        return result
+    except Exception as exc:
+        logger.exception("Script runner error for dataset %s", dataset_id)
+        raise HTTPException(500, str(exc)) from exc
+
+
+class GraphPreprocessRequest(BaseModel):
+    nodes: List[Dict[str, Any]]
+    edges: List[Dict[str, Any]]
+
+
+@app.post("/api/datasets/{dataset_id}/run-graph-preprocessing")
+async def run_graph_preprocessing(dataset_id: str, req: GraphPreprocessRequest):
+    """
+    User-driven path: walk the canvas graph, apply every preprocessing node
+    (normalize, dropNulls, oneHotEncode, etc.) as real pandas operations on
+    the dataset, save the result as a new dataset record, and return it.
+    The new dataset_id is what the training job should use.
+    """
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    if record.get("type") != "csv":
+        raise HTTPException(400, "Graph preprocessing only supports CSV datasets.")
+
+    _agent_log(
+        "graph_preprocessor", "started", "apply canvas preprocessing nodes",
+        dataset_id=dataset_id,
+        details={"node_count": len(req.nodes), "edge_count": len(req.edges)},
+    )
+
+    try:
+        from backend.core.graph_preprocessor import (
+            extract_preprocessing_pipeline,
+            apply_graph_preprocessing,
         )
         import pandas as pd
-        # Read the original dataset
-        df = _read_csv_with_fallback(record["path"])
-        
-        # Build the same safe namespace used during validation
-        safe_globals: Dict[str, Any] = {"pd": pd, "__builtins__": __builtins__}
-        try:
-            from sklearn import preprocessing
-            safe_globals["preprocessing"] = preprocessing
-            from sklearn.preprocessing import StandardScaler, MinMaxScaler
-            safe_globals["StandardScaler"] = StandardScaler
-            safe_globals["MinMaxScaler"] = MinMaxScaler
-        except ImportError:
-            pass
 
-        # We need to execute the generated 'clean_data(df)' function in a local namespace
-        local_vars: Dict[str, Any] = {}
-        # Define clean_data inside local_vars
-        exec(code, safe_globals, local_vars)
-        clean_func = local_vars.get("clean_data")
-        
-        if not clean_func:
-            raise ValueError("Generated code did not contain a 'clean_data' function.")
-            
-        # Apply the function
-        cleaned_df = clean_func(df)
-        
-        # Save as a new dataset
+        preprocessing_nodes, _ = extract_preprocessing_pipeline(req.nodes, req.edges)
+        if not preprocessing_nodes:
+            return {
+                "dataset_id": dataset_id,
+                "processed_dataset_id": dataset_id,
+                "steps": [],
+                "message": "No preprocessing nodes found in graph. Using original dataset.",
+            }
+
+        # Read original CSV
+        df = _read_csv_with_fallback(record["path"])
+        target_col = (
+            record.get("target_column")
+            or record.get("dataset_intelligence", {}).get("recommended_target")
+            or df.columns[-1]
+        )
+
+        # Apply graph preprocessing
+        processed_df, steps = apply_graph_preprocessing(
+            df, preprocessing_nodes, target_column=target_col
+        )
+
+        # Save as new dataset
         new_id = str(uuid.uuid4())[:8]
         new_dir = UPLOADS_DIR / new_id
         new_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Insert "_cleaned" before the extension
-        orig_name = record["name"]
-        orig_path = Path(orig_name)
-        new_name = f"{orig_path.stem}_cleaned{orig_path.suffix}"
+        orig_stem = Path(record["name"]).stem
+        new_name = f"{orig_stem}_graph_processed.csv"
         dest_path = new_dir / new_name
-        
-        cleaned_df.to_csv(dest_path, index=False)
-        
-        # Create new dataset record
+        processed_df.to_csv(dest_path, index=False)
+
+        # Profile the new dataset inline
+        update = _csv_preview(dest_path)
+        suggestions = _infer_preprocessing_suggestions(update)
+        update["preprocessing_suggestions"] = suggestions
+
         new_record: Dict[str, Any] = {
             "id": new_id,
             "name": new_name,
@@ -1048,53 +1246,248 @@ async def apply_preprocessing(dataset_id: str):
             "stats": {},
             "preprocessing_suggestions": [],
             "cleaning_status": {"status": "pending"},
-            "is_cleaned_duplicate": True, # Custom flag to identify cleaned versions
-            "parent_dataset_id": dataset_id
+            "is_graph_processed": True,
+            "parent_dataset_id": dataset_id,
+            "graph_preprocessing_steps": steps,
+            "target_column": target_col,
+            # Inherit intelligence from parent
+            "dataset_intelligence": record.get("dataset_intelligence"),
+            "architect_status": record.get("architect_status"),
         }
-        
+        new_record.update(update)
+        _dataset_registry[new_id] = new_record
+        _profiling_status[new_id] = {
+            "progress": 100, "message": "Graph preprocessing complete.",
+            "done": True, "error": None,
+            "cleaning_status": {"status": "pending"},
+        }
+        _save_registry()
+
+        _agent_log(
+            "graph_preprocessor", "completed", "apply canvas preprocessing nodes",
+            dataset_id=dataset_id,
+            details={
+                "processed_dataset_id": new_id,
+                "steps_applied": len(steps),
+                "rows": new_record.get("row_count"),
+                "columns": len(new_record.get("columns", [])),
+            },
+        )
+        return {
+            "dataset_id": dataset_id,
+            "processed_dataset_id": new_id,
+            "processed_record": new_record,
+            "steps": steps,
+        }
+
+    except Exception as exc:
+        logger.exception("Graph preprocessing failed for dataset %s", dataset_id)
+        _agent_log(
+            "graph_preprocessor", "failed", "apply canvas preprocessing nodes",
+            dataset_id=dataset_id, details={"error": str(exc)},
+        )
+        raise HTTPException(500, str(exc)) from exc
+
+
+class NodePreviewRequest(BaseModel):
+    node_type: str   # normalize | scale | dropNulls | oneHotEncode | embedEncode
+    columns: List[str] = []
+    n_rows: int = 4
+
+
+@app.post("/api/datasets/{dataset_id}/preview-node")
+async def preview_node_effect(dataset_id: str, req: NodePreviewRequest):
+    """
+    Return n_rows rows showing the BEFORE and AFTER effect of a preprocessing
+    node on the dataset. Used for the hover-preview on canvas nodes.
+    """
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    if record.get("type") != "csv":
+        raise HTTPException(400, "Preview only supported for CSV datasets.")
+
+    _step("PREVIEW", f"Node preview requested", dataset=dataset_id, node=req.node_type)
+    try:
+        import pandas as pd
+        from backend.core.graph_preprocessor import apply_graph_preprocessing
+
+        df = _read_csv_with_fallback(record["path"])
+        sample = df.head(req.n_rows).copy()
+
+        # Build a minimal fake node
+        fake_node = {
+            "id": "preview",
+            "type": req.node_type,
+            "data": {"columns": req.columns},
+        }
+        target_col = (
+            record.get("target_column")
+            or record.get("dataset_intelligence", {}).get("recommended_target")
+            or df.columns[-1]
+        )
+        processed, steps = apply_graph_preprocessing(
+            sample.copy(), [fake_node], target_column=target_col
+        )
+
+        before_rows = sample.fillna("").to_dict(orient="records")
+        after_rows = processed.fillna("").to_dict(orient="records")
+
+        # Only return columns that changed
+        before_cols = list(sample.columns)
+        after_cols = list(processed.columns)
+        changed_cols = [
+            c for c in after_cols
+            if c not in before_cols or not sample.get(c, pd.Series()).equals(processed.get(c, pd.Series()))
+        ]
+
+        return {
+            "node_type": req.node_type,
+            "before": before_rows,
+            "after": after_rows,
+            "before_columns": before_cols,
+            "after_columns": after_cols,
+            "changed_columns": changed_cols[:8],
+            "steps": steps,
+        }
+    except Exception as exc:
+        logger.exception("Node preview failed for dataset %s", dataset_id)
+        raise HTTPException(500, str(exc)) from exc
+
+
+@app.post("/api/datasets/{dataset_id}/apply-preprocessing")
+async def apply_preprocessing(dataset_id: str):
+    """
+    Apply the LLM-generated cleaning code to the full dataset.
+    Works for any CSV dataset — falls back to deterministic cleaning if no
+    LLM code is available.
+    """
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    if record.get("type") != "csv":
+        raise HTTPException(400, "Preprocessing only supported for CSV datasets.")
+
+    status_info = _profiling_status.get(dataset_id, {})
+    cleaning_status = status_info.get("cleaning_status") or record.get("cleaning_status", {})
+    code = cleaning_status.get("code") if cleaning_status else None
+
+    _step("PREPROCESS", "Applying cleaning script", dataset=dataset_id,
+          has_llm_code=bool(code), status=cleaning_status.get("status") if cleaning_status else "none")
+
+    try:
+        _agent_log("data_agent", "started", "apply cleaning script",
+                   dataset_id=dataset_id, details={"source_dataset": record.get("name")})
+        import pandas as pd
+        df = _read_csv_with_fallback(record["path"])
+
+        if code:
+            # Use LLM-generated or deterministic cleaning function
+            safe_globals: Dict[str, Any] = {"pd": pd, "__builtins__": __builtins__}
+            try:
+                from sklearn.preprocessing import StandardScaler, MinMaxScaler
+                safe_globals["StandardScaler"] = StandardScaler
+                safe_globals["MinMaxScaler"] = MinMaxScaler
+            except ImportError:
+                pass
+            local_vars: Dict[str, Any] = {}
+            exec(code, safe_globals, local_vars)  # noqa: S102
+            clean_func = local_vars.get("clean_data")
+            if not clean_func:
+                raise ValueError("Generated code did not contain a 'clean_data' function.")
+            cleaned_df = clean_func(df)
+            method = "llm_cleaning_script"
+        else:
+            # Deterministic fallback: impute + encode + scale
+            _step("PREPROCESS", "No LLM code — using deterministic fallback", dataset=dataset_id)
+            from backend.core.graph_preprocessor import apply_graph_preprocessing
+            fallback_nodes = [
+                {"id": "fn1", "type": "dropNulls", "data": {}},
+                {"id": "fn2", "type": "oneHotEncode", "data": {}},
+                {"id": "fn3", "type": "normalize", "data": {}},
+            ]
+            target_col = (
+                record.get("target_column")
+                or record.get("dataset_intelligence", {}).get("recommended_target")
+                or df.columns[-1]
+            )
+            cleaned_df, _ = apply_graph_preprocessing(df, fallback_nodes, target_column=target_col)
+            method = "deterministic_fallback"
+
+        # Save as new dataset
+        new_id = str(uuid.uuid4())[:8]
+        new_dir = UPLOADS_DIR / new_id
+        new_dir.mkdir(parents=True, exist_ok=True)
+        orig_path = Path(record["name"])
+        new_name = f"{orig_path.stem}_cleaned{orig_path.suffix}"
+        dest_path = new_dir / new_name
+        cleaned_df.to_csv(dest_path, index=False)
+
+        new_record: Dict[str, Any] = {
+            "id": new_id,
+            "name": new_name,
+            "type": "csv",
+            "size_bytes": dest_path.stat().st_size,
+            "path": str(dest_path),
+            "uploaded_at": datetime.utcnow().isoformat(),
+            "status": "ready",
+            "preview": [],
+            "columns": [],
+            "row_count": 0,
+            "stats": {},
+            "preprocessing_suggestions": [],
+            "cleaning_status": {"status": "pending"},
+            "is_cleaned_duplicate": True,
+            "parent_dataset_id": dataset_id,
+            "cleaning_method": method,
+            # Inherit intelligence from parent
+            "dataset_intelligence": record.get("dataset_intelligence"),
+            "architect_status": record.get("architect_status"),
+        }
         _dataset_registry[new_id] = new_record
         _save_registry()
-        
-        # Profile the new dataset inline so it's ready immediately
+
         update = _csv_preview(dest_path)
         suggestions = _infer_preprocessing_suggestions(update)
         update["preprocessing_suggestions"] = suggestions
         _dataset_registry[new_id].update(update)
         _save_registry()
-        
-        # Mark profiling as done for the new dataset
+
         _profiling_status[new_id] = {
-            "progress": 100,
-            "message": "Profiling complete.",
-            "done": True,
-            "error": None,
-            "cleaning_status": {"status": "pending"}
+            "progress": 100, "message": "Preprocessing complete.",
+            "done": True, "error": None,
+            "cleaning_status": {"status": "pending"},
         }
-        _agent_log(
-            "data_agent",
-            "completed",
-            "apply cleaning script",
-            dataset_id=dataset_id,
-            details={
-                "cleaned_dataset_id": new_id,
-                "cleaned_name": new_name,
-                "rows": _dataset_registry[new_id].get("row_count"),
-                "columns": len(_dataset_registry[new_id].get("columns", [])),
-            },
-        )
-        
+        _step("PREPROCESS", "Cleaned dataset saved", dataset=dataset_id,
+              new_id=new_id, rows=_dataset_registry[new_id].get("row_count"),
+              cols=len(_dataset_registry[new_id].get("columns", [])))
+        _agent_log("data_agent", "completed", "apply cleaning script",
+                   dataset_id=dataset_id,
+                   details={"cleaned_dataset_id": new_id, "method": method})
         return _dataset_registry[new_id]
-        
+
     except Exception as exc:
         logger.exception("Failed to apply preprocessing to dataset %s", dataset_id)
-        _agent_log(
-            "data_agent",
-            "failed",
-            "apply cleaning script",
-            dataset_id=dataset_id,
-            details={"error": str(exc)},
-        )
+        _agent_log("data_agent", "failed", "apply cleaning script",
+                   dataset_id=dataset_id, details={"error": str(exc)})
         raise HTTPException(500, f"Error applying preprocessing: {str(exc)}") from exc
+
+
+@app.get("/api/datasets/{dataset_id}/download")
+async def download_dataset(dataset_id: str):
+    """Download the CSV file for a dataset."""
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    path = Path(record.get("path", ""))
+    if not path.exists():
+        raise HTTPException(404, "Dataset file not found on disk.")
+    _step("DOWNLOAD", "Dataset download requested", dataset=dataset_id, file=path.name)
+    return FileResponse(
+        path=str(path),
+        media_type="text/csv",
+        filename=record.get("name", path.name),
+    )
 
 
 # ===========================================================================

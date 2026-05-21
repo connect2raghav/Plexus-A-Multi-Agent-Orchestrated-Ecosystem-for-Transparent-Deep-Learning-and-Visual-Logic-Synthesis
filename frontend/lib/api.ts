@@ -65,8 +65,12 @@ export interface DatasetRecord {
     description?: string;
     error?: string;
   };
+  dataset_intelligence?: DatasetIntelligence;
   is_cleaned_duplicate?: boolean;
+  is_graph_processed?: boolean;
   parent_dataset_id?: string;
+  graph_preprocessing_steps?: unknown[];
+  target_column?: string;
 }
 
 export interface PreprocessingSuggestion {
@@ -95,6 +99,7 @@ export interface DatasetStatusRecord {
   preprocessing_suggestions: PreprocessingSuggestion[];
   cleaning_status?: CleaningStatus;
   architect_status?: DatasetRecord["architect_status"];
+  dataset_intelligence?: DatasetIntelligence;
 }
 
 export const uploadDataset = async (file: File): Promise<DatasetRecord> => {
@@ -136,6 +141,87 @@ export const applyPreprocessing = (id: string) =>
   request<DatasetRecord>(`/api/datasets/${id}/apply-preprocessing`, {
     method: "POST",
   });
+
+export const downloadDatasetUrl = (id: string): string =>
+  `${BASE_URL}/api/datasets/${id}/download`;
+
+export const previewNodeEffect = (
+  datasetId: string,
+  nodeType: string,
+  columns: string[] = [],
+  nRows = 4,
+) =>
+  request<{
+    node_type: string;
+    before: Record<string, unknown>[];
+    after: Record<string, unknown>[];
+    before_columns: string[];
+    after_columns: string[];
+    changed_columns: string[];
+    steps: unknown[];
+  }>(`/api/datasets/${datasetId}/preview-node`, {
+    method: "POST",
+    body: JSON.stringify({ node_type: nodeType, columns, n_rows: nRows }),
+  });
+
+export interface DatasetIntelligence {
+  domain: string;
+  description: string;
+  task_type: "classification" | "regression" | "clustering" | "unknown";
+  recommended_target: string | null;
+  columns: Record<string, {
+    role: string;
+    meaning: string;
+    data_quality: string;
+  }>;
+  compatible_preprocessing: string[];
+  compatible_models: string[];
+  compatible_optimizers: string[];
+  compatible_losses: string[];
+  compatible_visualizations: string[];
+  incompatible_nodes: Record<string, string>;
+}
+
+export interface GraphValidationWarning {
+  node_id: string;
+  node_type: string;
+  severity: "error" | "warning";
+  message: string;
+  suggest_delete: boolean;
+}
+
+export const getDatasetIntelligence = (id: string) =>
+  request<{ dataset_id: string; intelligence: DatasetIntelligence }>(
+    `/api/datasets/${id}/intelligence`
+  );
+
+export const validateGraphNodes = (
+  datasetId: string,
+  nodes: unknown[]
+) =>
+  request<{
+    dataset_id: string;
+    warnings: GraphValidationWarning[];
+    compatible_nodes: string[];
+    task_type: string;
+  }>("/api/datasets/validate-graph", {
+    method: "POST",
+    body: JSON.stringify({ dataset_id: datasetId, nodes }),
+  });
+
+export const runGraphPreprocessing = (
+  datasetId: string,
+  nodes: unknown[],
+  edges: unknown[]
+) =>
+  request<{ dataset_id: string; processed_dataset_id: string; steps: unknown[] }>(
+    `/api/datasets/${datasetId}/run-graph-preprocessing`,
+    {
+      method: "POST",
+      body: JSON.stringify({ nodes, edges }),
+    }
+  );
+
 
 // ============================================================
 // Agents

@@ -208,6 +208,13 @@ class DatasetAnalyzer:
             self.load()
         return self._df_sample.head(n).copy()  # type: ignore[union-attr]
 
+    def get_random_sample(self, n: int = 100) -> pd.DataFrame:
+        """Return n random rows from the full dataset (for semantic profiling)."""
+        if self._df_full is None:
+            self.load()
+        df = self._df_full  # type: ignore[assignment]
+        return df.sample(min(n, len(df)), random_state=42).copy()
+
     def get_full_df(self) -> pd.DataFrame:
         if self._df_full is None:
             self.load()
