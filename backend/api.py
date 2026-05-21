@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import (
     BackgroundTasks,
+    Body,
     FastAPI,
     File,
     HTTPException,
@@ -943,6 +944,28 @@ async def delete_dataset(dataset_id: str):
     delete_state("dataset", dataset_id)
     _save_registry()
     return {"deleted": dataset_id}
+
+
+@app.patch("/api/datasets/{dataset_id}")
+async def patch_dataset_route(dataset_id: str, payload: Dict[str, Any] = Body(...)):
+    """
+    Update a dataset's metadata (e.g. AI agent results, cleaning status)
+    and persist it to the database.
+    """
+    record = _dataset_registry.get(dataset_id)
+    if not record:
+        raise HTTPException(404, f"Dataset '{dataset_id}' not found.")
+    
+    # Merge payload into record
+    for key, value in payload.items():
+        if isinstance(value, dict) and isinstance(record.get(key), dict):
+            # Nested merge for dictionaries (like architect_status, cleaning_status)
+            record[key].update(value)
+        else:
+            record[key] = value
+
+    _save_registry()
+    return record
 
 
 @app.post("/api/datasets/{dataset_id}/apply-preprocessing")

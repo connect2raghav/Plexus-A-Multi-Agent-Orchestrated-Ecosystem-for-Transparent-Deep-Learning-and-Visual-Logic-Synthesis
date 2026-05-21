@@ -9,6 +9,7 @@ import {
   Progress,
   Chip,
   Button,
+  Slider,
 } from "@heroui/react";
 import clsx from "clsx";
 import {
@@ -33,9 +34,38 @@ import {
   updateJobStatus,
 } from "@/lib/api";
 
-const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
+const BaseNode = ({ id, data, type, selected, isConnectable }: NodeProps) => {
   const isProcessing = data.isProcessing || false;
   const activationLevel = data.activationLevel || 0;
+  const { setNodes } = useReactFlow();
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const getDefaults = () => {
+    switch(type) {
+      case "randomForest": return { n_estimators: 100, max_depth: 10 };
+      case "svm": return { kernel: "rbf", C: 1.0 };
+      case "knn": return { n_neighbors: 5 };
+      default: return {};
+    }
+  };
+
+  const [params, setParams] = useState(data.params || getDefaults());
+
+  const updateParam = (key: string, value: any) => {
+    const newParams = { ...params, [key]: value };
+    setParams(newParams);
+    if (data.onParamsChange) {
+      data.onParamsChange(newParams);
+    }
+  };
+
+  const onDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNodes((nds) => nds.filter((n) => n.id !== id));
+  };
+
+  const isMLNode = ["randomForest", "svm", "knn"].includes(type);
 
   return (
     <div
@@ -44,9 +74,17 @@ const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
         nodeStyles[type as keyof typeof nodeStyles] || nodeStyles.dense,
         selected && nodeStyles.selected,
         isProcessing && "ring-2 ring-blue-400 ring-opacity-50 animate-pulse",
-        "p-4",
+        "relative group min-w-[200px] transition-all duration-200",
+        isExpanded ? "min-h-[150px]" : "h-auto"
       )}
     >
+      <button
+        onClick={onDelete}
+        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md hover:bg-red-600"
+      >
+        <Icon icon="lucide:x" className="w-3 h-3" />
+      </button>
+
       <Handle
         className={nodeStyles.handle}
         isConnectable={isConnectable}
@@ -54,30 +92,126 @@ const BaseNode = ({ data, type, selected, isConnectable }: NodeProps) => {
         type="target"
       />
 
-      <div className="flex items-center gap-2">
-        {data.icon && <Icon className="w-5 h-5" icon={data.icon} />}
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div className="font-bold text-sm">{data.label}</div>
-            {isProcessing && (
-              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-2" />
+      <div 
+        className={clsx("p-4", isMLNode && "cursor-pointer")} 
+        onClick={() => isMLNode && setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          {data.icon && <Icon className="w-5 h-5" icon={data.icon} />}
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div className="font-bold text-sm">{data.label}</div>
+              {isProcessing && (
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse ml-2" />
+              )}
+            </div>
+            {data.details && (
+              <div className="text-xs text-gray-500">{data.details}</div>
+            )}
+            {isProcessing && activationLevel > 0 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-600 rounded-full h-1">
+                  <div
+                    className="bg-blue-400 h-1 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(activationLevel * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
             )}
           </div>
-          {data.details && (
-            <div className="text-xs text-gray-500">{data.details}</div>
-          )}
-          {isProcessing && activationLevel > 0 && (
-            <div className="mt-2">
-              <div className="w-full bg-gray-600 rounded-full h-1">
-                <div
-                  className="bg-blue-400 h-1 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(activationLevel * 100, 100)}%` }}
-                />
-              </div>
-            </div>
+          {isMLNode && (
+            <Icon
+              className="w-4 h-4 ml-2 opacity-70"
+              icon={isExpanded ? "lucide:chevron-up" : "lucide:chevron-down"}
+            />
           )}
         </div>
       </div>
+
+      {isExpanded && isMLNode && (
+        <div className="px-4 pb-4 space-y-4">
+          <div className="text-xs font-semibold opacity-90 mb-2 border-t border-gray-600 pt-2">
+            Model Parameters:
+          </div>
+
+          {type === "randomForest" && (
+            <>
+              <div>
+                <Slider 
+                  label="Estimators"
+                  size="sm"
+                  step={10} 
+                  maxValue={500} 
+                  minValue={10}
+                  value={params.n_estimators}
+                  onChange={(v) => updateParam("n_estimators", v)}
+                  className="max-w-md"
+                />
+              </div>
+              <div>
+                <Slider 
+                  label="Max Depth"
+                  size="sm"
+                  step={1} 
+                  maxValue={100} 
+                  minValue={1}
+                  value={params.max_depth}
+                  onChange={(v) => updateParam("max_depth", v)}
+                  className="max-w-md"
+                />
+              </div>
+            </>
+          )}
+
+          {type === "svm" && (
+            <>
+              <div className="space-y-1">
+                <label className="text-xs">Kernel</label>
+                <Select
+                  className="text-gray-800"
+                  selectedKeys={[params.kernel]}
+                  size="sm"
+                  onSelectionChange={(selection) =>
+                    updateParam("kernel", Array.from(selection)[0])
+                  }
+                >
+                  <SelectItem key="linear">Linear</SelectItem>
+                  <SelectItem key="poly">Polynomial</SelectItem>
+                  <SelectItem key="rbf">RBF</SelectItem>
+                  <SelectItem key="sigmoid">Sigmoid</SelectItem>
+                </Select>
+              </div>
+              <div>
+                <Slider 
+                  label="C (Regularization)"
+                  size="sm"
+                  step={0.1} 
+                  maxValue={10.0} 
+                  minValue={0.1}
+                  value={params.C}
+                  onChange={(v) => updateParam("C", v)}
+                  className="max-w-md"
+                />
+              </div>
+            </>
+          )}
+
+          {type === "knn" && (
+            <div>
+              <Slider 
+                label="Neighbors (K)"
+                size="sm"
+                step={1} 
+                maxValue={50} 
+                minValue={1}
+                value={params.n_neighbors}
+                onChange={(v) => updateParam("n_neighbors", v)}
+                className="max-w-md"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <Handle
         className={nodeStyles.handle}
@@ -2484,8 +2618,27 @@ const ApiDeployNode = ({ data, selected, isConnectable }: NodeProps) => {
   );
 };
 
+const GhostNode = ({ data }: NodeProps) => {
+  return (
+    <div
+      className={clsx(
+        "relative rounded-lg p-4 border-2 border-dashed flex items-center gap-2 cursor-pointer transition-all hover:bg-white/5",
+        "bg-gray-800/50 border-gray-500 opacity-60 hover:opacity-100"
+      )}
+      onClick={data.onClick}
+    >
+      <Icon className="w-5 h-5 text-gray-400" icon={data.icon || "lucide:plus-circle"} />
+      <div className="flex-1">
+        <div className="font-bold text-sm text-gray-300">{data.label}</div>
+        <div className="text-xs text-gray-500">Click to add this suggested layer</div>
+      </div>
+    </div>
+  );
+};
+
 // Update the nodeTypes object to use renamed layers and new text nodes
 export const nodeTypes = {
+  ghost: memo((props: NodeProps) => <GhostNode {...props} />),
   inputLayer: memo((props: NodeProps) => <InputLayer {...props} />),
   outputLayer: memo((props: NodeProps) => <OutputLayer {...props} />),
   textInput: memo((props: NodeProps) => <TextInput {...props} />),

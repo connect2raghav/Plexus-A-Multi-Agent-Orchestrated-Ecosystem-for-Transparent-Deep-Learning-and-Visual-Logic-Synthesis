@@ -53,6 +53,7 @@ import {
   runDataAgent,
   getDatasetStatus,
   applyPreprocessing,
+  updateDatasetAPI,
   type DatasetRecord,
   type PreprocessingSuggestion,
 } from "@/lib/api";
@@ -187,14 +188,19 @@ const DatasetManager: React.FC<DatasetManagerProps> = ({ isOpen, onClose }) => {
                 ),
               );
               // Merge into the Zustand store (non-destructive patch)
-              patchDataset(id, {
-                status: "ready",
+              const patch = {
+                status: "ready" as const,
                 columns: status.columns,
                 row_count: status.row_count,
                 preprocessing_suggestions: status.preprocessing_suggestions,
                 cleaning_status: status.cleaning_status,
                 architect_status: status.architect_status,
-              });
+              };
+              
+              // Persist to backend database
+              updateDatasetAPI(id, patch).catch((e) => console.error("Failed to persist dataset status:", e));
+              
+              patchDataset(id, patch);
               addLog(
                 "success",
                 `Dataset profiling complete. ${status.columns.length} columns, ${status.row_count.toLocaleString()} rows, ${status.preprocessing_suggestions.length} suggestion(s).`,

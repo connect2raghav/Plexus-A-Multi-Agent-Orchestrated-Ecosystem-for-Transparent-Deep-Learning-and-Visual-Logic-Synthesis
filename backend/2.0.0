@@ -1,0 +1,11 @@
+Collecting sqlalchemy
+  Downloading sqlalchemy-2.0.49-cp313-cp313-win_amd64.whl.metadata (9.8 kB)
+Collecting greenlet>=1 (from sqlalchemy)
+  Downloading greenlet-3.5.1-cp313-cp313-win_amd64.whl.metadata (3.9 kB)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\academics vit\sem 4\edi\plexus\backend\venv\lib\site-packages (from sqlalchemy) (4.15.0)
+Downloading sqlalchemy-2.0.49-cp313-cp313-win_amd64.whl (2.1 MB)
+   ---------------------------------------- 2.1/2.1 MB 641.2 kB/s  0:00:03
+Downloading greenlet-3.5.1-cp313-cp313-win_amd64.whl (238 kB)
+Installing collected packages: greenlet, sqlalchemy
+
+Successfully installed greenlet-3.5.1 sqlalchemy-2.0.49

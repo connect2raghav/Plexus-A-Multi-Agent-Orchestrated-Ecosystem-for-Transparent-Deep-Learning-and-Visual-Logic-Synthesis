@@ -17,6 +17,7 @@ import { Card, CardBody, CardFooter, RadioGroup, Radio } from "@heroui/react";
 import { Button } from "@heroui/button";
 
 import { nodeTypes } from "./nodes/CustomNodes";
+import CustomEdge from "./nodes/CustomEdge";
 import { NetworkCodeGenerator } from "./CodeGenerator";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import { getTemplateByType } from "./templates/templateDefinitions";
@@ -31,6 +32,10 @@ import { usePlexusStore } from "@/store/plexusStore";
 import { useTrainingSocket } from "@/hooks/useTrainingSocket";
 import { useGraphValidation } from "@/hooks/useGraphValidation";
 import "reactflow/dist/style.css";
+
+const edgeTypes = {
+  custom: CustomEdge,
+};
 
 interface FlowCanvasProps {
   onNodeSelect: (node: Node | null) => void;
@@ -107,8 +112,9 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
     null,
   );
 
-  // ---- Plexus training integration ----
   const selectedDatasetId = usePlexusStore((s) => s.selectedDatasetId);
+  const datasets = usePlexusStore((s) => s.datasets);
+  const selectedDataset = datasets.find(d => d.id === selectedDatasetId);
   const backendOnline = usePlexusStore((s) => s.backendOnline);
   const trainingStatus = usePlexusStore((s) => s.training.status);
   const trainingJobId = usePlexusStore((s) => s.training.jobId);
@@ -116,6 +122,50 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const setTrainingPanelOpen = usePlexusStore((s) => s.setTrainingPanelOpen);
   const addLog = usePlexusStore((s) => s.addLog);
   const [isStartingTraining, setIsStartingTraining] = useState(false);
+
+  const spawnedGhostsRef = useRef<Set<string>>(new Set());
+
+  // Spawn ghost nodes when Architect suggestions are available
+  useEffect(() => {
+    if (!selectedDatasetId || !selectedDataset?.architect_status?.suggested_nodes) return;
+    
+    const spawnKey = `${selectedDatasetId}-${selectedDataset.architect_status.status}`;
+    if (spawnedGhostsRef.current.has(spawnKey)) return;
+    
+    const suggestions = selectedDataset.architect_status.suggested_nodes;
+    if (suggestions.length === 0) return;
+
+    spawnedGhostsRef.current.add(spawnKey);
+
+    let maxX = 100;
+    let maxY = 100;
+    if (nodes.length > 0) {
+      const rightmostNode = nodes.reduce((prev, curr) => (prev.position.x > curr.position.x ? prev : curr));
+      maxX = rightmostNode.position.x + 300;
+      maxY = rightmostNode.position.y;
+    }
+
+    const baseId = `ghost-${selectedDatasetId}-${Date.now()}`;
+    const newNodes = suggestions.map((nodeType, index) => {
+      const ghostId = `${baseId}-${index}`;
+      return {
+        id: ghostId,
+        type: "ghost",
+        position: { x: maxX + index * 250, y: maxY },
+        data: {
+          label: `Suggest: ${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)}`,
+          icon: "lucide:plus-circle",
+          onClick: () => {
+             setNodes(nds => nds.map(n => 
+                n.id === ghostId ? { ...n, type: nodeType, data: { label: nodeType.charAt(0).toUpperCase() + nodeType.slice(1), details: "Instantiated from AI suggestion" } } : n
+             ));
+          }
+        }
+      };
+    });
+
+    setNodes((nds) => [...nds, ...newNodes]);
+  }, [selectedDataset, selectedDatasetId, nodes, setNodes]);
 
   // Connect WebSocket for active job
   useTrainingSocket(trainingJobId);
@@ -829,13 +879,14 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         fitView
         connectionMode={ConnectionMode.Loose}
         defaultEdgeOptions={{
-          type: "smooth",
+          type: "custom",
           animated: true,
         }}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         edges={edges}
         fitViewOptions={{ padding: 0.2 }}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         nodes={nodes.map((node) => ({
           ...node,
           style: {

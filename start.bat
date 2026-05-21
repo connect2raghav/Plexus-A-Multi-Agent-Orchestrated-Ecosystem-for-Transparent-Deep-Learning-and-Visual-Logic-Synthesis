@@ -92,7 +92,7 @@ start "Plexus Backend" cmd /k "cd /d %~dp0 && call backend\venv\Scripts\activate
 timeout /t 3 /nobreak >nul
 
 echo [Start] Launching Plexus frontend on http://localhost:3000 ...
-start "Plexus Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
+start "Plexus Frontend" cmd /k "cd /d %~dp0frontend && npm run dev > ../frontend-dev.log 2> ../frontend-dev.err"
 
 echo.
 echo  ============================================================

@@ -122,6 +122,13 @@ export const getDataset = (id: string) =>
 export const deleteDataset = (id: string) =>
   request(`/api/datasets/${id}`, { method: "DELETE" });
 
+export const updateDatasetAPI = (id: string, payload: Partial<DatasetRecord>) =>
+  request<DatasetRecord>(`/api/datasets/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
 export const getDatasetStatus = (id: string) =>
   request<DatasetStatusRecord>(`/api/datasets/${id}/status`);
 

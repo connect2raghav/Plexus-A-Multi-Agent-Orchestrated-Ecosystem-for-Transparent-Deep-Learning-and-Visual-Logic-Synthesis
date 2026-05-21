@@ -825,7 +825,7 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
     
     setIsSuggesting(true);
     try {
-      const { runArchitectAgent } = await import("@/lib/api");
+      const { runArchitectAgent, updateDatasetAPI } = await import("@/lib/api");
       const result = await runArchitectAgent(selectedDatasetId, "classification");
       
       if (result.suggested_nodes) {
@@ -833,13 +833,20 @@ const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({ onNodeAdd }) => {
         setSearchQuery(""); // Clear search to see everything
         setSelectedCategory("all");
 
-        patchDataset(selectedDatasetId, {
+        const patch = {
           architect_status: {
-            status: "done",
+            status: "done" as const,
             suggested_nodes: result.suggested_nodes,
             description: result.description,
           },
-        });
+        };
+
+        try {
+          await updateDatasetAPI(selectedDatasetId, patch);
+        } catch (e) {
+          console.error("Failed to persist architect status to db:", e);
+        }
+        patchDataset(selectedDatasetId, patch);
 
         addAgentNotification(
           "Architect",
