@@ -35,7 +35,6 @@ import {
   detectModelPipelines,
   pipelineModelLabel,
 } from "@/utils/pipelineDetection";
-import "reactflow/dist/style.css";
 
 // Pipeline colour palette — each pipeline gets a distinct accent colour
 const PIPELINE_COLOURS = [
@@ -468,7 +467,6 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         );
         setTrainingPanelOpen(true);
         addLog("info", `[Pipeline: ${pipeline.datasetName}] Job ${job.job_id} started.`, "FlowCanvas");
-        showSuccess(`Pipeline "${label}" started! Job: ${job.job_id}`);
         launchedCount++;
 
         // Auto-inject per-pipeline viz nodes
@@ -496,6 +494,8 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
     if (launchedCount > 1) {
       showSuccess(`${launchedCount} independent model jobs launched in parallel!`);
+    } else if (launchedCount === 1) {
+      showSuccess("Training job started");
     }
     setIsStartingTraining(false);
   };

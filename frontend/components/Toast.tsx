@@ -20,6 +20,7 @@ const Toast: React.FC<ToastProps> = ({
   onClose,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
     // Trigger entrance animation
@@ -27,13 +28,15 @@ const Toast: React.FC<ToastProps> = ({
 
     // Auto-close after duration
     const timer = setTimeout(() => {
-      handleClose();
+      closeToast();
     }, duration);
 
     return () => clearTimeout(timer);
   }, [duration]);
 
-  const handleClose = () => {
+  const closeToast = () => {
+    if (isClosing) return;
+    setIsClosing(true);
     setIsVisible(false);
     // Allow exit animation to complete before removing
     setTimeout(() => onClose(id), 200);
@@ -85,8 +88,10 @@ const Toast: React.FC<ToastProps> = ({
             {message && <p className="text-xs text-default-600">{message}</p>}
           </div>
           <button
+            aria-label="Close notification"
             className="text-default-400 hover:text-default-600 transition-colors"
-            onClick={handleClose}
+            type="button"
+            onClick={closeToast}
           >
             <X className="w-4 h-4" />
           </button>

@@ -10,6 +10,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ToastProvider } from "@/components/ToastProvider";
 import "@/styles/globals.css";
 import "@/styles/nodes.css";
+import "reactflow/dist/style.css";
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();

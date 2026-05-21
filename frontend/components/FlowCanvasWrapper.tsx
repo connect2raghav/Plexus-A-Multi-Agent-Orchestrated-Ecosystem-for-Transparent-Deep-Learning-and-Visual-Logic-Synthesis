@@ -2,7 +2,6 @@ import React from "react";
 import { ReactFlowProvider } from "reactflow";
 import { Edge, Node } from "reactflow";
 
-import "reactflow/dist/style.css";
 import FlowCanvas from "./FlowCanvas";
 
 interface FlowCanvasWrapperProps {
