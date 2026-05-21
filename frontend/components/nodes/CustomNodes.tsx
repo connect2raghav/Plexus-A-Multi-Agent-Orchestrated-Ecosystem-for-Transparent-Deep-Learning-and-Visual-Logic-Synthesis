@@ -1639,6 +1639,14 @@ const DatasetNode = ({ id, data, selected, isConnectable }: NodeProps) => {
         data.isCleaned && "border-green-500 from-green-50 to-emerald-50 bg-gradient-to-br",
       )}
     >
+      {data.isCleaned && (
+        <Handle
+          className={nodeStyles.handle}
+          isConnectable={isConnectable}
+          position={Position.Left}
+          type="target"
+        />
+      )}
       <Handle className={nodeStyles.handle} isConnectable={isConnectable} position={Position.Right} type="source" />
 
       {/* Header */}
@@ -2224,7 +2232,7 @@ const VisualizationNode = ({
           {/* ---- Confusion Matrix ---- */}
           {type === "confMatrix" && (
             <div className="text-xs">
-              {training.status === "completed" && confusionMatrix?.length ? (
+              {confusionMatrix?.length ? (
                 <div className="space-y-1">
                   <div
                     className="grid gap-0.5"
@@ -2266,7 +2274,7 @@ const VisualizationNode = ({
           {/* ---- Predictions Table ---- */}
           {type === "predTable" && (
             <div className="text-xs">
-              {training.status === "completed" && predictionRows.length > 0 ? (
+              {predictionRows.length > 0 ? (
                 <table className="w-full text-[10px] border-collapse">
                   <thead>
                     <tr>
@@ -2367,7 +2375,13 @@ const EvaluationResultsNode = ({
   isConnectable,
 }: NodeProps) => {
   const [collapsed, setCollapsed] = useState(false);
-  const training = usePlexusStore((s) => s.training);
+  const activeTraining = usePlexusStore((s) => s.training);
+  const trainingJobs = usePlexusStore((s) => s.trainingJobs);
+  const nodeJobId = (data as { jobId?: string })?.jobId;
+  const training =
+    nodeJobId && trainingJobs[nodeJobId]
+      ? trainingJobs[nodeJobId]
+      : activeTraining;
   const result = (data.result || training.result) as Record<string, any> | null;
 
   return (

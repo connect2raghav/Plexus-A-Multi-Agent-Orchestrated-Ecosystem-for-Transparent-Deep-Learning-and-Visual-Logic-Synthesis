@@ -83,10 +83,64 @@ function bindFallbackDatasetToNodes(
   return changed ? nextNodes : nodes;
 }
 
+function buildComparisonRowsForDataset(
+  datasetNodeId: string,
+  trainingJobs: Record<string, import("@/store/plexusStore").TrainingJobState>,
+) {
+  const rows = Object.values(trainingJobs)
+    .filter(
+      (candidate) =>
+        candidate.status === "completed" &&
+        candidate.result &&
+        candidate.pipelineId.startsWith(`${datasetNodeId}::`),
+    )
+    .map((candidate) => {
+      const candidateResult = candidate.result as Record<string, any> | null;
+      const bestModel =
+        (candidateResult?.best_model as Record<string, any> | undefined) ??
+        ((candidateResult?.model_results as Record<string, any>[] | undefined)?.[0]);
+
+      if (!bestModel) return null;
+
+      return {
+        rank: 0,
+        label:
+          bestModel.label ||
+          candidate.label.split(" → ").at(-1) ||
+          bestModel.model_type ||
+          "Model",
+        model_type: bestModel.model_type || bestModel.label || "Model",
+        val_accuracy:
+          bestModel.metrics?.val_accuracy ?? candidateResult?.final_val_accuracy,
+        val_loss: bestModel.metrics?.val_loss ?? candidateResult?.final_val_loss,
+        artifact_path: bestModel.artifact_path,
+      };
+    })
+    .filter(Boolean as unknown as <T>(value: T | null) => value is T)
+    .sort((a, b) => {
+      const aAcc = a.val_accuracy ?? -1;
+      const bAcc = b.val_accuracy ?? -1;
+
+      if (aAcc !== bAcc) return bAcc - aAcc;
+
+      const aLoss = a.val_loss ?? Number.POSITIVE_INFINITY;
+      const bLoss = b.val_loss ?? Number.POSITIVE_INFINITY;
+
+      return aLoss - bLoss;
+    })
+    .map((row, index) => ({
+      ...row,
+      rank: index + 1,
+    }));
+
+  return rows;
+}
+
 /** Inject evaluation/confusion/prediction/comparison nodes for a completed job. */
 function _injectResultNodes(
   jobId: string,
   job: import("@/store/plexusStore").TrainingJobState,
+  trainingJobs: Record<string, import("@/store/plexusStore").TrainingJobState>,
   nodes: Node[],
   setNodes: (fn: (nds: Node[]) => Node[]) => void,
   setEdges: (fn: (eds: Edge[]) => Edge[]) => void,
@@ -117,14 +171,38 @@ function _injectResultNodes(
   let addedCount = 0;
 
   setNodes((nds) => {
-    const next = [...nds];
+    let next = [...nds];
+
+    const upsertNode = (node: Node) => {
+      const existingIndex = next.findIndex((existing) => existing.id === node.id);
+
+      if (existingIndex >= 0) {
+        next[existingIndex] = {
+          ...next[existingIndex],
+          ...node,
+          data: {
+            ...next[existingIndex].data,
+            ...node.data,
+          },
+          style: {
+            ...next[existingIndex].style,
+            ...node.style,
+          },
+        };
+      } else {
+        next.push(node);
+        addedCount++;
+      }
+    };
 
     modelResults.forEach((modelResult, index) => {
       const modelNode = nds.find((n) => n.id === modelResult.node_id);
       const baseX = modelNode ? modelNode.position.x + 320 : baseAnchorX;
       const baseY = modelNode ? modelNode.position.y + yOffset : baseAnchorY + yOffset + index * 260;
       const modelLabel = modelResult.label || modelResult.model_type || "Model";
-      const modelKey = `${jobId}-${modelResult.node_id || modelResult.model_type || index}`;
+      const modelNodeId = String(
+        modelResult.node_id || job.pipelineId.split("::")[1] || modelResult.model_type || index,
+      );
 
       const perModelResult = {
         ...result,
@@ -139,58 +217,140 @@ function _injectResultNodes(
         _jobId: jobId,
       };
 
-      const evalId = `eval-${modelKey}`;
-      const confId = `conf-${modelKey}`;
-      const predId = `pred-${modelKey}`;
+      const evalId = `eval-${job.pipelineId}`;
+      const confId = `conf-${job.pipelineId}`;
+      const predId = `pred-${job.pipelineId}`;
 
-      if (!next.find((n) => n.id === evalId)) {
-        next.push({
-          id: evalId, type: "evaluationResults",
-          position: { x: baseX, y: baseY },
-          data: { label: `Results: ${modelLabel}`, result: perModelResult },
-          style: { borderColor: colour },
-        });
-        addedCount++;
-      }
-      if (!next.find((n) => n.id === confId)) {
-        next.push({
-          id: confId, type: "confMatrix",
-          position: { x: baseX, y: baseY + 220 },
-          data: { label: `Confusion: ${modelLabel}`, result: perModelResult },
-          style: { borderColor: colour },
-        });
-        addedCount++;
-      }
-      if (!next.find((n) => n.id === predId)) {
-        next.push({
-          id: predId, type: "predTable",
-          position: { x: baseX + 320, y: baseY + 220 },
-          data: { label: `Predictions: ${modelLabel}`, result: perModelResult },
-          style: { borderColor: colour },
-        });
-        addedCount++;
-      }
+      next = next.filter((node) => {
+        if (node.id === evalId || node.id === confId || node.id === predId) return true;
+        if (!["evaluationResults", "confMatrix", "predTable"].includes(node.type ?? "")) {
+          return true;
+        }
+
+        const nodeData = (node.data ?? {}) as Record<string, any>;
+        const samePipeline = nodeData.pipelineId === job.pipelineId;
+        const sameDatasetModel =
+          nodeData.datasetNodeId === datasetNodeId && nodeData.modelNodeId === modelNodeId;
+        const sameLabel =
+          nodeData.label === `Results: ${modelLabel}` ||
+          nodeData.label === `Confusion: ${modelLabel}` ||
+          nodeData.label === `Predictions: ${modelLabel}`;
+
+        return !(samePipeline || sameDatasetModel || sameLabel);
+      });
+
+      upsertNode({
+        id: evalId,
+        type: "evaluationResults",
+        position: { x: baseX, y: baseY },
+        data: {
+          label: `Results: ${modelLabel}`,
+          result: perModelResult,
+          jobId,
+          pipelineId: job.pipelineId,
+          datasetNodeId,
+          modelNodeId,
+        },
+        style: { borderColor: colour },
+      });
+      upsertNode({
+        id: confId,
+        type: "confMatrix",
+        position: { x: baseX, y: baseY + 220 },
+        data: {
+          label: `Confusion: ${modelLabel}`,
+          result: perModelResult,
+          jobId,
+          pipelineId: job.pipelineId,
+          datasetNodeId,
+          modelNodeId,
+        },
+        style: { borderColor: colour },
+      });
+      upsertNode({
+        id: predId,
+        type: "predTable",
+        position: { x: baseX + 320, y: baseY + 220 },
+        data: {
+          label: `Predictions: ${modelLabel}`,
+          result: perModelResult,
+          jobId,
+          pipelineId: job.pipelineId,
+          datasetNodeId,
+          modelNodeId,
+        },
+        style: { borderColor: colour },
+      });
     });
 
     // Model comparison node anchored below the dataset node
-    if (result?.comparison?.length > 0) {
-      const compareId = `compare-${jobId}`;
-      if (!next.find((n) => n.id === compareId)) {
-        next.push({
-          id: compareId, type: "modelComparison",
-          position: { x: baseAnchorX - 320, y: baseAnchorY + yOffset + 260 },
-          data: { label: `Comparison – ${job.datasetName}`, result: { ...result, _pipelineLabel: job.label, _pipelineColour: colour } },
-          style: { borderColor: colour },
-        });
-        addedCount++;
-      }
+    const comparisonRows = buildComparisonRowsForDataset(datasetNodeId, trainingJobs);
+
+    if (comparisonRows.length > 0) {
+      const compareId = `compare-${datasetNodeId}`;
+
+      next = next.filter((node) => {
+        if (node.id === compareId) return true;
+        if (node.type !== "modelComparison") return true;
+
+        const nodeData = (node.data ?? {}) as Record<string, any>;
+
+        return !(
+          nodeData.datasetNodeId === datasetNodeId ||
+          nodeData.label === `Comparison – ${job.datasetName}`
+        );
+      });
+
+      upsertNode({
+        id: compareId,
+        type: "modelComparison",
+        position: { x: baseAnchorX - 320, y: baseAnchorY + 260 },
+        data: {
+          label: `Comparison – ${job.datasetName}`,
+          result: {
+            ...result,
+            comparison: comparisonRows,
+            _pipelineLabel: job.label,
+            _pipelineColour: colour,
+          },
+          datasetNodeId,
+        },
+        style: { borderColor: colour },
+      });
     }
 
     return next;
   });
 
   setEdges((eds) => {
-    const next = [...eds];
+    const targetModelNodeId = job.pipelineId.split("::")[1] || "";
+    const next = eds.filter((edge) => {
+      if (edge.source === targetModelNodeId) {
+        if (
+          (edge.target.startsWith("eval-") ||
+            edge.target.startsWith("conf-") ||
+            edge.target.startsWith("pred-")) &&
+          ![
+            `eval-${job.pipelineId}`,
+            `conf-${job.pipelineId}`,
+            `pred-${job.pipelineId}`,
+          ].includes(edge.target)
+        ) {
+          return false;
+        }
+      }
+
+      if (
+        edge.source === datasetNode.id &&
+        edge.target.startsWith("compare-") &&
+        edge.target !== `compare-${datasetNode.id}`
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+
     const has = (s: string, t: string) => next.some((e) => e.source === s && e.target === t);
     const add = (s: string, t: string) => {
       if (!has(s, t)) next.push({ id: `e-${s}-${t}`, source: s, target: t, animated: true, style: { stroke: colour, strokeWidth: 2 } });
@@ -198,13 +358,12 @@ function _injectResultNodes(
     modelResults.forEach((mr) => {
       const mn = nodes.find((n) => n.id === mr.node_id);
       if (!mn) return;
-      const mk = `${jobId}-${mr.node_id || mr.model_type}`;
-      add(mn.id, `eval-${mk}`);
-      add(mn.id, `conf-${mk}`);
-      add(mn.id, `pred-${mk}`);
+      add(mn.id, `eval-${job.pipelineId}`);
+      add(mn.id, `conf-${job.pipelineId}`);
+      add(mn.id, `pred-${job.pipelineId}`);
     });
-    if (result?.comparison?.length > 0) {
-      add(datasetNode.id, `compare-${jobId}`);
+    if (buildComparisonRowsForDataset(datasetNodeId, trainingJobs).length > 0) {
+      add(datasetNode.id, `compare-${datasetNode.id}`);
     }
     return next;
   });
@@ -266,7 +425,10 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
       if (template) {
         setNodes(template.nodes);
         setEdges(template.edges);
+        setCurrentProjectId(null);
+        setCurrentProject(null);
         clearAllJobs();
+        spawnedGhostsRef.current.clear();
       }
     }
   }, [templateType, setNodes, setEdges, clearAllJobs]);
@@ -285,7 +447,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         setCurrentProjectId(projectId);
         setCurrentProject(project);
       }
-    } else {
+    } else if (!templateType) {
       setNodes(getDefaultNodes());
       setEdges(getDefaultEdges());
       setCurrentProjectId(null);
@@ -293,7 +455,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
       clearAllJobs();
       spawnedGhostsRef.current.clear();
     }
-  }, [projectId, setNodes, setEdges, clearAllJobs]);
+  }, [projectId, templateType, setNodes, setEdges, clearAllJobs]);
   const [showPanel, setShowPanel] = useState(false);
   const [framework, setFramework] = useState<"tensorflow" | "pytorch">(
     "tensorflow",
@@ -470,21 +632,51 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         launchedCount++;
 
         // Auto-inject per-pipeline viz nodes
-        const pipelineNodeIds = new Set(pipeline.allNodes.map((n) => n.id));
-        const hasLoss = nodes.some((n) => n.type === "lossCurve" && pipelineNodeIds.has(n.id));
-        if (!hasLoss) {
-          const maxX = pipeline.allNodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
-          const maxY = pipeline.allNodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
-          setNodes((nds) => [
-            ...nds,
-            {
-              id: `viz-loss-${job.job_id}`,
-              type: "lossCurve",
-              position: { x: maxX + 40, y: maxY + 140 },
-              data: { label: `Loss – ${label}`, jobId: job.job_id, pipelineId: pipeline.pipelineId },
+        const lossNodeId = `viz-loss-${pipeline.pipelineId}`;
+        const maxX = pipeline.allNodes.reduce((acc, n) => Math.max(acc, n.position.x), 0);
+        const maxY = pipeline.allNodes.reduce((acc, n) => Math.max(acc, n.position.y), 0);
+
+        setNodes((nds) => {
+          const filtered = nds.filter((node) => {
+            if (node.id === lossNodeId) return true;
+            if (node.type !== "lossCurve") return true;
+
+            const nodeData = (node.data ?? {}) as Record<string, any>;
+
+            return !(
+              nodeData.pipelineId === pipeline.pipelineId ||
+              nodeData.label === `Loss – ${label}`
+            );
+          });
+
+          const existingIndex = filtered.findIndex((node) => node.id === lossNodeId);
+          const nextLossNode: Node = {
+            id: lossNodeId,
+            type: "lossCurve",
+            position: { x: maxX + 40, y: maxY + 140 },
+            data: {
+              label: `Loss – ${label}`,
+              jobId: job.job_id,
+              pipelineId: pipeline.pipelineId,
+              datasetNodeId: pipeline.datasetNodeId,
+              modelNodeId: pipeline.targetModelNode.id,
             },
-          ]);
-        }
+          };
+
+          if (existingIndex >= 0) {
+            filtered[existingIndex] = {
+              ...filtered[existingIndex],
+              ...nextLossNode,
+              data: {
+                ...filtered[existingIndex].data,
+                ...nextLossNode.data,
+              },
+            };
+            return filtered;
+          }
+
+          return [...filtered, nextLossNode];
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         showError(`Pipeline "${pipeline.datasetName}" failed: ${msg}`);
@@ -522,7 +714,7 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
     Object.entries(trainingJobs).forEach(([jobId, job]) => {
       const prev = prevJobStatuses.current[jobId];
       if (prev !== "completed" && job.status === "completed" && job.result) {
-        _injectResultNodes(jobId, job, nodes, setNodes, setEdges, addLog);
+        _injectResultNodes(jobId, job, trainingJobs, nodes, setNodes, setEdges, addLog);
       }
       prevJobStatuses.current[jobId] = job.status;
     });

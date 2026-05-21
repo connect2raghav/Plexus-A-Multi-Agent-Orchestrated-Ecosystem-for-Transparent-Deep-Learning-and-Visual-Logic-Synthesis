@@ -70,6 +70,8 @@ const isTrainingNode = (node?: Node) =>
 const nodeLabel = (node: Node) =>
   String(node.data?.label ?? node.data?.modelName ?? node.type ?? node.id);
 
+const isDatasetNode = (node?: Node) => node?.type === "dataset";
+
 function collectForwardReachable(
   startId: string,
   nodeMap: Map<string, Node>,
@@ -87,6 +89,11 @@ function collectForwardReachable(
 
     visited.add(id);
     for (const nextId of adjacency.get(id) ?? []) {
+      const nextNode = nodeMap.get(nextId);
+
+      // Do not let an upstream/raw dataset claim a downstream cleaned dataset
+      // as part of the same training source. Each dataset node is its own root.
+      if (nextId !== startId && isDatasetNode(nextNode)) continue;
       if (!visited.has(nextId)) queue.push(nextId);
     }
   }
@@ -117,6 +124,11 @@ function findShortestPathIds(
     if (id === targetId) break;
 
     for (const nextId of adjacency.get(id) ?? []) {
+      const nextNode = nodeMap.get(nextId);
+
+      // Prevent shortest-path search from passing through intermediate dataset
+      // nodes, otherwise raw -> cleaned -> model becomes two training sources.
+      if (nextId !== startId && isDatasetNode(nextNode)) continue;
       if (!visited.has(nextId) && !parent.has(nextId)) {
         parent.set(nextId, id);
         queue.push(nextId);
